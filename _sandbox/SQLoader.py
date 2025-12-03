@@ -1,52 +1,58 @@
 import sqlite3
 import pandas as pd
+import numpy as np
 import os
-import openpyxl
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
 
-def get_subtable_as_df(sheet_name, rectangle, column_names, flip_upright: bool = False): # TODO add flip option
-    # get subtable of excel sheet as dataframe.
-    data_path = os.path.join(os.getcwd(), "data", "A.xlsx")
-    wb = load_workbook(data_path, data_only=True)[sheet_name]
+# -----------------------------
+# Helper: fast Excel extraction
+# -----------------------------
+def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
+    ws = wb[sheet_name]
     min_col, min_row, max_col, max_row = range_boundaries(rectangle)
 
-    data = wb.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col, values_only=True)
-    data = list(data)
-
-    df = pd.DataFrame(data)
-
-    if flip_upright:
-        df = df.T
-
-    df.columns = column_names
-    return df
-
-
-def load_df_to_db(df: pd.DataFrame, table_name: str, conn: sqlite3.Connection):
-    df.to_sql(table_name, conn, if_exists='replace', index=False)
-
-
-def load_table_to_db(table_configs, table_name, conn):
-    config = table_configs[table_name]
-    table = extract_from_xlsx(
-        sheet_name=config["sheet_name"],
-        rectangle=config["rectangle"],
-        column_names=config["column_names"],
-        transpose=config["transpose"]
+    rows = ws.iter_rows(
+        min_row=min_row, max_row=max_row,
+        min_col=min_col, max_col=max_col,
+        values_only=True
     )
 
-    if config["process"] is not None:
-        table = config["process"](table)
+    data = list(rows)
 
+    if transpose:
+        data = np.array(data).T.tolist()
+
+    return pd.DataFrame(data, columns=column_names)
+
+
+# -----------------------------
+# DB load function
+# -----------------------------
+def load_table_to_db(wb, table_name, config, conn):
+    df = extract_from_xlsx(
+        wb,
+        config["sheet_name"],
+        config["rectangle"],
+        config["column_names"],
+        config["transpose"]
+    )
+
+    if config["process"]:
+        df = config["process"](df)
+
+    # create table schema first
     conn.execute(config["schema"])
 
-    table.to_sql(table_name, conn, if_exists='replace', index=False)
-    print(f"Loaded table {table_name} into database.")
+    # load data
+    df.to_sql(table_name, conn, if_exists='replace', index=False)
+    print(f"Loaded table {table_name}.")
 
 
-# this tells the loader how to create the tables for sqlite
+# -----------------------------
+# Table configuration
+# -----------------------------
 table_configs = {
     "players": {
         "sheet_name": "General Information",
@@ -202,7 +208,7 @@ table_configs = {
     "mobile_ev_chargers": {
         "sheet_name": "MOBIe EV chargers",
         "rectangle": "A3:O86",
-        "column_names": ["id", "charger_parent_id", "charger_id", "type_of_charging",	"state_of_charger",	"city",	"address", "operator", "capacity_kW", "voltage_level", "price_eur_per_charge",	"price_eur_per_minute",	"price_eur_per_kWh","price_eur_per_h",	"price_eur_per_kWh_again"],
+        "column_names": ["charger_id", "charger_parent_uid", "charger_uid", "type_of_charging", "state_of_charger","city",	"address", "operator", "capacity_kW", "voltage_level", "price_eur_per_charge",	"price_eur_per_minute",	"price_eur_per_kWh","price_eur_per_h",	"price_eur_per_kWh_2"],
         "schema": """
         CREATE TABLE IF NOT EXISTS mobile_ev_chargers (
                     charger_id INTEGER PRIMARY KEY,
@@ -356,7 +362,7 @@ table_configs = {
         CREATE TABLE IF NOT EXISTS pv (
                     player_id INTEGER PRIMARY KEY
                     /* plus period_1 to period_96 columns */
-        """,
+        )""",
         "transpose": True,
         "process": None
     },
@@ -545,15 +551,25 @@ table_configs = {
     }
 }
 
+# -----------------------------
+# Main runner
+# -----------------------------
 if os.path.exists("energy.db"):
     os.remove("energy.db")
 
-conn = sqlite3.connect('energy.db')
-cur = conn.cursor()
+conn = sqlite3.connect("energy.db")
 
-for table_name in table_configs.keys():
-    print(f"Loading table {table_name}...")
+# Load workbook once
+data_path = os.path.join(os.getcwd(), "data", "A.xlsx")
+wb = load_workbook(data_path, data_only=True)
+
+# Load tables
+for name, cfg in table_configs.items():
+    print(f"Loading {name} ...")
     try:
-        load_table_to_db(table_configs=table_configs, table_name=table_name, conn=conn)
+        load_table_to_db(wb, name, cfg, conn)
     except Exception as e:
-        print(f"Error loading table {table_name}: {e}")
+        print(f"Error loading {name}: {e}")
+
+conn.commit()
+conn.close()
