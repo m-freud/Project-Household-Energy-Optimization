@@ -6,10 +6,16 @@ from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
 
-# -----------------------------
-# Helper: fast Excel extraction
-# -----------------------------
 def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
+    '''
+    Extracts data from an Excel worksheet and returns it as a pandas DataFrame.
+    Parameters:
+        wb: openpyxl Workbook object
+        sheet_name: Name of the worksheet to extract data from
+        rectangle: Cell range in A1 notation (e.g., "A1:C10")
+        column_names: List of chosen column names for the DataFrame -> same as in sql table  (mostly the same but slugged, few exceptions)
+        transpose: Boolean indicating whether to transpose the table
+    '''
     ws = wb[sheet_name]
     min_col, min_row, max_col, max_row = range_boundaries(rectangle)
 
@@ -27,10 +33,10 @@ def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
     return pd.DataFrame(data, columns=column_names)
 
 
-# -----------------------------
-# DB load function
-# -----------------------------
 def load_table_to_db(wb, table_name, config, conn):
+    '''
+    Loads a table from the Excel workbook into the SQLite database based on the provided configuration.
+    '''
     df = extract_from_xlsx(
         wb,
         config["sheet_name"],
@@ -51,10 +57,6 @@ def load_table_to_db(wb, table_name, config, conn):
     df.to_sql(table_name, conn, if_exists='append', index=False)
     print(f"Loaded table {table_name}.")
 
-
-# -----------------------------
-# Table configuration
-# -----------------------------
 
 period_cols = ",\n".join([f"            period_{i} INTEGER" for i in range(1, 97)])
 
@@ -116,7 +118,7 @@ table_configs = {
             })
         )
     },
-    # "time_of_use_tariff_4" : {
+    # "time_of_use_tariff_4" : {    ????
     #     "sheet_name": "General Information",
     #     "rectangle": "E35:H37",
     #     "column_names": ["super_off_peak", "off_peak", "mid_peak", "on_peak"],
@@ -372,7 +374,6 @@ table_configs = {
         "transpose": True,
         "process": None
     },
-
     "bess": {
         "sheet_name": "BESS",
         "rectangle": "B1:IQ8",
@@ -557,15 +558,11 @@ table_configs = {
     }
 }
 
-# -----------------------------
-# Main runner
-# -----------------------------
 if os.path.exists("energy.db"):
     os.remove("energy.db")
 
 conn = sqlite3.connect("energy.db")
 
-# Load workbook once
 data_path = os.path.join(os.getcwd(), "data", "A.xlsx")
 wb = load_workbook(data_path, data_only=True)
 
