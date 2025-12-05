@@ -5,7 +5,7 @@ import os
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
-from table_configs import table_configs
+from table_instructions import table_instructions
 
 
 def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -97,8 +97,8 @@ def load_data_to_db():
 
     # Load tables
     print("Loading tables...")
-    for name in table_configs.keys():  #tables_to_load:
-        cfg = table_configs[name]
+    for name in table_instructions.keys():  #tables_to_load:
+        cfg = table_instructions[name]
         # print(f"Loading {name} ...")
         try:
             load_table_to_db(wb, name, cfg, conn)
@@ -112,3 +112,7 @@ def load_data_to_db():
 
     conn.commit()
     conn.close()
+
+
+if __name__ == "__main__":
+    load_data_to_db()

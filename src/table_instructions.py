@@ -4,7 +4,7 @@ def transform_to_time_series(df, id_var, time_var, value_name):
     return df.melt(id_vars=[id_var], var_name=time_var, value_name=value_name).sort_values(by=[id_var, time_var]).reset_index(drop=True)
 
 
-table_configs = {
+table_instructions = {
     "player_pv_ess": {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
