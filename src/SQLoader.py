@@ -2,13 +2,18 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import os
+import datetime as dt
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
+from influxdb_client.client.influxdb_client import InfluxDBClient
+from influxdb_client.client.write.point import Point
+from influxdb_client.client.write_api import WriteOptions
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 from table_instructions import table_instructions
 
 
-def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
+def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
     '''
     Extracts data from an Excel worksheet and returns it as a pandas DataFrame.
     Parameters:
@@ -35,18 +40,30 @@ def extract_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
     return pd.DataFrame(data, columns=column_names)
 
 
-def load_table_to_db(wb, table_name, config, conn):
-    '''
-    Loads a table from the Excel workbook into the SQLite database based on the provided configuration.
-    '''
-    df = extract_from_xlsx(
-        wb,
-        config["sheet_name"],
-        config["rectangle"],
-        config["column_names"],
-        config["transpose"]
-    )
+def period_to_epoch(period):
+    seconds = period * 15 * 60
+    base = dt.datetime(2010,1,1,0,0)
+    ts = base + dt.timedelta(seconds=seconds)
+    return ts
 
+
+def load_to_influx(df, table_name):
+    df["period"] = df["period"].apply(period_to_epoch)
+    df = df.melt(
+        id_vars=["period"],
+        var_name="player_id",
+        value_name="value").sort_values(by=["player_id", "period"]).reset_index(drop=True)
+
+    write_api.write(
+        bucket=bucket,
+        record=df,
+        data_frame_measurement_name=table_name,
+        data_frame_field_name="value",
+        data_frame_tag_columns=["player_id"],
+        data_frame_timestamp_column="period")
+
+
+def load_to_sqlite(df, table_name, config):
     process = config.get("process")
     if process:
         df = process(df)
@@ -59,60 +76,59 @@ def load_table_to_db(wb, table_name, config, conn):
     df.to_sql(table_name, conn, if_exists='append', index=False)
 
 
-def transform_to_time_series(df, id_var, time_var, value_name):
-    return df.melt(id_vars=[id_var], var_name=time_var, value_name=value_name).sort_values(by=[id_var, time_var]).reset_index(drop=True)
+def load_table_to_db(wb, table_name, config):
+    '''
+    Loads a table from the Excel workbook into SQLite or InfluxDB based on the provided configuration.
+    '''
+    df = extract_df_from_xlsx(
+        wb,
+        config["sheet_name"],
+        config["rectangle"],
+        config["df_column_names"],
+        config["transpose"]
+    )
+
+    if config.get("time_series"):
+        load_to_influx(df, table_name)
+    else:
+        load_to_sqlite(df, table_name, config)
 
 
-def build_player_devices_table(conn):
-    conn.executescript("""
-    CREATE TABLE player_devices AS
-    SELECT 
-        player_id,
-        ev1_model,
-        ev2_model,
-        has_pv,
-        has_ess
-    FROM player_pv_ess
-    LEFT JOIN player_evs USING(player_id);
+def load_all_tables(wb, table_instructions):
+    for table_name, config in table_instructions.items():
+        print(f"Loading table: {table_name}...")
+        load_table_to_db(wb, table_name, config)
+        print("done!")
 
-    DROP TABLE player_pv_ess;
-    DROP TABLE player_evs;
-    """)
 
 # make these importable in other files:
 root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 excel_file_path = os.path.join(root_dir, "data", "A.xlsx")
+
+# SQLite connection
 db_path = os.path.join(root_dir, "db", "energy.db")
 
+conn = sqlite3.connect(db_path)
 
+# Influx connection
+token = "97BMXHrBUuU--I2Wkm1KMqrePBEd-MI9fbyK9Ur8tkwoaeezJW6-x8rlXVjNB96HSZmqPaT89vnlU0GSroQ-fA=="
+url = "http://localhost:8086"
+org = "org"
+bucket = "energy"
 
+client = InfluxDBClient(url=url, token=token, org=org)
+write_api = client.write_api(write_options=SYNCHRONOUS)
 
-def load_data_to_db():
-    if os.path.exists(db_path):
-        os.remove(db_path)
-
-    conn = sqlite3.connect(db_path)
-
-    wb = load_workbook(excel_file_path, data_only=True)
-
-    # Load tables
-    print("Loading tables...")
-    for name in table_instructions.keys():  #tables_to_load:
-        cfg = table_instructions[name]
-        # print(f"Loading {name} ...")
-        try:
-            load_table_to_db(wb, name, cfg, conn)
-        except Exception as e:
-            print(f"Error loading {name}: {e}")
-
-    print("Tables loaded.")
-
-    # combine pv_ess table and evs table into player_devices
-    build_player_devices_table(conn)
-
-    conn.commit()
-    conn.close()
-
+# load workbook
+wb = load_workbook(excel_file_path)
 
 if __name__ == "__main__":
-    load_data_to_db()
+    wb = load_workbook(excel_file_path)
+
+    for table_name, config in table_instructions.items():
+        print(f"Loading table: {table_name}...")
+        load_table_to_db(wb, table_name, config)
+
+    print("done!")
+
+    conn.close()

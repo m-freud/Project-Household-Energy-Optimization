@@ -1,39 +1,43 @@
-# from SQLoader import transform_to_time_series
-
-def transform_to_time_series(df, id_var, time_var, value_name):
-    return df.melt(id_vars=[id_var], var_name=time_var, value_name=value_name).sort_values(by=[id_var, time_var]).reset_index(drop=True)
+TIME_SERIES_DEFAULT = {
+    "rectangle": "A2:IQ97",
+    "transpose": False,
+    "df_column_names": ["period"] + [i for i in range(1, 251)],
+    "time_series": True
+}
 
 
 table_instructions = {
-    "player_pv_ess": {
+    "player_pv_ess": { # TODO sort all entries like this
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
-        "column_names": ["player_id", "has_pv", "has_ess"],
+        "transpose": False,
+        "df_column_names": ["player_id", "has_pv", "has_ess"],
+        "process": None,
+        "time_series": False,
         "schema": """
         CREATE TABLE IF NOT EXISTS player_pv_ess (
             player_id INTEGER PRIMARY KEY,
             has_pv INTEGER,
             has_ess INTEGER
         )""",
-        "transpose": False,
-        "process": None
     },
     "total": {
         "sheet_name": "General Information",
         "rectangle": "E4:F6",
-        "column_names": ["unit", "count"],
+        "transpose": False,
+        "df_column_names": ["unit", "count"],
+        "process": None,
+        "time_series": False,
         "schema": """
         CREATE TABLE IF NOT EXISTS total (
             unit TEXT PRIMARY KEY,
             count INTEGER
         )""",
-        "transpose": False,
-        "process": None
     },
     "contractual_power_terms": {
         "sheet_name": "General Information",
         "rectangle": "E14:G24",
-        "column_names": ["cp_kva", "price_per_day", "count"],
+        "df_column_names": ["cp_kva", "price_per_day", "count"],
         "schema": """
         CREATE TABLE IF NOT EXISTS contractual_power_terms (
             cp_kva REAL PRIMARY KEY,
@@ -46,7 +50,7 @@ table_instructions = {
     "time_of_use_tariff_3": {
         "sheet_name": "General Information",
         "rectangle": "F28:G31",
-        "column_names": ["cp_kva", "on_peak_eur", "mid_peak_eur", "off_peak_eur"],
+        "df_column_names": ["cp_kva", "on_peak_eur", "mid_peak_eur", "off_peak_eur"],
         "schema": """
         CREATE TABLE IF NOT EXISTS time_of_use_tariff_3 (
             cp_kva TEXT PRIMARY KEY,
@@ -65,7 +69,7 @@ table_instructions = {
     # "time_of_use_tariff_4" : {    ????
     #     "sheet_name": "General Information",
     #     "rectangle": "E35:H37",
-    #     "column_names": ["super_off_peak", "off_peak", "mid_peak", "on_peak"],
+    #     "df_column_names": ["super_off_peak", "off_peak", "mid_peak", "on_peak"],
     #     "schema": ?
     #     "transpose": False,
     #     "process": """transform into table period vs peak_type. Where are the prices?"""
@@ -73,7 +77,7 @@ table_instructions = {
     "energy_storage_system_models": {
         "sheet_name": "General Information",
         "rectangle": "K5:Q12",
-        "column_names": ["type", "capacity_kW", "charge_kW", "Discharge_kW", "efficiency_percent", "model", "units"],
+        "df_column_names": ["type", "capacity_kW", "charge_kW", "Discharge_kW", "efficiency_percent", "model", "units"],
         "schema": """
         CREATE TABLE IF NOT EXISTS energy_storage_system_models (
             type INTEGER PRIMARY KEY,
@@ -90,7 +94,7 @@ table_instructions = {
     "premium_charger_edp": {
         "sheet_name": "General Information",
         "rectangle": "K17:M18",
-        "column_names": ["type", "capacity_kW", "units"],
+        "df_column_names": ["type", "capacity_kW", "units"],
         "schema": """
         CREATE TABLE IF NOT EXISTS premium_charger_edp (
                     type INTEGER PRIMARY KEY,
@@ -103,7 +107,7 @@ table_instructions = {
     "regular_ev_models": {
         "sheet_name": "General Information",
         "rectangle": "T5:AB19",
-        "column_names" : ["model_id", "brand", "model_name", "capacity_kW", "charge_kW", "discharge_kW", "efficiency_percent", "consumption_Wh_km", "units"],
+        "df_column_names" : ["model_id", "brand", "model_name", "capacity_kW", "charge_kW", "discharge_kW", "efficiency_percent", "consumption_Wh_km", "units"],
         "schema": """
         CREATE TABLE IF NOT EXISTS regular_ev_models (
             model_id INTEGER PRIMARY KEY,
@@ -122,7 +126,7 @@ table_instructions = {
     "premium_ev_models": {
         "sheet_name": "General Information",
         "rectangle": "T24:AB33",
-        "column_names" : ["model_id", "brand", "model_name", "capacity_kW", "charge_kW", "discharge_kW", "efficiency_percent", "consumption_Wh_km", "units"],
+        "df_column_names" : ["model_id", "brand", "model_name", "capacity_kW", "charge_kW", "discharge_kW", "efficiency_percent", "consumption_Wh_km", "units"],
         "schema": """
         CREATE TABLE IF NOT EXISTS premium_ev_models (
             model_id INTEGER PRIMARY KEY,
@@ -141,7 +145,7 @@ table_instructions = {
     "ev_departures_arrivals": {
         "sheet_name": "General Information",
         "rectangle": "AE6:AK33",
-        "column_names": ["period", "departures_ev1", "arrivals_ev1", "departures_ev2", "arrivals_ev2", "departures_total", "arrivals_total"],
+        "df_column_names": ["period", "departures_ev1", "arrivals_ev1", "departures_ev2", "arrivals_ev2", "departures_total", "arrivals_total"],
         "schema": """
         CREATE TABLE IF NOT EXISTS ev_departures_arrivals (
             period INTEGER,
@@ -158,7 +162,7 @@ table_instructions = {
     "mobile_ev_chargers": {
         "sheet_name": "MOBIe EV chargers",
         "rectangle": "A3:O86",
-        "column_names": ["charger_id", "charger_parent_uid", "charger_uid", "type_of_charging", "state_of_charger","city",	"address", "operator", "capacity_kW", "voltage_level", "price_eur_per_charge",	"price_eur_per_minute",	"price_eur_per_kWh","price_eur_per_h",	"price_eur_per_kWh_2"],
+        "df_column_names": ["charger_id", "charger_parent_uid", "charger_uid", "type_of_charging", "state_of_charger","city",	"address", "operator", "capacity_kW", "voltage_level", "price_eur_per_charge",	"price_eur_per_minute",	"price_eur_per_kWh","price_eur_per_h",	"price_eur_per_kWh_2"],
         "schema": """
         CREATE TABLE IF NOT EXISTS mobile_ev_chargers (
             charger_id INTEGER PRIMARY KEY,
@@ -183,7 +187,7 @@ table_instructions = {
     "player_evs": {
         "sheet_name": "EVs",
         "rectangle": "B1:IQ3",
-        "column_names": ["player_id", "ev1_model", "ev2_model"],
+        "df_column_names": ["player_id", "ev1_model", "ev2_model"],
         "schema": """
         CREATE TABLE IF NOT EXISTS player_evs (
             player_id INTEGER PRIMARY KEY,
@@ -196,7 +200,7 @@ table_instructions = {
     "ev1_data": {
         "sheet_name": "EVs",
         "rectangle": "B6:IQ25",
-        "column_names": [
+        "df_column_names": [
             "player_id",
             "model_id",
             "capacity_kw",
@@ -246,7 +250,7 @@ table_instructions = {
     "ev2_data": {
         "sheet_name": "EVs",
         "rectangle": "B27:IQ46",
-        "column_names": [
+        "df_column_names": [
             "player_id",
             "model_id",
             "capacity_kw",
@@ -295,37 +299,16 @@ table_instructions = {
     },
     "load": {
         "sheet_name": "Load",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS load (
-                    player_id INTEGER,
-                    period INTEGER,
-                    load_kW REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "load_kW")
+        **TIME_SERIES_DEFAULT
     },
     "pv": {
         "sheet_name": "PV",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "transpose": True,
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS pv (
-                    player_id INTEGER,
-                    period INTEGER,
-                    pv_kW REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "pv_kW")
+        **TIME_SERIES_DEFAULT
     },
     "bess": {
         "sheet_name": "BESS",
         "rectangle": "B1:IQ8",
-        "column_names": ["player_id", "model_id", "capacity_kW", "charge_kW", "discharge_kW", "efficiency", "initial_kW", "final_kW"],
+        "df_column_names": ["player_id", "model_id", "capacity_kW", "charge_kW", "discharge_kW", "efficiency", "initial_kW", "final_kW"],
         "schema": """
         CREATE TABLE IF NOT EXISTS bess (
             player_id INTEGER PRIMARY KEY,
@@ -342,36 +325,16 @@ table_instructions = {
     },
     "buy_price": {
         "sheet_name": "Buy Price",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS buy_price (
-                        player_id INTEGER,
-                        period INTEGER,
-                        buy_price_eur REAL,
-                        PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "buy_price_eur")
+        **TIME_SERIES_DEFAULT
     },
     "sell_price": {
         "sheet_name": "Sell Price",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS sell_price (
-                    player_id INTEGER,
-                    period INTEGER,
-                    sell_price_eur REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "sell_price_eur")
+        **TIME_SERIES_DEFAULT
     },
     "limits": {
         "sheet_name": "Limits",
         "rectangle": "B1:IQ10",
-        "column_names": ["player_id", "power_buy_kW", "power_sell_kW", "fixed_costs_eur","_","initial_cp_kW","premium_charger_edp_capacity_kW","sum_kW","new_cp_level_kW","fixed_costs_2_eur"],
+        "df_column_names": ["player_id", "power_buy_kW", "power_sell_kW", "fixed_costs_eur","_","initial_cp_kW","premium_charger_edp_capacity_kW","sum_kW","new_cp_level_kW","fixed_costs_2_eur"],
         "schema": """
         CREATE TABLE IF NOT EXISTS limits (
             player_id INTEGER PRIMARY KEY,
@@ -389,142 +352,34 @@ table_instructions = {
     },
     "ev1_buy_price": {
         "sheet_name": "EV1 Buy Price",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev1_buy_price (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev1_buy_price_eur REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev1_buy_price_eur")
+        **TIME_SERIES_DEFAULT
     },
     "ev2_buy_price": {
         "sheet_name": "EV2 Buy Price",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev2_buy_price (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev2_buy_price_eur REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev2_buy_price_eur")
+        **TIME_SERIES_DEFAULT
     },
     "ev1_load": {
         "sheet_name": "EV1 Load",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev1_load (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev1_load REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev1_load")
+        **TIME_SERIES_DEFAULT
     },
     "ev2_load": {
         "sheet_name": "EV2 Load",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev2_load (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev2_load REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev2_load")
+        **TIME_SERIES_DEFAULT
     },
     "ev1_max_discharge": {
         "sheet_name": "Max EV1 Dis-Charge",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev1_max_discharge (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev1_max_discharge REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev1_max_discharge")
+        **TIME_SERIES_DEFAULT
     },
     "ev2_max_discharge": {
         "sheet_name": "Max EV2 Dis-Charge",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev2_max_discharge (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev2_max_discharge REAL,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev2_max_discharge")
+        **TIME_SERIES_DEFAULT
     },
     "ev1_at_home": {
         "sheet_name": "EV1 at Home (x)",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev1_at_home (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev1_at_home BOOLEAN,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev1_at_home")
+        **TIME_SERIES_DEFAULT
     },
     "ev2_at_home": {
         "sheet_name": "EV2 at Home (x)",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev2_at_home (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev2_at_home BOOLEAN,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev2_at_home")
-    },
-    "ev1_at_charging_station": {
-        "sheet_name": "EV1 at Charging Station (x)",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev1_at_charging_station (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev1_at_charging_station BOOLEAN,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev1_at_charging_station")
-    },
-    "ev2_at_charging_station": {
-        "sheet_name": "EV2 at Charging Station (x)",
-        "rectangle": "B1:IQ97",
-        "column_names": ["player_id"] + [i for i in range(1, 96+1)],
-        "schema": f"""
-        CREATE TABLE IF NOT EXISTS ev2_at_charging_station (
-                    player_id INTEGER,
-                    period INTEGER,
-                    ev2_at_charging_station BOOLEAN,
-                    PRIMARY KEY (player_id, period)
-        )""",
-        "transpose": True,
-        "process": lambda df: transform_to_time_series(df, "player_id", "period", "ev2_at_charging_station")
+        **TIME_SERIES_DEFAULT
     }
 }
