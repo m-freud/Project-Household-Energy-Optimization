@@ -26,7 +26,6 @@ similar to ESS.
 cap, charge, discharge, eff, 
 consumption per km - exogen probably. we have no control over vehicle use.
 
-
 ## MOBIe
 public charger data. 
 each player has a public charger id assigned and we have known time windows where the car is at the charger.
@@ -73,13 +72,6 @@ since we already have energy price we may not even need this.
 
 ### Rest
 macht sinn.
-
-
-
-
-
-
-
 
 
 

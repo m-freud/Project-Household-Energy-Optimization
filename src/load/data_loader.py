@@ -10,7 +10,7 @@ from influxdb_client.client.write.point import Point
 from influxdb_client.client.write_api import WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from table_instructions import table_instructions
+from load.table_instructions import table_instructions
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -42,7 +42,7 @@ def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=Fals
 
 def period_to_epoch(period):
     seconds = period * 15 * 60
-    base = dt.datetime(2010,1,1,0,0)
+    base = dt.datetime(2000,1,1,0,0)
     ts = base + dt.timedelta(seconds=seconds)
     return ts
 
@@ -118,6 +118,10 @@ bucket = "energy"
 
 client = InfluxDBClient(url=url, token=token, org=org)
 write_api = client.write_api(write_options=SYNCHRONOUS)
+buckets_api = client.buckets_api()
+
+if not buckets_api.find_bucket_by_name("energy"):
+    buckets_api.create_bucket(bucket_name="energy", org=org)
 
 # load workbook
 wb = load_workbook(excel_file_path)
