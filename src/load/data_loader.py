@@ -1,8 +1,11 @@
 import sqlite3
+import dotenv
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 import datetime as dt
+from dotenv import load_dotenv
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from influxdb_client.client.influxdb_client import InfluxDBClient
@@ -10,7 +13,43 @@ from influxdb_client.client.write.point import Point
 from influxdb_client.client.write_api import WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from load.table_instructions import table_instructions
+from table_instructions import table_instructions
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+# from config import Config
+
+
+load_dotenv()
+
+class Config:
+    INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
+    INFLUX_URL = os.getenv("INFLUX_URL")
+    INFLUX_ORG = os.getenv("INFLUX_ORG")
+    INFLUX_BUCKET = os.getenv("INFLUX_BUCKET")
+
+# file paths
+ROOT_DIR = Path(__file__).parent.parent.parent
+EXCEL_FILE_PATH = ROOT_DIR / "data" / "A.xlsx"
+DB_PATH = ROOT_DIR / "db" / "energy.db"
+
+conn = sqlite3.connect(DB_PATH)
+
+# Influx connection
+INFLUX_TOKEN = Config.INFLUX_TOKEN
+INFLUX_URL = Config.INFLUX_URL
+INFLUX_ORG = Config.INFLUX_ORG
+INFLUX_BUCKET = Config.INFLUX_BUCKET
+assert INFLUX_URL and INFLUX_TOKEN and INFLUX_ORG and INFLUX_BUCKET
+
+client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+write_api = client.write_api(write_options=SYNCHRONOUS)
+buckets_api = client.buckets_api()
+
+if not buckets_api.find_bucket_by_name(INFLUX_BUCKET):
+    buckets_api.create_bucket(bucket_name=INFLUX_BUCKET, org=INFLUX_ORG)
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -47,15 +86,34 @@ def period_to_epoch(period):
     return ts
 
 
-def load_to_influx(df, table_name):
+def convert_to_timeseries(df):
+    '''
+    Converts a DataFrame from wide format to long format suitable for Influx.
+    Assumes wide format (periods x players).
+    '''
+    # time conversion
     df["period"] = df["period"].apply(period_to_epoch)
+
+    # melt to long format
     df = df.melt(
         id_vars=["period"],
         var_name="player_id",
         value_name="value").sort_values(by=["player_id", "period"]).reset_index(drop=True)
+    
+    return df
+
+
+def load_to_influx(df, table_name):
+    '''
+    Loads a DataFrame into InfluxDB as a time series.
+    Assumes wide format (periods x players).
+    '''
+    assert INFLUX_BUCKET
+
+    df = convert_to_timeseries(df)
 
     write_api.write(
-        bucket=bucket,
+        bucket=INFLUX_BUCKET,
         record=df,
         data_frame_measurement_name=table_name,
         data_frame_field_name="value",
@@ -101,33 +159,11 @@ def load_all_tables(wb, table_instructions):
         print("done!")
 
 
-# make these importable in other files:
-root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-excel_file_path = os.path.join(root_dir, "data", "A.xlsx")
-
-# SQLite connection
-db_path = os.path.join(root_dir, "db", "energy.db")
-
-conn = sqlite3.connect(db_path)
-
-# Influx connection
-token = "97BMXHrBUuU--I2Wkm1KMqrePBEd-MI9fbyK9Ur8tkwoaeezJW6-x8rlXVjNB96HSZmqPaT89vnlU0GSroQ-fA=="
-url = "http://localhost:8086"
-org = "org"
-bucket = "energy"
-
-client = InfluxDBClient(url=url, token=token, org=org)
-write_api = client.write_api(write_options=SYNCHRONOUS)
-buckets_api = client.buckets_api()
-
-if not buckets_api.find_bucket_by_name("energy"):
-    buckets_api.create_bucket(bucket_name="energy", org=org)
-
 # load workbook
-wb = load_workbook(excel_file_path)
+wb = load_workbook(EXCEL_FILE_PATH)
 
 if __name__ == "__main__":
-    wb = load_workbook(excel_file_path)
+    wb = load_workbook(EXCEL_FILE_PATH)
 
     for table_name, config in table_instructions.items():
         print(f"Loading table: {table_name}...")

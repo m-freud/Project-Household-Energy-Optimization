@@ -69,6 +69,14 @@ we prob only care about the New CP level it sets the energy price.
 since we already have energy price we may not even need this.
 
 
+### EV1 / EV2 Buy price
+
+tells you what ev charging costs at any given moment.
+depends on where the car is. location based tarifs apply.
+at home: see TUT-3 table
+at charger: check price from table EVs
+
+
 
 ### Rest
 macht sinn.
