@@ -7,3 +7,7 @@
 # 4. Charge evenly at surplus
 # 5. polynomial equations
 # 6. bitch ass reinforcement learning.
+
+
+def do_nothing(states):
+    return states  # ????
