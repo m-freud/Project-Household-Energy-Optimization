@@ -1,3 +1,8 @@
+# Table instructions for loading data from Excel sheets into database tables.
+# TODO: get units right (kW, kWh, ?)
+
+
+
 TIME_SERIES_DEFAULT = {
     "rectangle": "A2:IQ97",
     "transpose": False,
