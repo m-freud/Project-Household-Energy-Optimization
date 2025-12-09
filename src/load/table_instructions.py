@@ -386,5 +386,13 @@ table_instructions = {
     "ev2_at_home": {
         "sheet_name": "EV2 at Home (x)",
         **TIME_SERIES_DEFAULT
+    },
+    "ev1_at_charging_station": {
+        "sheet_name": "EV1 at Charging Station (x)",
+        **TIME_SERIES_DEFAULT
+    },
+    "ev2_at_charging_station": {
+        "sheet_name": "EV2 at Charging Station (x)",
+        **TIME_SERIES_DEFAULT
     }
 }
