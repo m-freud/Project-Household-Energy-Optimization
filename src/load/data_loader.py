@@ -12,7 +12,7 @@ from influxdb_client.client.write.point import Point
 from influxdb_client.client.write_api import WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from table_instructions import table_instructions
+from table_config import table_instructions
 
 load_dotenv()
 
