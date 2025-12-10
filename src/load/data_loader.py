@@ -83,13 +83,13 @@ def convert_to_timeseries(df):
     Assumes wide format (periods x players).
     '''
     # time conversion
-    df["period"] = df["period"].apply(period_to_epoch)
+    df["timestamp"] = df["period"].apply(period_to_epoch)
 
     # melt to long format
     df = df.melt(
-        id_vars=["period"],
+        id_vars=["timestamp"],
         var_name="player_id",
-        value_name="value").sort_values(by=["player_id", "period"]).reset_index(drop=True)
+        value_name="value").sort_values(by=["player_id", "timestamp"]).reset_index(drop=True)
     
     return df
 
@@ -109,7 +109,7 @@ def load_to_influx(df, table_name):
         data_frame_measurement_name=table_name,
         data_frame_field_name="value",
         data_frame_tag_columns=["player_id"],
-        data_frame_timestamp_column="period")
+        data_frame_timestamp_column="timestamp")
 
 
 def load_to_sqlite(df, table_name, config):
