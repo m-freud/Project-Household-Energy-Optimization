@@ -1,8 +1,7 @@
 import sqlite3
-import dotenv
 import pandas as pd
 import numpy as np
-import os
+import sys
 from pathlib import Path
 import datetime as dt
 from dotenv import load_dotenv
@@ -15,26 +14,18 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 from table_instructions import table_instructions
 
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
-# from config import Config
-
-
 load_dotenv()
-
-class Config:
-    INFLUX_TOKEN = os.getenv("INFLUX_TOKEN")
-    INFLUX_URL = os.getenv("INFLUX_URL")
-    INFLUX_ORG = os.getenv("INFLUX_ORG")
-    INFLUX_BUCKET = os.getenv("INFLUX_BUCKET")
 
 # file paths
 ROOT_DIR = Path(__file__).parent.parent.parent
 EXCEL_FILE_PATH = ROOT_DIR / "data" / "A.xlsx"
 DB_PATH = ROOT_DIR / "db" / "energy.db"
 
+# config file import
+sys.path.append(str(ROOT_DIR))
+from config import Config
+
+# sqlite connection
 conn = sqlite3.connect(DB_PATH)
 
 # Influx connection
