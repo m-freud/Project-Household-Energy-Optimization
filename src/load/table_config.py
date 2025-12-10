@@ -1,7 +1,6 @@
-# Table instructions for loading data from Excel sheets into database tables.
+# Table instructions for loading data from Excel sheets into sqlite and influxdb.
 # TODO: get units right (kW, kWh, ?)
-
-
+# TODO: some colums are broken. see ev1_data -> initial battery
 
 TIME_SERIES_DEFAULT = {
     "rectangle": "A2:IQ97",
