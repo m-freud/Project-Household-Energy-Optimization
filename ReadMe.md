@@ -3,6 +3,9 @@
 Here we see what we can do with this dataset:
 https://zenodo.org/records/11351017
 
+paper:
+https://www.sciencedirect.com/science/article/pii/S2352340923003372
+
 It contains a simulated community of households with different setups of EVs, PVs, ...
 Energy consumption and generation, etc is simulated for 1 day in 15 min intervals for 96 households (?)
 
