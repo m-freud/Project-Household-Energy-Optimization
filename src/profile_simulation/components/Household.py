@@ -21,16 +21,17 @@ class Household:
     def __init__(self, influx_client, sql_conn, player_id):
         self.influx_client = influx_client
         self.influx_query_api = influx_client.query_api()
-
         self.sql_conn = sql_conn
         self.sql_cursor = sql_conn.cursor()
-
         self.player_id = player_id
 
+        # fetch / generate initial profiles
         self.profiles = {}
 
         for profile in ["load", "pv", "buy_price", "sell_price"]:
             self.profiles[profile] = self.fetch_timeseries(measurement=profile, player_id=player_id)
+
+        self.profiles["net_load"] = [l - p for l, p in zip(self.profiles["load"], self.profiles["pv"])]
 
         self.has_ess, self.has_pv = self.get_player_info(table="player_pv_ess", fields=["has_ess", "has_pv"])
 
@@ -76,21 +77,18 @@ class Household:
         return tuple(results)
     
 
-    def generate_cost_profile(self, load_profile):
-        buy_price = self.profiles["buy_price"]
-        sell_price = self.profiles["sell_price"]
-
-        if "bess" in self.profiles:
-            bess_profile = self.profiles["bess"]
-
+    def generate_cost_profile(self):
         cost_profile = []
-        for load, buy_price, sell_price in zip(load_profile, buy_price, sell_price):
-            if load >= 0:
-                cost_profile.append(load * buy_price)
+
+        for net_load, buy_price, sell_price in zip(self.profiles["net_load"], self.profiles["buy_price"], self.profiles["sell_price"]):
+            if net_load >= 0:
+                cost_profile.append(net_load * buy_price)
             else:
-                cost_profile.append(load * sell_price * -1)
-        return cost_profile
-    
+                cost_profile.append(net_load * sell_price * -1)
+
+        self.profiles["cost"] = cost_profile
+
+
 
 if __name__ == "__main__":
     # sqlite connection
@@ -106,13 +104,19 @@ if __name__ == "__main__":
     influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 
     household_1 = Household(influx_client=influx_client, sql_conn=conn, player_id=1)
+    household_1.generate_cost_profile()
 
     # quick plot for all profiles
     import matplotlib.pyplot as plt
     plt.figure(figsize=(12, 6))
     plt.plot(household_1.profiles["load"], label="Load Profile")
     plt.plot(household_1.profiles["pv"], label="PV Profile")
-    plt.plot(household_1.profiles["buy_price"], label="Buy Price Profile")
-    plt.plot(household_1.profiles["sell_price"], label="Sell Price Profile")
+    plt.plot(household_1.profiles["net_load"], label="Net Load Profile")
+    #plt.plot(household_1.profiles["buy_price"], label="Buy Price Profile")
+    #plt.plot(household_1.profiles["sell_price"], label="Sell Price Profile")
+    if "cost" in household_1.profiles:
+        plt.plot(household_1.profiles["cost"], label="Cost Profile")
+    else:
+        print("Cost profile not generated yet.")
     plt.legend()
     plt.show()
