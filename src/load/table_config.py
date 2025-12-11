@@ -21,187 +21,11 @@ table_instructions = {
         "schema": """
         CREATE TABLE IF NOT EXISTS player_pv_ess (
             player_id INTEGER PRIMARY KEY,
-            has_pv INTEGER,
-            has_ess INTEGER
+            has_pv Boolean,
+            has_ess Boolean
         )""",
     },
-    "total": {
-        "sheet_name": "General Information",
-        "rectangle": "E4:F6",
-        "transpose": False,
-        "df_column_names": ["unit", "count"],
-        "process": None,
-        "time_series": False,
-        "schema": """
-        CREATE TABLE IF NOT EXISTS total (
-            unit TEXT PRIMARY KEY,
-            count INTEGER
-        )""",
-    },
-    "contractual_power_terms": {
-        "sheet_name": "General Information",
-        "rectangle": "E14:G24",
-        "df_column_names": ["cp", "price_per_day", "count"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS contractual_power_terms (
-            cp REAL PRIMARY KEY,
-            price_per_day REAL,
-            count INTEGER
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "time_of_use_tariff_3": {
-        "sheet_name": "General Information",
-        "rectangle": "F28:G31",
-        "df_column_names": ["cp_kva", "on_peak_eur", "mid_peak_eur", "off_peak_eur"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS time_of_use_tariff_3 (
-            cp_kva TEXT PRIMARY KEY,
-            on_peak_eur REAL,
-            mid_peak_eur REAL,
-            off_peak_eur REAL
-        )""",
-        "transpose": True,
-        "process": lambda df: df.assign(
-            cp_kva=df['cp_kva'].replace({
-                "<=20,7": "leq_20_7",
-                ">20,7": "gt_20_7"
-            })
-        )
-    },
-    # "time_of_use_tariff_4" : {    ????
-    #     "sheet_name": "General Information",
-    #     "rectangle": "E35:H37",
-    #     "df_column_names": ["super_off_peak", "off_peak", "mid_peak", "on_peak"],
-    #     "schema": ?
-    #     "transpose": False,
-    #     "process": """transform into table period vs peak_type. Where are the prices?"""
-    # },
-    "energy_storage_system_models": {
-        "sheet_name": "General Information",
-        "rectangle": "K5:Q12",
-        "df_column_names": ["type", "capacity", "charge", "discharge", "efficiency", "model", "units"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS energy_storage_system_models (
-            type INTEGER PRIMARY KEY,
-            capacity REAL,
-            charge REAL,
-            discharge REAL,
-            efficiency REAL,
-            model TEXT,
-            units INTEGER
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "premium_charger_edp": {
-        "sheet_name": "General Information",
-        "rectangle": "K17:M18",
-        "df_column_names": ["type", "capacity", "units"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS premium_charger_edp (
-                    type INTEGER PRIMARY KEY,
-                    capacity REAL,
-                    units INTEGER
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "regular_ev_models": {
-        "sheet_name": "General Information",
-        "rectangle": "T5:AB19",
-        "df_column_names" : ["model_id", "brand", "model_name", "capacity", "charge", "discharge", "efficiency_percent", "consumption_Wh_km", "units"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS regular_ev_models (
-            model_id INTEGER PRIMARY KEY,
-            brand TEXT,
-            model_name TEXT,
-            capacity REAL,
-            charge REAL,
-            discharge REAL,
-            efficiency_percent REAL,
-            consumption_Wh_km REAL,
-            units INTEGER
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "premium_ev_models": {
-        "sheet_name": "General Information",
-        "rectangle": "T24:AB33",
-        "df_column_names" : ["model_id", "brand", "model_name", "capacity", "charge", "discharge", "efficiency_percent", "consumption_Wh_km", "units"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS premium_ev_models (
-            model_id INTEGER PRIMARY KEY,
-            brand TEXT,
-            model_name TEXT,
-            capacity REAL,
-            charge REAL,
-            discharge REAL,
-            efficiency_percent REAL,
-            consumption_Wh_km REAL,
-            units INTEGER
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "ev_departures_arrivals": {
-        "sheet_name": "General Information",
-        "rectangle": "AE6:AK33",
-        "df_column_names": ["period", "departures_ev1", "arrivals_ev1", "departures_ev2", "arrivals_ev2", "departures_total", "arrivals_total"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS ev_departures_arrivals (
-            period INTEGER,
-            departures_ev1 INTEGER,
-            arrivals_ev1 INTEGER,
-            departures_ev2 INTEGER,
-            arrivals_ev2 INTEGER,
-            departures_total INTEGER,
-            arrivals_total INTEGER
-        )""",
-        "transpose": False,
-        "process": lambda df: df.dropna(how="all")  # drop empty rows
-    },
-    "mobile_ev_chargers": {
-        "sheet_name": "MOBIe EV chargers",
-        "rectangle": "A3:O86",
-        "df_column_names": ["charger_id", "charger_parent_uid", "charger_uid", "type_of_charging", "charger_availability","city", "address", "operator", "capacity", "voltage_level", "price_per_charge",	"price_per_minute",	"price_per_kWh","price_per_h",	"price_per_kWh_2"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS mobile_ev_chargers (
-            charger_id INTEGER PRIMARY KEY,
-            charger_parent_uid INTEGER,
-            charger_uid TEXT,
-            type_of_charging TEXT,
-            charger_availability TEXT,
-            city TEXT,
-            address TEXT,
-            operator TEXT,
-            capacity REAL,
-            voltage_level TEXT,
-            price_per_charge REAL,
-            price_per_minute REAL,
-            price_per_kWh REAL,
-            price_per_h REAL,
-            price_per_kWh_2 REAL
-        )""",
-        "transpose": False,
-        "process": None
-    },
-    "player_evs": {
-        "sheet_name": "EVs",
-        "rectangle": "B1:IQ3",
-        "df_column_names": ["player_id", "ev1_model", "ev2_model"],
-        "schema": """
-        CREATE TABLE IF NOT EXISTS player_evs (
-            player_id INTEGER PRIMARY KEY,
-            ev1_model TEXT,
-            ev2_model TEXT
-        )""",
-        "transpose": True,
-        "process": None      # we combine this with player_devices later
-    },
-    "ev1_data": {
+    "ev1": {
         "sheet_name": "EVs",
         "rectangle": "B6:IQ25",
         "df_column_names": [
@@ -226,7 +50,7 @@ table_instructions = {
             "power",
             "price_at_public_charge_station_eur"],
         "schema": """
-        CREATE TABLE IF NOT EXISTS ev1_data (
+        CREATE TABLE IF NOT EXISTS ev1 (
             player_id INTEGER PRIMARY KEY,
             model_id INTEGER,
             capacity REAL,
@@ -251,7 +75,7 @@ table_instructions = {
         "transpose": True,
         "process": None
     },
-    "ev2_data": {
+    "ev2": {
         "sheet_name": "EVs",
         "rectangle": "B27:IQ46",
         "df_column_names": [
