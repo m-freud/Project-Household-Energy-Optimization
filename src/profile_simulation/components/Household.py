@@ -6,7 +6,7 @@ import pandas as pd
 
 
 ROOT_DIR = Path(__file__).parent.parent.parent.parent
-SQL_PATH = ROOT_DIR / "db" / "energy.db"
+SQL_PATH = ROOT_DIR / "sqlite" / "energy.db"
 
 # config file import
 sys.path.append(str(ROOT_DIR))
@@ -61,15 +61,10 @@ class Household:
     def get_player_info(self, table, fields: list[str] | str):
         # Normalize fields to a list
         if isinstance(fields, str):
-            fields_list = [fields]
-        else:
-            fields_list = list(fields)
-
-        if not fields_list:
-            return None
+            fields = [fields]
 
         results = []
-        for field in fields_list:
+        for field in fields:
             # use parameterized query to avoid SQL injection and fetch a single row
             self.sql_cursor.execute(f"SELECT {field} FROM {table} WHERE player_id = {self.player_id}")
             row = self.sql_cursor.fetchone()
