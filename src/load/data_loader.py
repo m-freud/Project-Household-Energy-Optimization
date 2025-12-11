@@ -151,10 +151,10 @@ def load_all_tables(wb, table_instructions):
 
 
 # load workbook
-wb = load_workbook(EXCEL_FILE_PATH)
+wb = load_workbook(EXCEL_FILE_PATH, data_only=True)
 
 if __name__ == "__main__":
-    wb = load_workbook(EXCEL_FILE_PATH)
+    wb = load_workbook(EXCEL_FILE_PATH, data_only=True)
 
     for table_name, config in table_instructions.items():
         print(f"Loading table: {table_name}...")
