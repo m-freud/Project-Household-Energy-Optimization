@@ -19,7 +19,7 @@ load_dotenv()
 # file paths
 ROOT_DIR = Path(__file__).parent.parent.parent
 EXCEL_FILE_PATH = ROOT_DIR / "data" / "A.xlsx"
-DB_PATH = ROOT_DIR / "db" / "energy.db"
+DB_PATH = ROOT_DIR / "sqlite" / "energy.db"
 
 # config file import
 sys.path.append(str(ROOT_DIR))
@@ -113,13 +113,16 @@ def load_to_influx(df, table_name):
 
 
 def load_to_sqlite(df, table_name, config):
+    # do something with the table before loading if needed
     process = config.get("process")
     if process:
         df = process(df)
 
     # create table schema first
     conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-    conn.execute(config["schema"])
+
+    if len(config.get("schema", "").strip()) > 0:
+        conn.execute(config["schema"])
 
     # load data
     df.to_sql(table_name, conn, if_exists='append', index=False)
