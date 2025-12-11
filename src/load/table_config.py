@@ -1,5 +1,29 @@
 # Table instructions for loading data from Excel sheets into sqlite and influxdb.
 
+EV_COLUMNS = [
+    "player_id",
+    "model_id",
+    "capacity",
+    "charge",
+    "discharge",
+    "efficiency",
+    "initial_battery_level",
+    "final_battery_level",
+    "consumption_per_km",
+    "departure_period",
+    "arrival_period",
+    "distance_km",
+    "consumption",
+    "morning_trip_duration_periods",
+    "afternoon_trip_duration_periods",
+    "trip_duration_periods",
+    "charger_type",
+    "public_charger",
+    "power",
+    "price_at_public_charge_station_eur"
+]
+
+
 TIME_SERIES_DEFAULT = {
     "rectangle": "A2:IQ97",
     "transpose": False,
@@ -34,27 +58,7 @@ table_instructions = {
     "ev1": {
         "sheet_name": "EVs",
         "rectangle": "B6:IQ25",
-        "df_column_names": [
-            "player_id",
-            "model_id",
-            "capacity",
-            "charge",
-            "discharge",
-            "efficiency",
-            "initial_battery_level",
-            "final_battery_level",
-            "consumption_per_km",
-            "departure_period",
-            "arrival_period",
-            "distance_km",
-            "consumption",
-            "morning_trip_duration_periods",
-            "afternoon_trip_duration_periods",
-            "trip_duration_periods",
-            "charger_type",
-            "public_charger",
-            "power",
-            "price_at_public_charge_station_eur"],
+        "df_column_names": EV_COLUMNS,
         "schema": "",
         "transpose": True,
         "process": None
@@ -62,27 +66,7 @@ table_instructions = {
     "ev2": {
         "sheet_name": "EVs",
         "rectangle": "B27:IQ46",
-        "df_column_names": [
-            "player_id",
-            "model_id",
-            "capacity",
-            "charge",
-            "discharge",
-            "efficiency",
-            "initial_battery_level",
-            "final_battery_level",
-            "consumption_per_km",
-            "departure_period",
-            "arrival_period",
-            "distance_km",
-            "consumption",
-            "morning_trip_duration_periods",
-            "afternoon_trip_duration_periods",
-            "trip_duration_periods",
-            "charger_type",
-            "public_charger",
-            "power",
-            "price_at_public_charge_station_eur"],
+        "df_column_names": EV_COLUMNS,
         "schema": "",
         "transpose": True,
         "process": None
