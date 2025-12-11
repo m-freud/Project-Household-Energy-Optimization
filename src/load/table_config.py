@@ -53,7 +53,7 @@ table_instructions = {
         "df_column_names": ["player_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
         "schema": "",
         "transpose": True,
-        "process": None
+        "process": lambda df: df.assign(model_id=lambda x: x.model_id.astype(int)) # ensure model_id is int for aesthetic reasons
     },
     "ev1": {
         "sheet_name": "EVs",
