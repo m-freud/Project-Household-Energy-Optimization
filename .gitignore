@@ -1,7 +1,5 @@
 data/EC_EV_dataset (fixed error).xlsx
 *.db
 *.pyc
-/influx
-/grafana
 ~lock.*#
 data/.~lock.A.xlsx#
