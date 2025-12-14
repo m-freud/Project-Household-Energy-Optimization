@@ -1,5 +1,23 @@
+import sys
+import sqlite3
+from pathlib import Path
+from influxdb_client.client.influxdb_client import InfluxDBClient
+
+# ROOT_DIR = Path(__file__).parent.parent.parent
+# sys.path.append(str(ROOT_DIR))
+
+
+from config import Config
+
+print(Config.INFLUX_URL)
+
+exit()
 from Simulation import Simulation
-from db_connection import sql_conn, influx_query_api
+
+
+import connections
+
+
 
 if __name__ == "__main__":
     simulation = Simulation(sql_conn, influx_query_api, strategies)
