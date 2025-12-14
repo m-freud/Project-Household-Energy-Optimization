@@ -5,7 +5,7 @@ from influxdb_client.client.influxdb_client import InfluxDBClient
 import pandas as pd
 
 ROOT_DIR = Path(__file__).parent.parent.parent
-DB_PATH = ROOT_DIR / "db" / "energy.db"
+DB_PATH = ROOT_DIR / "sqlite" / "energy.db"
 
 # config file import
 sys.path.append(str(ROOT_DIR))
