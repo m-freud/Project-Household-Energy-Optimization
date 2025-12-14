@@ -1,11 +1,10 @@
-# Lets simulate for household 1. Write high level shit here and connect the dots.
-from components import Household
 
+class Simulation:
+    def __init__(self, sql_conn, influx_query_api, strategies):
+        self.sql_conn = sql_conn
+        self.influx_query_api = influx_query_api
+        self.strategies = strategies
 
-household_1 = Household(player_id=1) # this already has ESS, PV, EV components inside.
-
-optimizer = "optimizer1"
-
-cost_profile1 = household_1.generate_cost_profile(load_profile)
-
-load_to_influx(cost_profile1)
+    def run(self):
+        # Implementation of the simulation logic goes here
+        pass
