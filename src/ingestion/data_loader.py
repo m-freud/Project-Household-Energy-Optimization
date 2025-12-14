@@ -1,46 +1,27 @@
-import sqlite3
 import pandas as pd
 import numpy as np
-import sys
-from pathlib import Path
 import datetime as dt
-from dotenv import load_dotenv
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from influxdb_client.client.influxdb_client import InfluxDBClient
-from influxdb_client.client.write.point import Point
-from influxdb_client.client.write_api import WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-from table_config import table_instructions
+from src.ingestion.table_config import table_instructions
+import src.connections as connections
+from src.config import Config
 
-load_dotenv()
-
-# file paths
-ROOT_DIR = Path(__file__).parent.parent.parent
-EXCEL_FILE_PATH = ROOT_DIR / "data" / "A.xlsx"
-DB_PATH = ROOT_DIR / "sqlite" / "energy.db"
-
-# config file import
-sys.path.append(str(ROOT_DIR))
-from config import Config
 
 # sqlite connection
-conn = sqlite3.connect(DB_PATH)
+sqlite_conn = connections.create_sqlite_connection()
 
-# Influx connection
-INFLUX_TOKEN = Config.INFLUX_TOKEN
-INFLUX_URL = Config.INFLUX_URL
-INFLUX_ORG = Config.INFLUX_ORG
-INFLUX_BUCKET = Config.INFLUX_BUCKET
-assert INFLUX_URL and INFLUX_TOKEN and INFLUX_ORG and INFLUX_BUCKET
+# influx connection
+influx_client = connections.create_influx_client()
 
-client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-write_api = client.write_api(write_options=SYNCHRONOUS)
-buckets_api = client.buckets_api()
+write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+buckets_api = influx_client.buckets_api()
 
-if not buckets_api.find_bucket_by_name(INFLUX_BUCKET):
-    buckets_api.create_bucket(bucket_name=INFLUX_BUCKET, org=INFLUX_ORG)
+if not buckets_api.find_bucket_by_name(Config.INFLUX_BUCKET):
+    buckets_api.create_bucket(bucket_name=Config.INFLUX_BUCKET, org=Config.INFLUX_ORG)
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -99,12 +80,10 @@ def load_to_influx(df, table_name):
     Loads a DataFrame into InfluxDB as a time series.
     Assumes wide format (periods x players).
     '''
-    assert INFLUX_BUCKET
-
     df = convert_to_timeseries(df)
 
     write_api.write(
-        bucket=INFLUX_BUCKET,
+        bucket=Config.INFLUX_BUCKET,
         record=df,
         data_frame_measurement_name=table_name,
         data_frame_field_name="value",
@@ -119,13 +98,13 @@ def load_to_sqlite(df, table_name, config):
         df = process(df)
 
     # create table schema first
-    conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+    sqlite_conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
     if len(config.get("schema", "").strip()) > 0:
-        conn.execute(config["schema"])
+        sqlite_conn.execute(config["schema"])
 
     # load data
-    df.to_sql(table_name, conn, if_exists='append', index=False)
+    df.to_sql(table_name, sqlite_conn, if_exists='append', index=False)
 
 
 def load_table_to_db(wb, table_name, config):
@@ -153,11 +132,8 @@ def load_all_tables(wb, table_instructions):
         print("done!")
 
 
-# load workbook
-wb = load_workbook(EXCEL_FILE_PATH, data_only=True)
-
 if __name__ == "__main__":
-    wb = load_workbook(EXCEL_FILE_PATH, data_only=True)
+    wb = load_workbook(Config.EXCEL_FILE_PATH, data_only=True)
 
     for table_name, config in table_instructions.items():
         print(f"Loading table: {table_name}...")
@@ -165,4 +141,5 @@ if __name__ == "__main__":
 
     print("done!")
 
-    conn.close()
+    sqlite_conn.close()
+    influx_client.close()
