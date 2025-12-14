@@ -77,7 +77,7 @@ table_instructions = {
         "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
         "schema": "",
         "transpose": True,
-        "process": lambda df: df[["player_id", "fixed_costs"]]
+        "process": lambda df: df[["player_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
     },
     "load": {
         "sheet_name": "Load",
