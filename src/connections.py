@@ -10,23 +10,15 @@ from config import Config
 # InfluxDB connection
 INFLUX_URL = Config.INFLUX_URL
 INFLUX_TOKEN = Config.INFLUX_TOKEN
-INFLUX_BUCKET = Config.INFLUX_BUCKET
 INFLUX_ORG = Config.INFLUX_ORG
-assert INFLUX_URL and INFLUX_TOKEN and INFLUX_ORG and INFLUX_BUCKET
-
-influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 
 # SQLite connection
 SQL_PATH = ROOT_DIR / "sqlite" / "energy.db"
 
-sqlite_conn = sqlite3.connect(SQL_PATH)
+def create_influx_client() -> InfluxDBClient:
+    assert INFLUX_URL and INFLUX_TOKEN and INFLUX_ORG
+    return InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 
-def get_influx_client() -> InfluxDBClient:
-    return influx_client
 
-def get_sqlite_connection() -> sqlite3.Connection:
-    return sqlite_conn
-
-def close_connections():
-    influx_client.close()
-    sqlite_conn.close()
+def create_sqlite_connection():
+    return sqlite3.connect(SQL_PATH)
