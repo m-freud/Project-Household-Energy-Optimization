@@ -1,5 +1,6 @@
 import sqlite3
 from influxdb_client.client.influxdb_client import InfluxDBClient
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 from src.config import Config
 
@@ -13,7 +14,7 @@ def get_influx_buckets_api():
 
 
 def get_influx_write_api():
-    return create_influx_client().write_api()
+    return create_influx_client().write_api(SYNCHRONOUS)
 
 
 def get_influx_query_api():
