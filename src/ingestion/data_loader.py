@@ -3,9 +3,6 @@ import numpy as np
 import datetime as dt
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
-from influxdb_client.client.influxdb_client import InfluxDBClient
-from influxdb_client.client.write_api import SYNCHRONOUS
-
 from src.ingestion.table_config import table_instructions
 import src.connections as connections
 from src.config import Config
@@ -15,10 +12,8 @@ from src.config import Config
 sqlite_conn = connections.create_sqlite_connection()
 
 # influx connection
-influx_client = connections.create_influx_client()
-
-write_api = influx_client.write_api(write_options=SYNCHRONOUS)
-buckets_api = influx_client.buckets_api()
+write_api = connections.get_influx_write_api()
+buckets_api = connections.get_influx_buckets_api()
 
 if not buckets_api.find_bucket_by_name(Config.INFLUX_BUCKET):
     buckets_api.create_bucket(bucket_name=Config.INFLUX_BUCKET, org=Config.INFLUX_ORG)
@@ -142,4 +137,3 @@ if __name__ == "__main__":
     print("done!")
 
     sqlite_conn.close()
-    influx_client.close()
