@@ -1,34 +1,29 @@
-import sys
-import sqlite3
-from pathlib import Path
-from influxdb_client.client.influxdb_client import InfluxDBClient
-
-# ROOT_DIR = Path(__file__).parent.parent.parent
-# sys.path.append(str(ROOT_DIR))
-
-
-from config import Config
-
-print(Config.INFLUX_URL)
-
-exit()
-from Simulation import Simulation
-
-
-import connections
-
+import src.connections as connections
+from src.simulation.Simulation import Simulation
 
 
 if __name__ == "__main__":
-    simulation = Simulation(sql_conn, influx_query_api, strategies)
-    # fetch everything. (*EEEEVERYTHING!!!*)
+    sqlite_conn = connections.create_sqlite_connection()
+    influx_query_api = connections.get_influx_query_api()
+
+    simulation = Simulation(
+        sqlite_conn=sqlite_conn,
+        influx_query_api=influx_query_api
+    )
+    # fetch everything.
     # you now have <250> Households with:
     # - Player (has load, ev1, ev2 profiles)
     # - PV (if any) (has pv profile)
     # - ESS (if any) (has ess characteristics)
     # 
 
-    simulation.run()
+    simulation.run_household()
     # this will simulate each strategy for each household
-    # and the results to influxdb. done
+    # and push the results to influxdb. done
+
+    # you can now marvel at you results in grafana
+    # or analyze them in a notebook!
+
+    # make your dreams come true!
+    # nothing is impossible!
 
