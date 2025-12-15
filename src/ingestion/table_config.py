@@ -33,18 +33,18 @@ TIME_SERIES_DEFAULT = {
 
 
 table_instructions = {
-    "player_pv_ess": {
+    "player_pv_bess": {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
         "transpose": False,
-        "df_column_names": ["player_id", "has_pv", "has_ess"],
+        "df_column_names": ["player_id", "has_pv", "has_bess"],
         "process": None,
         "time_series": False,
         "schema": """
-        CREATE TABLE IF NOT EXISTS player_pv_ess (
+        CREATE TABLE IF NOT EXISTS player_pv_bess (
             player_id INTEGER PRIMARY KEY,
             has_pv Boolean,
-            has_ess Boolean
+            has_bess Boolean
         )""",
     },
     "bess": {
@@ -53,7 +53,7 @@ table_instructions = {
         "df_column_names": ["player_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
         "schema": "",
         "transpose": True,
-        "process": lambda df: df.assign(model_id=lambda x: x.model_id.astype(int)) # ensure model_id is int for aesthetic reasons
+        "process": lambda df: df.assign(model_id=lambda x: x.model_id.astype(int)) # ensure model_id is int
     },
     "ev1": {
         "sheet_name": "EVs",
