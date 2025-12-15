@@ -1,12 +1,12 @@
 
-
 class PV:
-    def __init__(self, pv_profile):
-        self.pv_profile = pv_profile  # list of PV generation values over time
+    def __init__(self, pv_generation):
+        self.pv_generation = pv_generation  # list of PV generation values over time
 
+    @property
+    def generation(self):
+        return self.pv_generation
     
-    def get_generation(self, timestep):
-        if timestep < len(self.pv_profile):
-            return self.pv_profile[timestep]
-        else:
-            return 0  # No generation beyond the profile length
+    @generation.setter
+    def generation(self, pv_generation):
+        self.pv_generation = pv_generation

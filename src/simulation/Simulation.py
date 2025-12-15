@@ -1,5 +1,5 @@
 from src.config import Config
-from src.simulation.Household import Household
+from src.simulation.participants.Household import Household
 from src.simulation.participants.fixed.Player import Player
 from src.simulation.participants.fixed.PV import PV
 from src.simulation.participants.controllable.BESS import BESS
@@ -70,22 +70,33 @@ class Simulation:
             (player_id,)
         ).fetchone()
 
-        profiles_to_fetch = ["load", "ev1_load", "ev2_load", "buy_price", "sell_price"]
-        if has_pv:
-            profiles_to_fetch.append("pv_gen")
+        profiles_to_fetch = [
+            "load",
+            "pv_gen"
+            "ev1_load",
+            "ev2_load",
+            "buy_price",
+            "sell_price",
+            "ev1_buy_price",
+            "ev2_buy_price",
+            "ev1_at_home",
+            "ev2_at_home",
+            "ev1_at_charging_station",
+            "ev2_at_charging_station"
+        ]
 
-        # only query once for all profiles
+        # only query once for all profiles. the simulation now knows the future
         profiles = self.fetch_multiple_timeseries(
             player_id,
             profiles_to_fetch
         )
 
         # Player
-        household.add_player(Player(profiles["load"], profiles["ev1_load"], profiles["ev2_load"]))
+        household.player = Player(profiles["load"], profiles["ev1_load"], profiles["ev2_load"])
 
         # PV
         if has_pv:
-            household.add_pv(PV(profiles["pv_gen"]))
+            household.pv = PV(profiles["pv_gen"])
 
         # BESS
         if has_bess:
@@ -96,7 +107,7 @@ class Simulation:
 
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
 
-            household.add_bess(BESS(capacity, max_charge, max_discharge, efficiency, initial_soc))
+            household.bess = BESS(capacity, max_charge, max_discharge, efficiency, initial_soc)
 
         # EV1
         ev1_data = self.sqlite_cursor.execute(
@@ -104,7 +115,7 @@ class Simulation:
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
-        household.add_ev1(EV(capacity, max_charge, max_discharge, efficiency, initial_soc))
+        household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
 
         # EV2
         ev2_data = self.sqlite_cursor.execute(
@@ -112,34 +123,43 @@ class Simulation:
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
-        household.add_ev2(EV(capacity, max_charge, max_discharge, efficiency, initial_soc))
+        household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
 
         return household
 
 
-    def run_household(self, player_id):
-        # Implementation of the simulation logic goes here
+    def update_household(self, household: Household, time_step: int, policy=None):
+        # get current profiles
+        load = household.player.get_load()[time_step]
+        pv_gen = household.pv.get_generation()[time_step] if household.pv else 0
+
+        net_load = load - pv_gen
+
+        if policy:
+            bess_power, ev1_power, ev2_power = policy(time_step, household.profiles, household.bess, household.ev1, household.ev2) # what do we pass here?
+        else:
+            bess_power, ev1_power, ev2_power = 0, 0, 0
+
+        return net_load, bess_power, ev1_power, ev2_power, net_cost
+
+    def run_household(self, player_id, optimizer=None):
+        # create is part of run
         household = self.create_household(player_id)
 
-        # For each strategy, simulate the household behavior
-        for strategy in self.strategies:
-            break
+        for t in range(96):  # assuming 96 time steps (15-minute intervals in a day)
+            pass
 
-            #print(f"Simulating household {player_id} with strategy {strategy}")
-            # Here you would implement the actual simulation logic
-            # For now, we just print the action
-            #load_profile = household.generate_new_load_profile(strategy)
-            #print(f"Generated load profile for household {player_id} with strategy {strategy}: {load_profile}")
-
-            # and then load it to influxdb, with a nice tag structure.
+        return household
 
 
 
-    def run_all_households(self):
+
+
+
+
+    def run_all_households(self, strategy=None):
         for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id)
-
-
+            self.run_household(player_id, strategy)
 
 
 
