@@ -1,0 +1,41 @@
+@startuml household
+
+class Household {
+    - buy price
+    - sell price
+    - net_load
+    - net_cost
+}
+
+
+class Player {
+    - player_consumption
+    - ev1_consumption
+    - ev2_consumption
+}
+
+
+class PV {
+    - pv_gen
+}
+
+
+class BESS {
+    - soc
+}
+
+class EV {
+    - soc
+    - buy price
+}
+
+
+PV --> Household : pv_gen
+Player --> Household : player_consumption
+Player --> EV : ev_consumption
+BESS --> Household : bess_discharge
+Household --> BESS : bess_charge
+EV <-- Household : ev_charge
+
+
+@enduml

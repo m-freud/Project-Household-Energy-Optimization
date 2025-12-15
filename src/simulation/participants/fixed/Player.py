@@ -1,18 +1,25 @@
 
+
 class Player:
-    def __init__(self, load_profile=None, ev1_load_profile=None, ev2_load_profile=None):
-        self.load_profile = load_profile
-        self.ev1_load_profile = ev1_load_profile
-        self.ev2_load_profile = ev2_load_profile
+    def __init__(self, load=None, ev1_load=None, ev2_load=None):
+        self.load = load
+        self.ev1_load = ev1_load
+        self.ev2_load = ev2_load
 
+    def set_load(self, load):
+        self.load = load
 
-    def set_load_profile(self, profile):
-        self.load_profile = profile
+    def get_load(self):
+        return self.load
 
+    def set_ev1_load(self, ev1_load):
+        self.ev1_load = ev1_load
 
-    def set_ev1_load_profile(self, profile):
-        self.ev1_load_profile = profile
+    def get_ev1_load(self):
+        return self.ev1_load
 
+    def set_ev2_load(self, ev2_load):
+        self.ev2_load = ev2_load
 
-    def set_ev2_load_profile(self, profile):
-        self.ev2_load_profile = profile
+    def get_ev2_load(self):
+        return self.ev2_load
