@@ -1,5 +1,5 @@
 
-class Battery:
+class BESS:
     def __init__(self, capacity, max_charge, max_discharge, efficiency, initial_soc=0):
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
