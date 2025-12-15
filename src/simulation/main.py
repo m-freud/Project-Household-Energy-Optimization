@@ -5,10 +5,12 @@ from src.simulation.Simulation import Simulation
 if __name__ == "__main__":
     sqlite_conn = connections.create_sqlite_connection()
     influx_query_api = connections.get_influx_query_api()
+    strategies = ['none']
 
     simulation = Simulation(
         sqlite_conn=sqlite_conn,
-        influx_query_api=influx_query_api
+        influx_query_api=influx_query_api,
+        strategies=strategies
     )
     # fetch everything.
     # you now have <250> Households with:
@@ -17,7 +19,7 @@ if __name__ == "__main__":
     # - ESS (if any) (has ess characteristics)
     # 
 
-    simulation.run_household()
+    simulation.run_all_households()
     # this will simulate each strategy for each household
     # and push the results to influxdb. done
 

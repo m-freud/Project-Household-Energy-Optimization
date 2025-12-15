@@ -7,8 +7,8 @@ EV_COLUMNS = [
     "charge",
     "discharge",
     "efficiency",
-    "initial_battery_level",
-    "final_battery_level",
+    "initial_soc",
+    "final_soc",
     "consumption_per_km",
     "departure_period",
     "arrival_period",
@@ -83,7 +83,7 @@ table_instructions = {
         "sheet_name": "Load",
         **TIME_SERIES_DEFAULT
     },
-    "pv": {
+    "pv_gen": {
         "sheet_name": "PV",
         **TIME_SERIES_DEFAULT
     },
