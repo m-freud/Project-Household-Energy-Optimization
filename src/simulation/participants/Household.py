@@ -115,9 +115,9 @@ class Household:
         self.history["ev1_power"][self.time] = self.controls.get("ev1_power", 0)
         self.history["ev2_power"][self.time] = self.controls.get("ev2_power", 0)
 
-        self.history["total_generation"][self.time] = sum(self.history["pv_gen"]) if self.pv else 0
-        self.history["total_consumption"][self.time] = sum(self.history["net_load"])
-        self.history["total_cost"][self.time] = sum(self.history["cost"])
+        self.history["total_generation"][self.time] = sum(self.history["pv_gen"].values()) * 0.25 if self.pv else 0
+        self.history["total_consumption"][self.time] = sum(self.history["net_load"].values()) * 0.25
+        self.history["total_cost"][self.time] = sum(self.history["cost"].values()) * 0.25
 
 
     def plot_history(self):
@@ -139,13 +139,17 @@ class Household:
 
         import matplotlib.pyplot as plt
 
-    def plot_history_all(self):
+    def plot_history_all(self, plots=[]):
         import matplotlib.pyplot as plt
         plt.figure(figsize=(12, 6))
 
         for key, series in self.history.items():
             if not series:
                 continue
+
+            if plots and key not in plots:
+                continue
+
             t = list(series.keys())
             y = list(series.values())
             plt.plot(t, y, label=key)
