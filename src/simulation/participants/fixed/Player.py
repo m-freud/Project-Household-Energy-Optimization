@@ -1,7 +1,7 @@
 
 
 class Player:
-    def __init__(self, load=None, ev1_load=None, ev2_load=None):
+    def __init__(self, load=0, ev1_load=0, ev2_load=0):
         self.load = load
         self.ev1_load = ev1_load
         self.ev2_load = ev2_load

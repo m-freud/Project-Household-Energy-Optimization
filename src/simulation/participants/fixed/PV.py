@@ -1,12 +1,12 @@
 
 class PV:
-    def __init__(self, pv_generation):
-        self.pv_generation = pv_generation  # list of PV generation values over time
+    def __init__(self, generation=None):
+        self._generation = generation  # list of PV generation values over time
 
     @property
     def generation(self):
-        return self.pv_generation
+        return self._generation
     
     @generation.setter
     def generation(self, pv_generation):
-        self.pv_generation = pv_generation
+        self._generation = pv_generation
