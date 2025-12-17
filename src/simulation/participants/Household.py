@@ -23,13 +23,15 @@ class Household:
             "base_load": {},            
             "pv_gen": {},
             "bess_soc": {},
-            "ev1_soc": {},
-            "ev2_soc": {},
             "buy_price": {},
             "sell_price": {},
             "net_load": {},
             "cost": {},
             "bess_power": {},
+            "ev1_soc": {},
+            "ev2_soc": {},
+            "ev1_load": {},
+            "ev2_load": {},
             "ev1_power": {},
             "ev2_power": {},
             "total_generation": {},
@@ -92,17 +94,21 @@ class Household:
         if self.bess:
             self.history["bess_soc"][self.time] = self.bess.soc
         else:
-            self.history["bess_soc"][self.time] = None
+            self.history["bess_soc"][self.time] = 0
 
         if self.ev1:
             self.history["ev1_soc"][self.time] = self.ev1.soc
+            self.history["ev1_load"][self.time] = self.ev1.load
         else:
-            self.history["ev1_soc"][self.time] = None
+            self.history["ev1_soc"][self.time] = 0
+            self.history["ev1_load"][self.time] = 0
 
         if self.ev2:
             self.history["ev2_soc"][self.time] = self.ev2.soc
+            self.history["ev2_load"][self.time] = self.ev2.load
         else:
-            self.history["ev2_soc"][self.time] = None
+            self.history["ev2_soc"][self.time] = 0
+            self.history["ev2_load"][self.time] = 0
 
         self.history["buy_price"][self.time] = self.buy_price
         self.history["sell_price"][self.time] = self.sell_price
