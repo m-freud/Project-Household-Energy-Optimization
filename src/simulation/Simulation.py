@@ -4,7 +4,7 @@ from src.simulation.participants.fixed.Player import Player
 from src.simulation.participants.fixed.PV import PV
 from src.simulation.participants.controllable.BESS import BESS
 from src.simulation.participants.controllable.EV import EV
-from src.simulation.controller.policies.policies import basic_battery, basic_ev_charging, basic_ev_bess
+from src.simulation.controller.policies.policies import basic_battery, basic_ev_charging, basic_ev_bess, random_policy
 
 
 class Simulation:
@@ -206,8 +206,8 @@ if __name__ == "__main__":
         influx_query_api=influx_query_api
     )
 
-    household = simulation.run_household(1, policy=basic_ev_bess)
+    household = simulation.run_household(1, policy=random_policy)
     household.plot_history_all(plots=[])
     # household.plot_history()
-    # household.plot_history_all(plots=['pv_gen', 'total_generation'])
+    # household.plot_history_all(plots=['ev1_load', 'ev1_power', 'ev1_soc', 'bess_power', 'bess_soc'])
     # household.plot_history_all(plots=['load', 'bess_soc', 'ev1_soc', 'ev2_soc'])

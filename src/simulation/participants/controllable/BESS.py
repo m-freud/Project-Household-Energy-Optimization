@@ -16,7 +16,7 @@ class BESS:
             self._soc = max(0, min(value, self.capacity))
 
     def charge(self, power, duration_hours):
-        charge_power = min(power, self.max_charge)
+        charge_power = min(power, self.max_charge / (duration_hours * self.efficiency))
         energy_added = charge_power * duration_hours * self.efficiency
         self.soc = min(self.capacity, self.soc + energy_added)
         return energy_added
