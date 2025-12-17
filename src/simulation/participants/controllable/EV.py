@@ -1,7 +1,7 @@
 
 
 class EV:
-    def __init__(self, capacity, max_charge, max_discharge, efficiency, soc=0, load=0, at_home=True, at_charging_station=False):
+    def __init__(self, capacity, max_charge, max_discharge, efficiency, soc=0, load=0, at_home=False, at_charging_station=False):
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
         self.max_discharge = max_discharge  # in kW (per hour)
@@ -13,7 +13,7 @@ class EV:
         self._buy_price = 0.0  # current (white) power price for charging
 
     def charge(self, power, duration_hours):
-        charge_power = min(power, self.max_charge)
+        charge_power = min(power, self.max_charge / (duration_hours * self.efficiency))
         energy_added = charge_power * duration_hours * self.efficiency
         self.soc = min(self.capacity, self.soc + energy_added)
         return energy_added

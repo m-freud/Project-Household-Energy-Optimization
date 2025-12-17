@@ -1,6 +1,6 @@
 
 class PV:
-    def __init__(self, generation=None):
+    def __init__(self, generation=0):
         self._generation = generation  # list of PV generation values over time
 
     @property

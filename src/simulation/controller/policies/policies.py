@@ -1,6 +1,6 @@
 from src.simulation.participants.Household import Household
 
-def no_control_policy(household:Household):
+def no_control_policy(household:Household, t):
     """A policy that does not control anything, all controls are set to zero."""
     controls = {
         "bess_power": 0.0,
@@ -11,7 +11,7 @@ def no_control_policy(household:Household):
     return controls
 
 
-def random_policy(household:Household):
+def random_policy(household:Household, t):
     """A policy that sets random controls within the allowed limits."""
     import random
 
@@ -110,22 +110,22 @@ def basic_ev_charging(household:Household):
         if household.ev1.at_charging_station:
             # charge if buy price at charging station is lower than at home
             if household.ev1.buy_price < household.buy_price:
-                controls["ev1_power"] = min(household.ev1.max_charge, household.ev1.capacity - household.ev1.soc)
+                controls["ev1_power"] = min(household.ev1.max_charge, (household.ev1.capacity - household.ev1.soc) / household.ev1.efficiency)
         elif household.ev1.at_home:
             # charge if buy price at home is lower than at charging station
             if household.ev1.buy_price < household.ev1.buy_price:
-                controls["ev1_power"] = min(household.ev1.max_charge, household.ev1.capacity - household.ev1.soc)
+                controls["ev1_power"] = min(household.ev1.max_charge, (household.ev1.capacity - household.ev1.soc) / household.ev1.efficiency)
 
     # EV2
     if household.ev2:
         if household.ev2.at_charging_station:
             # charge if buy price at charging station is lower than at home
             if household.ev2.buy_price < household.buy_price:
-                controls["ev2_power"] = min(household.ev2.max_charge, household.ev2.capacity - household.ev2.soc)
+                controls["ev2_power"] = min(household.ev2.max_charge, (household.ev2.capacity - household.ev2.soc) / household.ev2.efficiency)
         elif household.ev2.at_home:
             # charge if buy price at home is lower than at charging station
             if household.ev2.buy_price < household.ev2.buy_price:
-                controls["ev2_power"] = min(household.ev2.max_charge, household.ev2.capacity - household.ev2.soc)
+                controls["ev2_power"] = min(household.ev2.max_charge, (household.ev2.capacity - household.ev2.soc) / household.ev2.efficiency)
 
     return controls
 
