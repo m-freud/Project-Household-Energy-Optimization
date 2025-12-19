@@ -190,6 +190,8 @@ class Simulation:
         for t in range(start_time, self.num_timesteps):
             self.step(household, policy=policy, duration_hours=0.25, time=t)
 
+        self.load_history_to_influx(household, measurement_prefix=f"h{player_id}_{policy.__name__}")
+
         return household
     
 
@@ -206,20 +208,23 @@ class Simulation:
                 "ev2_power",
             ]
             
+        points = []
+
         for m in measurements:
             full_measurement = f"{measurement_prefix}_{m}"
             for t, value in household.history[m].items():
-                point = {
+                points.append({
                     "measurement": full_measurement,
-                    "tags": {
-                        "player_id": f"{household.player_id}",
-                    },
-                    "fields": {
-                        "value": value
-                    },
-                    "time": period_to_epoch(t)  # assuming t is in a format acceptable by InfluxDB
-                }
-                self.influx_write_api.write(bucket=Config.INFLUX_BUCKET, org=Config.INFLUX_ORG, record=point)
+                    "tags": {"player_id": str(household.player_id)},
+                    "fields": {"value": value},
+                    "time": period_to_epoch(t),
+                })
+
+        self.influx_write_api.write(
+            bucket=Config.INFLUX_BUCKET,
+            org=Config.INFLUX_ORG,
+            record=points
+)
 
 
 if __name__ == "__main__":
@@ -232,9 +237,6 @@ if __name__ == "__main__":
         influx_client=influx_client
     )
 
-
-
-    for i in range(1, 2):
-        household = simulation.run_household(i, policy=basic_ev_bess)
-        household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])
-        simulation.load_history_to_influx(household, measurement_prefix=f"h{i}_basic_ev_bess")
+    player_id = 1
+    household = simulation.run_household(player_id, policy=basic_ev_bess)
+    household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])
