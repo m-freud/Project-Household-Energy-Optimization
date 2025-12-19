@@ -30,11 +30,13 @@ class Simulation:
             "ev2_buy_price",
         ]
 
-        self.household_profiles = {} # store profiles for current household being simulated
-        # the simulation knows the whole day.
-        # the household knows the day up to current timestep
+        self.household_profiles = {} 
 
-        self.timestep_current_run = 0  # current timestep in the simulation.
+        self.histories = {
+            "passive": {},
+        } # store histories for all households if needed
+
+        self.time = 0  # current timestep in the simulation.
 
 
     def fetch_single_timeseries(self, player_id, measurement):
@@ -82,7 +84,7 @@ class Simulation:
 
 
     def create_household(self, player_id, start_time=0):
-        household = Household()
+        household = Household(start_time=start_time)
 
         has_pv, has_bess = self.sqlite_cursor.execute(
             "SELECT has_pv, has_bess FROM player_pv_bess WHERE player_id = ?",
@@ -92,17 +94,14 @@ class Simulation:
         # only query once for all profiles. the simulation now knows the future
         self.household_profiles = self.fetch_multiple_timeseries(
             player_id,
-            self.exogenous_inputs
+            self.env_inputs
         )
 
-        # Player
-        household.player = Player()
-
-        # PV
+        # plug in PV
         if has_pv:
             household.pv = PV()
 
-        # BESS
+        # plug in BESS
         if has_bess:
             bess_data = self.sqlite_cursor.execute(
                 "SELECT capacity, charge, discharge, efficiency, initial_soc FROM bess WHERE player_id = ?",
@@ -112,7 +111,7 @@ class Simulation:
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
             household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc)
 
-        # EV1
+        # plug in EV1
         ev1_data = self.sqlite_cursor.execute(
             "SELECT capacity, charge, discharge, efficiency, initial_soc FROM ev1 WHERE player_id = ?",
             (player_id,)
@@ -120,7 +119,7 @@ class Simulation:
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
 
-        # EV2
+        # plug in EV2
         ev2_data = self.sqlite_cursor.execute(
             "SELECT capacity, charge, discharge, efficiency, initial_soc FROM ev2 WHERE player_id = ?",
             (player_id,)
@@ -132,67 +131,50 @@ class Simulation:
 
 
     def update_household(self, household: Household):
-        # update all participants based on current timestep.
-        # step 1: get exogenous inputs for this timestep (give current situation to household)
-        # step 2: update controllable participants based on policy (household sets controls based on situation and policy)
+        # update time
+        household.time = self.time
 
-        time = self.timestep_current_run
-        household.time = time
-
-        # exogenous inputs
-        # update player
-        if household.player:
-            household.player.load = self.household_profiles["load"][time]
+        # update base load
+        household.base_load = self.household_profiles["load"][household.time]
         
         # update pv
         if household.pv:
-            household.pv.generation = self.household_profiles["pv_gen"][time]
+            household.pv.generation = self.household_profiles["pv_gen"][household.time]
 
         # update ev1
         if household.ev1:
-            household.ev1.load = self.household_profiles["ev1_load"][time]
-            household.ev1.at_home = self.household_profiles["ev1_at_home"][time]
-            household.ev1.at_charging_station = self.household_profiles["ev1_at_charging_station"][time]
+            household.ev1.load = self.household_profiles["ev1_load"][household.time]
+            household.ev1.at_home = self.household_profiles["ev1_at_home"][household.time]
+            household.ev1.at_charging_station = self.household_profiles["ev1_at_charging_station"][household.time]
 
         # update ev2
         if household.ev2:
-            household.ev2.load = self.household_profiles["ev2_load"][time]
-            household.ev2.at_home = self.household_profiles["ev2_at_home"][time]
-            household.ev2.at_charging_station = self.household_profiles["ev2_at_charging_station"][time]
+            household.ev2.load = self.household_profiles["ev2_load"][household.time]
+            household.ev2.at_home = self.household_profiles["ev2_at_home"][household.time]
+            household.ev2.at_charging_station = self.household_profiles["ev2_at_charging_station"][household.time]
 
         # update buy / sell prices
-        household.buy_price = self.household_profiles["buy_price"][time]
-        household.sell_price = self.household_profiles["sell_price"][time]
-
-        self.timestep_current_run += 1
+        household.buy_price = self.household_profiles["buy_price"][household.time]
+        household.sell_price = self.household_profiles["sell_price"][household.time]
 
 
-    def run_household(self, player_id, policy):
-        household = self.create_household(player_id)
+    def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
+        self.time = time
+        self.update_household(household)
 
-        for t in range(96):
-            self.timestep_current_run = t
+        controls = policy(household, household.time)
+        household.apply_controls(controls, duration_hours=duration_hours)
 
-            # 1️⃣ exogen
-            self.update_household(household)
+        household.update_history()
 
-            # 2️⃣ decide
-            controls = policy(household, t)
 
-            # 3️⃣ apply physics
-            household.set_controls(controls)
-            household.apply_controls(duration_hours=0.25)
+    def run_household(self, player_id, policy=no_control, start_time=0):
+        household = self.create_household(player_id, start_time)
 
-            # 4️⃣ log
-            household.update_history()
+        for t in range(start_time, self.num_timesteps):
+            self.step(household, policy=policy, duration_hours=0.25, time=t)
 
         return household
-
-
-
-    def run_all_households(self, policy=None):
-        for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, policy)
 
 
 if __name__ == "__main__":
@@ -205,7 +187,12 @@ if __name__ == "__main__":
         influx_query_api=influx_query_api
     )
 
-    household = simulation.run_household(1, policy=random_policy)
+    # print(simulation.fetch_single_timeseries(
+    #     player_id="player_1",
+    #     measurement="ev2_at_home"
+    # ))
+
+    household = simulation.run_household(1, policy=random_control)
     household.plot_history_all(plots=[])
     # household.plot_history()
     # household.plot_history_all(plots=['ev1_load', 'ev1_power', 'ev1_soc', 'bess_power', 'bess_soc'])
