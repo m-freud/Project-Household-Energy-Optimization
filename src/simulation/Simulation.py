@@ -1,10 +1,9 @@
 from src.config import Config
-from src.simulation.participants.Household import Household
-from src.simulation.participants.fixed.Player import Player
-from src.simulation.participants.fixed.PV import PV
-from src.simulation.participants.controllable.BESS import BESS
-from src.simulation.participants.controllable.EV import EV
-from src.simulation.controller.policies.policies import basic_battery, basic_ev_charging, basic_ev_bess, random_policy
+from src.simulation.Household import Household
+from src.simulation.components.PV import PV
+from src.simulation.components.BESS import BESS
+from src.simulation.components.EV import EV
+from src.simulation.controller.policies.basic import no_control, random_control
 
 
 class Simulation:
@@ -12,23 +11,23 @@ class Simulation:
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.influx_query_api = influx_query_api
-        # query the length of the player_pv_bess table
-        self.sqlite_cursor.execute("SELECT COUNT(*) FROM player_pv_bess")
-        self.num_households = self.sqlite_cursor.fetchone()[0]
+        
+        self.num_households = 250
+        self.num_timesteps = 96
 
-        self.exogenous_inputs = [
+        self.env_inputs = [
             "load",
             "pv_gen",
             "ev1_load",
             "ev2_load",
             "buy_price",
             "sell_price",
-            "ev1_buy_price",
-            "ev2_buy_price",
             "ev1_at_home",
-            "ev2_at_home",
             "ev1_at_charging_station",
-            "ev2_at_charging_station"
+            "ev1_buy_price",
+            "ev2_at_home",
+            "ev2_at_charging_station",
+            "ev2_buy_price",
         ]
 
         self.household_profiles = {} # store profiles for current household being simulated
