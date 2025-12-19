@@ -1,34 +1,11 @@
-from src.simulation.participants.Household import Household
-
-def no_control_policy(household:Household, t):
-    """A policy that does not control anything, all controls are set to zero."""
-    controls = {
-        "bess_power": 0.0,
-        "ev1_power": 0.0,
-        "ev2_power": 0.0,
-    }
-
-    return controls
-
-
-def random_policy(household:Household, t):
-    """A policy that sets random controls within the allowed limits."""
-    import random
-
-    controls = {
-        "bess_power": random.uniform(-household.bess.max_discharge, household.bess.max_charge) if household.bess else 0.0,
-        "ev1_power": random.uniform(0, household.ev1.max_charge) if household.ev1 else 0.0,
-        "ev2_power": random.uniform(0, household.ev2.max_charge) if household.ev2 else 0.0,
-    }
-
-    return controls
+from src.simulation.Household import Household
 
 # here we add increasingly complex policies, depending on more and more inputs.
 # once we use all inputs we can start adding learning-based policies, and genetic algorithms if feasible (probably not. but at some point you know)
 
 # so we have these inputs to work with:
 '''        
-self.exogenous_inputs = [
+self.env_inputs = [
             "load",
             "pv_gen",
             "ev1_load",
@@ -46,7 +23,7 @@ self.exogenous_inputs = [
 
 # we can also expand them to get 
 '''
-exogenous net load,
+ net load,
 pv generation forecast,
 buy price forecast,
 ...
@@ -77,7 +54,7 @@ def basic_battery(household:Household):
     }
 
     pv_generation = household.pv.generation if household.pv else 0
-    load = household.player.load if household.player else 0
+    load = household.base_load
     net_load = load - pv_generation
 
     if net_load < 0 and household.bess:
@@ -139,7 +116,7 @@ def basic_ev_bess(household:Household, time=0):
 
     # subtract ev charging power from bess power if both are charging
     pv_generation = household.pv.generation if household.pv else 0
-    player_load = household.player.load if household.player else 0
+    base_load = household.base_load
 
     ev_load = 0
     if household.ev1 and household.ev1.at_home:
@@ -147,7 +124,7 @@ def basic_ev_bess(household:Household, time=0):
     if household.ev2 and household.ev2.at_home:
         ev_load += controls["ev2_power"]
 
-    net_load = player_load + ev_load - pv_generation
+    net_load = base_load + ev_load - pv_generation
 
     if net_load < 0 and household.bess:
         excess = -net_load
@@ -163,5 +140,3 @@ def basic_ev_bess(household:Household, time=0):
 
 
 
-
-    
