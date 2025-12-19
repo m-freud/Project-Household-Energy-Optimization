@@ -3,7 +3,8 @@ from src.simulation.Household import Household
 from src.simulation.components.PV import PV
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
-from src.simulation.controller.policies.basic import no_control, random_control
+from src.simulation.policies.basic import no_control, random_control
+from src.simulation.policies.rule_based import basic_battery, basic_ev_charging, basic_ev_bess
 
 
 class Simulation:
@@ -187,13 +188,8 @@ if __name__ == "__main__":
         influx_query_api=influx_query_api
     )
 
-    # print(simulation.fetch_single_timeseries(
-    #     player_id="player_1",
-    #     measurement="ev2_at_home"
-    # ))
-
-    household = simulation.run_household(1, policy=random_control)
-    household.plot_history_all(plots=[])
+    household = simulation.run_household(1, policy=basic_battery)
+    # household.plot_history_all(plots=[])
     # household.plot_history()
-    # household.plot_history_all(plots=['ev1_load', 'ev1_power', 'ev1_soc', 'bess_power', 'bess_soc'])
+    household.plot_history_all(plots=['total_generation', 'net_load','bess_soc'])
     # household.plot_history_all(plots=['load', 'bess_soc', 'ev1_soc', 'ev2_soc'])

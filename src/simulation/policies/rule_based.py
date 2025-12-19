@@ -36,7 +36,7 @@ buy price forecast,
 # we can start with simple rule-based policies, then move to optimization-based policies (MPC), and finally learning-based policies (RL, GA, etc.)
 
 # Example of a simple rule-based policy
-def basic_battery(household:Household):
+def basic_battery(household:Household, t=0):
     '''
     if there is excess PV generation, charge the BESS
     if there is a deficit, discharge the BESS
@@ -70,7 +70,7 @@ def basic_battery(household:Household):
     return controls
 
 
-def basic_ev_charging(household:Household):
+def basic_ev_charging(household:Household, t=0):
     '''
     Simple EV charging policy:
     at charging station: charge if cheaper than at home so far
@@ -107,7 +107,7 @@ def basic_ev_charging(household:Household):
     return controls
 
 
-def basic_ev_bess(household:Household, time=0):
+def basic_ev_bess(household:Household, t=0):
     '''
     Combined policy based on priority:
     charge ev first, then battery
@@ -137,6 +137,3 @@ def basic_ev_bess(household:Household, time=0):
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
-
-
-
