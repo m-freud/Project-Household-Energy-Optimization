@@ -191,6 +191,35 @@ class Simulation:
             self.step(household, policy=policy, duration_hours=0.25, time=t)
 
         return household
+    
+
+    def load_history_to_influx(self, household: Household, measurement_prefix="h1_basic_bess", measurements=None):
+        if measurements is None:
+            measurements = [
+                "total_cost",
+                "pv_gen",
+                "bess_soc",
+                "bess_power",
+                "ev1_soc",
+                "ev1_power",
+                "ev2_soc",
+                "ev2_power",
+            ]
+            
+        for m in measurements:
+            full_measurement = f"{measurement_prefix}_{m}"
+            for t, value in household.history[m].items():
+                point = {
+                    "measurement": full_measurement,
+                    "tags": {
+                        "player_id": f"{household.player_id}",
+                    },
+                    "fields": {
+                        "value": value
+                    },
+                    "time": period_to_epoch(t)  # assuming t is in a format acceptable by InfluxDB
+                }
+                self.influx_write_api.write(bucket=Config.INFLUX_BUCKET, org=Config.INFLUX_ORG, record=point)
 
 
 if __name__ == "__main__":
@@ -208,3 +237,4 @@ if __name__ == "__main__":
     for i in range(1, 2):
         household = simulation.run_household(i, policy=basic_ev_bess)
         household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])
+        simulation.load_history_to_influx(household, measurement_prefix=f"h{i}_basic_ev_bess")

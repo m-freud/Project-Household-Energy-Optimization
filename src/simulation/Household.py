@@ -182,6 +182,7 @@ class Household:
         plt.tight_layout()
         plt.show()
 
+
     @property
     def net_cost(self):
         if self.net_load > 0:
