@@ -4,14 +4,18 @@ from src.simulation.components.PV import PV
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.policies.basic import no_control, random_control
-from src.simulation.policies.rule_based import basic_battery, basic_ev, basic_ev_bess
+from src.simulation.policies.rule_based import basic_bess, basic_ev, basic_ev_bess
+from src.ingestion.data_loader import period_to_epoch
+
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, influx_query_api): # it makes sense to pass multiple policies here. we get more runs with the same query
+    def __init__(self, sqlite_conn, influx_client):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
-        self.influx_query_api = influx_query_api
+        self.influx_query_api = influx_client.query_api()
+        self.influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
         
         self.num_households = 250
         self.num_timesteps = 96
@@ -87,7 +91,12 @@ class Simulation:
 
 
     def create_household(self, player_id, start_time=0):
-        household = Household(start_time=start_time)
+        household = Household(player_id=player_id, start_time=start_time)
+
+        household.fixed_cost = self.sqlite_cursor.execute(
+            "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
+            (player_id,)
+        ).fetchone()[0]
 
         has_pv, has_bess = self.sqlite_cursor.execute(
             "SELECT has_pv, has_bess FROM player_pv_bess WHERE player_id = ?",
@@ -187,13 +196,15 @@ class Simulation:
 if __name__ == "__main__":
     import src.connections as connections
     sqlite_conn = connections.create_sqlite_connection()
-    influx_query_api = connections.get_influx_query_api()
+    influx_client = connections.create_influx_client()
 
     simulation = Simulation(
         sqlite_conn=sqlite_conn,
-        influx_query_api=influx_query_api
+        influx_client=influx_client
     )
 
-    for i in range(100, 105):
+
+
+    for i in range(1, 2):
         household = simulation.run_household(i, policy=basic_ev_bess)
         household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])

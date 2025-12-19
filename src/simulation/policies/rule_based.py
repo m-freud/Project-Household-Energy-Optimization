@@ -36,7 +36,7 @@ buy price forecast,
 # we can start with simple rule-based policies, then move to optimization-based policies (MPC), and finally learning-based policies (RL, GA, etc.)
 
 # Example of a simple rule-based policy
-def basic_battery(household:Household, t=0):
+def basic_bess(household:Household, t=0):
     '''
     if there is excess PV generation, charge the BESS
     if there is a deficit, discharge the BESS

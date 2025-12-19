@@ -4,9 +4,10 @@ from src.simulation.components.EV import EV
 
 
 class Household:
-    def __init__(self, start_time=0, pv=None, bess=None, ev1=None, ev2=None):
+    def __init__(self, player_id=1, start_time=0, pv=None, bess=None, ev1=None, ev2=None, fixed_cost=0.0):
         # timing info
         self.time = start_time  # start time of the simulation for this household
+        self.player_id = player_id
 
         # you can create empty or full
         self.pv = pv
@@ -17,6 +18,7 @@ class Household:
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity
         self.sell_price = 0.0  # current sell price for electricity
+        self.fixed_cost = fixed_cost  # fixed cost per day
 
         self.history = {
             "base_load": {},            
@@ -207,4 +209,4 @@ class Household:
     
     @property
     def total_cost(self):
-        return sum(self.history["net_cost"].values()) * 0.25
+        return sum(self.history["net_cost"].values()) * 0.25 + self.fixed_cost
