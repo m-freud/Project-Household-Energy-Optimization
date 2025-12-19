@@ -29,6 +29,10 @@ class Household:
             "bess_power": {},
             "ev1_soc": {},
             "ev2_soc": {},
+            "ev1_at_home": {},
+            "ev2_at_home": {},
+            "ev1_at_charging_station": {},
+            "ev2_at_charging_station": {},
             "ev1_load": {},
             "ev2_load": {},
             "ev1_power": {},
@@ -100,17 +104,25 @@ class Household:
         if self.ev1:
             self.history["ev1_soc"][self.time] = self.ev1.soc
             self.history["ev1_load"][self.time] = self.ev1.load
+            self.history["ev1_at_home"][self.time] = int(self.ev1.at_home)
+            self.history["ev1_at_charging_station"][self.time] = int(self.ev1.at_charging_station)
         else:
             self.history["ev1_soc"][self.time] = 0
             self.history["ev1_load"][self.time] = 0
+            self.history["ev1_at_home"][self.time] = 0
+            self.history["ev1_at_charging_station"][self.time] = 0
 
         # EV2
         if self.ev2:
             self.history["ev2_soc"][self.time] = self.ev2.soc
             self.history["ev2_load"][self.time] = self.ev2.load
+            self.history["ev2_at_home"][self.time] = int(self.ev2.at_home)
+            self.history["ev2_at_charging_station"][self.time] = int(self.ev2.at_charging_station)
         else:
             self.history["ev2_soc"][self.time] = 0
             self.history["ev2_load"][self.time] = 0
+            self.history["ev2_at_home"][self.time] = 0
+            self.history["ev2_at_charging_station"][self.time] = 0
 
         # controls
         for control_key in self.controls:
