@@ -180,14 +180,12 @@ class Household:
         plt.tight_layout()
         plt.show()
 
-
     @property
     def net_cost(self):
         if self.net_load > 0:
             return self.net_load * self.buy_price
         else:
             return self.net_load * -self.sell_price
-
 
     @property
     def net_load(self):

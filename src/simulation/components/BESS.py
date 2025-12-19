@@ -7,22 +7,25 @@ class BESS:
         self.efficiency = efficiency  # as a decimal
         self.soc = soc  # state of charge in kWh
 
-        @property
-        def soc(self):
-            return self._soc
 
-        @soc.setter
-        def soc(self, value):
-            self._soc = max(0, min(value, self.capacity))
-
-    def charge(self, power, duration_hours):
-        charge_power = min(power, self.max_charge / (duration_hours * self.efficiency))
-        energy_added = charge_power * duration_hours * self.efficiency
-        self.soc = min(self.capacity, self.soc + energy_added)
+    def charge(self, power, duration):
+        charge_power = min(power, self.max_charge)
+        energy_added = charge_power * duration * self.efficiency
+        self.soc += energy_added
         return energy_added
+
     
-    def discharge(self, power, duration_hours):
+    def discharge(self, power, duration):
         discharge_power = min(power, self.max_discharge)
-        energy_removed = discharge_power * duration_hours / self.efficiency
+        energy_removed = discharge_power * duration / self.efficiency
         self.soc = max(0, self.soc - energy_removed)
         return energy_removed
+
+
+    @property
+    def soc(self):
+        return self._soc
+
+    @soc.setter
+    def soc(self, value):
+        self._soc = max(0, min(value, self.capacity))
