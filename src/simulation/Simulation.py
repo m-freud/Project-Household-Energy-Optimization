@@ -4,7 +4,7 @@ from src.simulation.components.PV import PV
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.policies.basic import no_control, random_control
-from src.simulation.policies.rule_based import basic_battery, basic_ev_charging, basic_ev_bess
+from src.simulation.policies.rule_based import basic_battery, basic_ev, basic_ev_bess
 
 
 class Simulation:
@@ -16,7 +16,7 @@ class Simulation:
         self.num_households = 250
         self.num_timesteps = 96
 
-        self.env_inputs = [
+        self.env_inputs = [ # influx table names
             "load",
             "pv_gen",
             "ev1_load",
@@ -26,9 +26,11 @@ class Simulation:
             "ev1_at_home",
             "ev1_at_charging_station",
             "ev1_buy_price",
+            "ev1_max_charge",
             "ev2_at_home",
             "ev2_at_charging_station",
             "ev2_buy_price",
+            "ev2_max_charge",
         ]
 
         self.household_profiles = {} 
@@ -95,7 +97,7 @@ class Simulation:
         # only query once for all profiles. the simulation now knows the future
         self.household_profiles = self.fetch_multiple_timeseries(
             player_id,
-            self.env_inputs
+            measurements=self.env_inputs
         )
 
         # plug in PV
@@ -147,12 +149,16 @@ class Simulation:
             household.ev1.load = self.household_profiles["ev1_load"][household.time]
             household.ev1.at_home = self.household_profiles["ev1_at_home"][household.time]
             household.ev1.at_charging_station = self.household_profiles["ev1_at_charging_station"][household.time]
+            household.ev1.buy_price = self.household_profiles["ev1_buy_price"][household.time]
+            household.ev1.max_charge = self.household_profiles["ev1_max_charge"][household.time]
 
         # update ev2
         if household.ev2:
             household.ev2.load = self.household_profiles["ev2_load"][household.time]
             household.ev2.at_home = self.household_profiles["ev2_at_home"][household.time]
             household.ev2.at_charging_station = self.household_profiles["ev2_at_charging_station"][household.time]
+            household.ev2.buy_price = self.household_profiles["ev2_buy_price"][household.time]
+            household.ev2.max_charge = self.household_profiles["ev2_max_charge"][household.time]
 
         # update buy / sell prices
         household.buy_price = self.household_profiles["buy_price"][household.time]
@@ -188,8 +194,6 @@ if __name__ == "__main__":
         influx_query_api=influx_query_api
     )
 
-    household = simulation.run_household(1, policy=basic_battery)
-    # household.plot_history_all(plots=[])
-    # household.plot_history()
-    household.plot_history_all(plots=['total_generation', 'net_load','bess_soc'])
-    # household.plot_history_all(plots=['load', 'bess_soc', 'ev1_soc', 'ev2_soc'])
+    for i in range(100, 105):
+        household = simulation.run_household(i, policy=basic_ev_bess)
+        household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])

@@ -27,12 +27,10 @@ class EV:
         self.soc = max(0, self.soc - energy_removed)
 
         return energy_removed
-
     
     @property
     def soc(self):
         return self._soc
-    
 
     @soc.setter
     def soc(self, value):

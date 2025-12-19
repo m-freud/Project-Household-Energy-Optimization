@@ -111,11 +111,11 @@ table_instructions = {
         "sheet_name": "EV2 Load",
         **TIME_SERIES_DEFAULT
     },
-    "ev1_max_discharge": {
+    "ev1_max_charge": {
         "sheet_name": "Max EV1 Dis-Charge",
         **TIME_SERIES_DEFAULT
     },
-    "ev2_max_discharge": {
+    "ev2_max_charge": {
         "sheet_name": "Max EV2 Dis-Charge",
         **TIME_SERIES_DEFAULT
     },
