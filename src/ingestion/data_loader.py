@@ -122,18 +122,15 @@ def load_table_to_db(wb, table_name, config):
 
 def load_all_tables(wb, table_instructions):
     for table_name, config in table_instructions.items():
-        print(f"Loading table: {table_name}...")
+        destination = "InfluxDB" if config.get("time_series") else "SQLite"
+        print(f"Loading table: {table_name} to {destination}...")
         load_table_to_db(wb, table_name, config)
-        print("done!")
+    print("done!")
 
 
 if __name__ == "__main__":
     wb = load_workbook(Config.EXCEL_FILE_PATH, data_only=True)
 
-    for table_name, config in table_instructions.items():
-        print(f"Loading table: {table_name}...")
-        load_table_to_db(wb, table_name, config)
-
-    print("done!")
+    load_all_tables(wb, table_instructions)
 
     sqlite_conn.close()
