@@ -1,13 +1,12 @@
+from influxdb_client.client.write_api import SYNCHRONOUS
 from src.config import Config
-from src.simulation.Household import Household
-from src.simulation.components.PV import PV
+from src.connections import fetch_multiple_timeseries
+from src.ingestion.data_loader import period_to_epoch
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
-from src.simulation.policies.basic import no_control, random_control
-from src.simulation.policies.rule_based import basic_bess, basic_ev, basic_ev_bess
-from src.ingestion.data_loader import period_to_epoch
-
-from influxdb_client.client.write_api import SYNCHRONOUS
+from src.simulation.components.PV import PV
+from src.simulation.household import Household
+from src.simulation.policies.basic import no_control
 
 
 class Simulation:
@@ -45,49 +44,33 @@ class Simulation:
 
         self.time = 0  # current timestep in the simulation.
 
-
-    def fetch_single_timeseries(self, player_id, measurement):
-        # implement influx query to fetch timeseries data for given player_id and measurement
-        query = f'''
-        from(bucket: "{Config.INFLUX_BUCKET}")
-          |> range(start: 0)
-          |> filter(fn: (r) => r["player_id"] == "{player_id}")
-          |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-          |> sort(columns: ["_time"])
-        '''
-        result = self.influx_query_api.query(org=Config.INFLUX_ORG, query=query)
-
-        timeseries = []
-
-        for record in result[0]:
-            timeseries.append(record.get_value())
-
-        return timeseries
-
-
-    def fetch_multiple_timeseries(self, player_id, measurements:list):
-        timeseries_data = {m: [] for m in measurements}
-
-        flux_set = "[" + ",".join(f'"{m}"' for m in measurements) + "]"
-
+        self.sqlite_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS results (
+                policy TEXT,
+                player_id INTEGER,
+                has_pv BOOLEAN,
+                has_bess BOOLEAN,
+                total_cost REAL,
+                total_consumption REAL
+            )''')
         
-        query = f'''
-        from(bucket: "{Config.INFLUX_BUCKET}")
-            |> range(start: 0)
-            |> filter(fn: (r) => r["player_id"] == "{player_id}")
 
-            |> filter(fn: (r) => contains(value: r["_measurement"], set: {flux_set}))
-            |> sort(columns: ["_time"])
-        '''
-        result = self.influx_query_api.query(org=Config.INFLUX_ORG, query=query)
+    def run_all_households(self, policy=no_control, start_time=0):
+        for player_id in range(1, self.num_households + 1):
+            self.run_household(player_id, policy=policy, start_time=start_time)
 
 
-        for table in result:
-            measurement = table.records[0].values['_measurement']
-            series = [record.get_value() for record in table]
-            timeseries_data[measurement] = series
-        
-        return timeseries_data
+    def run_household(self, player_id, policy=no_control, start_time=0):
+        print(f"running household {player_id} with policy {policy.__name__}")
+        household = self.create_household(player_id, start_time)
+
+        for t in range(start_time, self.num_timesteps):
+            self.step(household, policy=policy, duration_hours=0.25, time=t)
+
+        self.load_history_to_influx(household, policy_name=f"P-{policy.__name__}")
+        self.load_results_to_sqlite(household, policy_name=f"P-{policy.__name__}")
+
+        return household
 
 
     def create_household(self, player_id, start_time=0):
@@ -104,7 +87,8 @@ class Simulation:
         ).fetchone()
 
         # only query once for all profiles. the simulation now knows the future
-        self.household_profiles = self.fetch_multiple_timeseries(
+        self.household_profiles = fetch_multiple_timeseries(
+            self.influx_query_api,
             player_id,
             measurements=self.env_inputs
         )
@@ -142,6 +126,16 @@ class Simulation:
         return household
 
 
+    def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
+        self.time = time
+        self.update_household(household)
+
+        controls = policy(household)
+        household.apply_controls(controls, duration_hours=duration_hours)
+
+        household.update_history()
+
+
     def update_household(self, household: Household):
         # update time
         household.time = self.time
@@ -174,33 +168,18 @@ class Simulation:
         household.sell_price = self.household_profiles["sell_price"][household.time]
 
 
-    def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
-        self.time = time
-        self.update_household(household)
+    def load_results_to_sqlite(self, household: Household, policy_name="basic_bess"):
+        total_cost = household.total_cost
+        total_consumption = household.total_consumption
 
-        controls = policy(household, household.time)
-        household.apply_controls(controls, duration_hours=duration_hours)
-
-        household.update_history()
-
-
-    def run_household(self, player_id, policy=no_control, start_time=0):
-        print(f"running household {player_id} with policy {policy.__name__}")
-        household = self.create_household(player_id, start_time)
-
-        for t in range(start_time, self.num_timesteps):
-            self.step(household, policy=policy, duration_hours=0.25, time=t)
-
-        self.load_history_to_influx(household, policy_name=f"P-{policy.__name__}")
-
-        return household
-    
-
-    def run_all_households(self, policy=no_control, start_time=0):
-        for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, policy=policy, start_time=start_time)
-
-    
+        self.sqlite_cursor.execute(
+            '''
+            INSERT INTO results (policy, player_id, has_pv, has_bess, total_cost, total_consumption)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''',
+            (policy_name, household.player_id, household.has_pv, household.has_bess, total_cost, total_consumption)
+        )
+        self.sqlite_conn.commit()
 
     def load_history_to_influx(self, household: Household, policy_name="basic_bess", measurements=None):
         if measurements is None:
@@ -236,17 +215,3 @@ class Simulation:
                 )
             except Exception as e:
                 raise RuntimeError(f"Failed to write {len(points)} points to InfluxDB: {e}") from e
-
-if __name__ == "__main__":
-    import src.connections as connections
-    sqlite_conn = connections.create_sqlite_connection()
-    influx_client = connections.create_influx_client()
-
-    simulation = Simulation(
-        sqlite_conn=sqlite_conn,
-        influx_client=influx_client
-    )
-
-    player_id = 1
-    household = simulation.run_household(player_id, policy=basic_ev_bess)
-    household.plot_history_all(plots=['ev1_soc', 'ev1_power', 'ev1_at_home', 'net_load','bess_soc', 'bess_power'])

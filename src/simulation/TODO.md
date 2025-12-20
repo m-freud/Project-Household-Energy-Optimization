@@ -1,10 +1,9 @@
-do _all_ households with _all_ policies in one run.
-save timeseries to influx and metadata to sqlite
-
-eg net load -> influx
-saved/total cost -> sql
 
 
+
+---
+solid environment?????????????
+more policies.
 ---
 use this data to create aussagekräftige panels in grafana.
 load curves before/after
@@ -20,6 +19,3 @@ once you have 250 x policies simulation you can
 compare policies across households.
 
 
----
-solid environment?
-more policies.

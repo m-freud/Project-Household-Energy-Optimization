@@ -1,6 +1,6 @@
-from src.simulation.components.PV import PV
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
+from src.simulation.components.PV import PV
 
 
 class Household:
@@ -182,6 +182,13 @@ class Household:
         plt.tight_layout()
         plt.show()
 
+    @property
+    def has_pv(self):
+        return self.pv is not None
+
+    @property
+    def has_bess(self):
+        return self.bess is not None
 
     @property
     def net_cost(self):
@@ -210,3 +217,4 @@ class Household:
     @property
     def total_cost(self):
         return sum(self.history["net_cost"].values()) * 0.25 + self.fixed_cost
+    

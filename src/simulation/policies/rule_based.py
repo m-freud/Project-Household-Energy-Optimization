@@ -1,53 +1,16 @@
-from src.simulation.Household import Household
-
-# here we add increasingly complex policies, depending on more and more inputs.
-# once we use all inputs we can start adding learning-based policies, and genetic algorithms if feasible (probably not. but at some point you know)
-
-# so we have these inputs to work with:
-'''        
-self.env_inputs = [
-            "load",
-            "pv_gen",
-            "ev1_load",
-            "ev2_load",
-            "buy_price",
-            "sell_price",
-            "ev1_buy_price",
-            "ev2_buy_price",
-            "ev1_at_home",
-            "ev2_at_home",
-            "ev1_at_charging_station",
-            "ev2_at_charging_station"
-]'''
-# including current state and history for each parameter you can think of.
-
-# we can also expand them to get 
 '''
- net load,
-pv generation forecast,
-buy price forecast,
-...
-
+Docstring for src.simulation.policies.rule_based
 '''
-# the policy can theoretically use all these inputs and more to decide:
-# bess_action, ev1_action, ev2_action
-# where each action is a power value (positive for discharge, negative for charge)
 
-# we can start with simple rule-based policies, then move to optimization-based policies (MPC), and finally learning-based policies (RL, GA, etc.)
+from src.simulation.household import Household
 
-# Example of a simple rule-based policy
-def basic_bess(household:Household, t=0):
+
+def basic_bess(household:Household):
     '''
     if there is excess PV generation, charge the BESS
     if there is a deficit, discharge the BESS
-
-    policies are used on updated households.
-    any relevant info should be in the household object already.
-    including history if needed.
-    just access everything in the household.
     '''
-    # init controls
-    controls = { # controls tell you how much power to put into the device. so + charge, - discharge. the EVs can only charge.
+    controls = {
         "bess_power": 0.0,
         "ev1_power": 0.0,
         "ev2_power": 0.0,
@@ -70,7 +33,7 @@ def basic_bess(household:Household, t=0):
     return controls
 
 
-def basic_ev(household:Household, t=0):
+def basic_ev(household:Household):
     '''
     Simple EV charging policy:
     at charging station: charge if cheaper than at home so far
@@ -87,7 +50,9 @@ def basic_ev(household:Household, t=0):
         if household.ev1.at_charging_station:
             # charge if buy price at charging station is lower than at home
             if household.ev1.buy_price < household.buy_price:
-                controls["ev1_power"] = min(household.ev1.max_charge, (household.ev1.capacity - household.ev1.soc)*4 / household.ev1.efficiency) 
+                controls["ev1_power"] = min(
+                    household.ev1.max_charge,
+                    (household.ev1.capacity - household.ev1.soc)*4 / household.ev1.efficiency)
         elif household.ev1.at_home:
             # charge if buy price at home is lower than at charging station
             if household.ev1.buy_price < household.ev1.buy_price:
@@ -106,7 +71,7 @@ def basic_ev(household:Household, t=0):
     return controls
 
 
-def basic_ev_bess(household:Household, t=0):
+def basic_ev_bess(household:Household):
     '''
     Combined policy based on priority:
     charge ev first, then battery

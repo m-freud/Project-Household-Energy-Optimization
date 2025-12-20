@@ -1,7 +1,7 @@
-from src.simulation.Household import Household
+from src.simulation.household import Household
 
 
-def no_control(household:Household, t):
+def no_control(household:Household):
     """A policy that does not control anything, all controls are set to zero."""
     controls = {
         "bess_power": 0.0,
@@ -12,7 +12,7 @@ def no_control(household:Household, t):
     return controls
 
 
-def random_control(household:Household, t):
+def random_control(household:Household):
     """A policy that sets random controls within the allowed limits."""
     import random
 
