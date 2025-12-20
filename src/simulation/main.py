@@ -1,6 +1,3 @@
-'''
-Docstring for src.simulation.main
-'''
 
 from src.simulation.simulation import Simulation
 from src.simulation.policies.basic import no_control
