@@ -45,9 +45,9 @@ class Household:
         } # histories from start_time to now
 
         self.controls = {
-            "bess_power": 0,
-            "ev1_power": 0,
-            "ev2_power": 0
+            "bess_power": 0.0,
+            "ev1_power": 0.0,
+            "ev2_power": 0.0
         }
 
     
@@ -94,13 +94,13 @@ class Household:
         if self.pv:
             self.history["pv_gen"][self.time] = self.pv.generation
         else:
-            self.history["pv_gen"][self.time] = 0
+            self.history["pv_gen"][self.time] = 0.0
 
         # BESS
         if self.bess:
             self.history["bess_soc"][self.time] = self.bess.soc
         else:
-            self.history["bess_soc"][self.time] = 0
+            self.history["bess_soc"][self.time] = 0.0
 
         # EV1
         if self.ev1:
@@ -109,8 +109,8 @@ class Household:
             self.history["ev1_at_home"][self.time] = int(self.ev1.at_home)
             self.history["ev1_at_charging_station"][self.time] = int(self.ev1.at_charging_station)
         else:
-            self.history["ev1_soc"][self.time] = 0
-            self.history["ev1_load"][self.time] = 0
+            self.history["ev1_soc"][self.time] = 0.0
+            self.history["ev1_load"][self.time] = 0.0
             self.history["ev1_at_home"][self.time] = 0
             self.history["ev1_at_charging_station"][self.time] = 0
 
@@ -121,8 +121,8 @@ class Household:
             self.history["ev2_at_home"][self.time] = int(self.ev2.at_home)
             self.history["ev2_at_charging_station"][self.time] = int(self.ev2.at_charging_station)
         else:
-            self.history["ev2_soc"][self.time] = 0
-            self.history["ev2_load"][self.time] = 0
+            self.history["ev2_soc"][self.time] = 0.0
+            self.history["ev2_load"][self.time] = 0.0
             self.history["ev2_at_home"][self.time] = 0
             self.history["ev2_at_charging_station"][self.time] = 0
 
@@ -192,17 +192,16 @@ class Household:
 
     @property
     def net_load(self):
-        base_load = self.base_load if self.base_load else 0
-        pv_generation = self.pv.generation if self.pv else 0
-        bess_load = self.controls.get("bess_power", 0) if self.bess else 0
-        ev1_load = self.controls.get("ev1_power", 0) if self.ev1 and self.ev1.at_home else 0
-        ev2_load = self.controls.get("ev2_power", 0) if self.ev2 and self.ev2.at_home else 0
-
+        base_load = self.base_load if self.base_load else 0.0
+        pv_generation = self.pv.generation if self.pv else 0.0
+        bess_load = self.controls.get("bess_power", 0.0) if self.bess else 0.0
+        ev1_load = self.controls.get("ev1_power", 0.0) if self.ev1 and self.ev1.at_home else 0.0
+        ev2_load = self.controls.get("ev2_power", 0.0) if self.ev2 and self.ev2.at_home else 0.0
         return base_load + bess_load + ev1_load + ev2_load - pv_generation
     
     @property
     def total_generation(self):
-        return sum(self.history["pv_gen"].values()) * 0.25 if self.pv else 0
+        return sum(self.history["pv_gen"].values()) * 0.25 if self.pv else 0.0
     
     @property
     def total_consumption(self):

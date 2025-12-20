@@ -53,7 +53,7 @@ def basic_bess(household:Household, t=0):
         "ev2_power": 0.0,
     }
 
-    pv_generation = household.pv.generation if household.pv else 0
+    pv_generation = household.pv.generation if household.pv else 0.0
     load = household.base_load
     net_load = load - pv_generation
 
@@ -114,7 +114,7 @@ def basic_ev_bess(household:Household, t=0):
     controls = basic_ev(household)
 
     # subtract ev charging power from bess power if both are charging
-    pv_generation = household.pv.generation if household.pv else 0
+    pv_generation = household.pv.generation if household.pv else 0.0
     base_load = household.base_load
 
     ev_load = 0
