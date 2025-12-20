@@ -1,4 +1,5 @@
 from src.simulation.household import Household
+import random
 
 
 def no_control(household:Household):
@@ -14,7 +15,6 @@ def no_control(household:Household):
 
 def random_control(household:Household):
     """A policy that sets random controls within the allowed limits."""
-    import random
 
     controls = {
         "bess_power": random.uniform(-household.bess.max_discharge, household.bess.max_charge) if household.bess else 0.0,
