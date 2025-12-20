@@ -1,10 +1,6 @@
 
 '''
 The end product is a comparison of different approaches to optimize energy consumption for a household.
-- or is it the tool itself?
-the tool being the "Optimizer" (eq. of Hearbeat AI):
-IN: "live" household data
-OUT: actions for battery/cars
 
 How would we sell that? What does the demo look like?
 - Dashboard. Pre-calculate everything. Pick household (pretty ui with mini load curve/cluster selection). Pick optimizer.

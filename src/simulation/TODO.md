@@ -19,3 +19,5 @@ once you have 250 x policies simulation you can
 compare policies across households.
 
 
+what do we need a dashboard for?
+visual feedback. see poolicies in action and check what they are doing.

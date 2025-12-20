@@ -16,7 +16,8 @@ class Household:
             bess:BESS|None=None,
             ev1:EV|None=None,
             ev2:EV|None=None,
-            fixed_cost=0.0):
+            fixed_cost=0.0,
+            charge_requirements=None):
         # timing info
         self.time = start_time  # start time of the simulation for this household
         self.player_id = player_id
@@ -26,11 +27,15 @@ class Household:
         self.bess = bess
         self.ev1 = ev1
         self.ev2 = ev2
+        self.charge_requirements = charge_requirements
 
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity
         self.sell_price = 0.0  # current sell price for electricity
         self.fixed_cost = fixed_cost  # fixed cost per day
+
+        self.buy_price_day_profile = []  # store buy price profile for the day
+        self.sell_price_day_profile = []  # store sell price profile for the day
 
         self.history = {
             "base_load": {},            

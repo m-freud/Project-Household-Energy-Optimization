@@ -1,16 +1,20 @@
 
 from src.simulation.simulation import Simulation
-from src.simulation.policies.basic import no_control
+from src.simulation.policies.blind import no_control
 from src import connections
+from src.simulation.requirements.charge_requirements import basic_charge_requirements
 
 
 if __name__ == "__main__":
     sqlite_conn = connections.create_sqlite_connection()
     influx_client = connections.create_influx_client()
 
+    charge_requirements = basic_charge_requirements
+
     simulation = Simulation(
         sqlite_conn=sqlite_conn,
-        influx_client=influx_client
+        influx_client=influx_client,
+        charge_requirements=charge_requirements
     )
 
     simulation.run_all_households(policy=no_control, start_time=0)
