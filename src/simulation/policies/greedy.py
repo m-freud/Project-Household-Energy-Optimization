@@ -101,3 +101,29 @@ def basic_ev_bess(household:Household):
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
+
+
+def advanced_ev_bess(household:Household):
+    buy_prices = household.buy_price_day_profile
+    sell_prices = household.sell_price_day_profile
+    base_load = household.base_load
+    pv_generation = household.pv.generation if household.pv else 0.0
+    requirements = household.charge_requirements
+
+    net_load = base_load - pv_generation
+    controls = {
+        "bess_power": 0.0,
+        "ev1_power": 0.0,
+        "ev2_power": 0.0,
+    }
+
+    if net_load < 0:
+        evs_at_home = []
+        if household.ev1 and household.ev1.at_home:
+            evs_at_home.append(household.ev1)
+        if household.ev2 and household.ev2.at_home:
+            evs_at_home.append(household.ev2)
+
+        
+
+

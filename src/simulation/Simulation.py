@@ -6,11 +6,12 @@ from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
 from src.simulation.household import Household
-from src.simulation.policies.basic import no_control
+from src.simulation.policies.blind import no_control
+from src.simulation.requirements.charge_requirements import basic_charge_requirements
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, influx_client):
+    def __init__(self, sqlite_conn, influx_client, charge_requirements=basic_charge_requirements):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.influx_query_api = influx_client.query_api()
@@ -18,6 +19,8 @@ class Simulation:
 
         self.num_households = 250
         self.num_timesteps = 96
+
+        self.charge_requirements = charge_requirements
 
         self.env_inputs = [ # influx table names
             "load",
@@ -75,6 +78,9 @@ class Simulation:
 
     def create_household(self, player_id, start_time=0):
         household = Household(player_id=player_id, start_time=start_time)
+        
+        if self.charge_requirements:
+            household.charge_requirements = self.charge_requirements
 
         household.fixed_cost = self.sqlite_cursor.execute(
             "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
@@ -92,6 +98,10 @@ class Simulation:
             player_id,
             measurements=self.env_inputs
         )
+
+        # household gets access to prices over day
+        household.buy_price_day_profile = self.household_profiles["buy_price"]
+        household.sell_price_day_profile = self.household_profiles["sell_price"]
 
         # plug in PV
         if has_pv:
