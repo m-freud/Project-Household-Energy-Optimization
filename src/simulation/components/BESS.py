@@ -1,6 +1,6 @@
 
 class BESS:
-    def __init__(self, capacity, max_charge, max_discharge, efficiency, soc=0):
+    def __init__(self, capacity, max_charge, max_discharge, efficiency, soc=0.0):
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
         self.max_discharge = max_discharge  # in kW (per hour)
@@ -10,7 +10,7 @@ class BESS:
 
     def charge(self, power, duration):
         charge_power = min(power, self.max_charge)
-        energy_added = charge_power * duration * self.efficiency
+        energy_added = float(charge_power * duration * self.efficiency)
         self.soc += energy_added
         return energy_added
 
@@ -23,7 +23,8 @@ class BESS:
 
     @property
     def soc(self):
-        return self._soc
+        # convert to float
+        return float(self._soc)
 
     @soc.setter
     def soc(self, value):
