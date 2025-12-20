@@ -185,21 +185,30 @@ class Simulation:
 
 
     def run_household(self, player_id, policy=no_control, start_time=0):
+        print(f"running household {player_id} with policy {policy.__name__}")
         household = self.create_household(player_id, start_time)
 
         for t in range(start_time, self.num_timesteps):
             self.step(household, policy=policy, duration_hours=0.25, time=t)
 
-        self.load_history_to_influx(household, measurement_prefix=f"h{player_id}_{policy.__name__}")
+        self.load_history_to_influx(household, policy_name=f"P-{policy.__name__}")
 
         return household
     
 
-    def load_history_to_influx(self, household: Household, measurement_prefix="h1_basic_bess", measurements=None):
+    def run_all_households(self, policy=no_control, start_time=0):
+        for player_id in range(1, self.num_households + 1):
+            self.run_household(player_id, policy=policy, start_time=start_time)
+
+    
+
+    def load_history_to_influx(self, household: Household, policy_name="basic_bess", measurements=None):
         if measurements is None:
             measurements = [
+                "net_load",
+                "net_cost",
+                "total_consumption",
                 "total_cost",
-                "pv_gen",
                 "bess_soc",
                 "bess_power",
                 "ev1_soc",
@@ -208,26 +217,25 @@ class Simulation:
                 "ev2_power",
             ]
             
-        points = []
 
         for m in measurements:
-            full_measurement = f"{measurement_prefix}_{m}"
+            points = []
             for t, value in household.history[m].items():
                 points.append({
-                    "measurement": full_measurement,
-                    "tags": {"player_id": str(household.player_id)},
+                    "measurement": m,
+                    "tags": {"player_id": str(household.player_id), "policy": policy_name},
                     "fields": {"value": value},
                     "time": period_to_epoch(t),
                 })
 
-        try:
-            self.influx_write_api.write(
-                bucket=Config.INFLUX_BUCKET,
-                org=Config.INFLUX_ORG,
-                record=points
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to write {len(points)} points to InfluxDB: {e}") from e
+            try:
+                self.influx_write_api.write(
+                    bucket=Config.INFLUX_BUCKET,
+                    org=Config.INFLUX_ORG,
+                    record=points
+                )
+            except Exception as e:
+                raise RuntimeError(f"Failed to write {len(points)} points to InfluxDB: {e}") from e
 
 if __name__ == "__main__":
     import src.connections as connections
