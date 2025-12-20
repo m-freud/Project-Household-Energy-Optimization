@@ -15,7 +15,7 @@ class Simulation:
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.influx_query_api = influx_client.query_api()
         self.influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
-        
+
         self.num_households = 250
         self.num_timesteps = 96
 
@@ -36,7 +36,7 @@ class Simulation:
             "ev2_max_charge",
         ]
 
-        self.household_profiles = {} 
+        self.household_profiles = {}
 
         self.histories = {
             "passive": {},
@@ -53,7 +53,7 @@ class Simulation:
                 total_cost REAL,
                 total_consumption REAL
             )''')
-        
+
 
     def run_all_households(self, policy=no_control, start_time=0):
         for player_id in range(1, self.num_households + 1):
@@ -100,7 +100,9 @@ class Simulation:
         # plug in BESS
         if has_bess:
             bess_data = self.sqlite_cursor.execute(
-                "SELECT capacity, charge, discharge, efficiency, initial_soc FROM bess WHERE player_id = ?",
+                '''SELECT capacity, charge, discharge, efficiency, initial_soc
+                FROM bess
+                WHERE player_id = ?''',
                 (player_id,)
             ).fetchone()
 
@@ -109,7 +111,11 @@ class Simulation:
 
         # plug in EV1
         ev1_data = self.sqlite_cursor.execute(
-            "SELECT capacity, charge, discharge, efficiency, initial_soc FROM ev1 WHERE player_id = ?",
+            '''
+            SELECT capacity, charge, discharge, efficiency, initial_soc
+            FROM ev1
+            WHERE player_id = ?
+            ''',
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
@@ -117,7 +123,11 @@ class Simulation:
 
         # plug in EV2
         ev2_data = self.sqlite_cursor.execute(
-            "SELECT capacity, charge, discharge, efficiency, initial_soc FROM ev2 WHERE player_id = ?",
+            '''
+            SELECT capacity, charge, discharge, efficiency, initial_soc
+            FROM ev2
+            WHERE player_id = ?
+            ''',
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
@@ -138,34 +148,40 @@ class Simulation:
 
     def update_household(self, household: Household):
         # update time
+        time = self.time
         household.time = self.time
 
+        profiles = self.household_profiles
+        ev1 = household.ev1
+        ev2 = household.ev2
+        pv = household.pv
+
         # update base load
-        household.base_load = self.household_profiles["load"][household.time]
-        
+        household.base_load = profiles["load"][time]
+
         # update pv
-        if household.pv:
-            household.pv.generation = self.household_profiles["pv_gen"][household.time]
+        if pv:
+            pv.generation = profiles["pv_gen"][time]
 
         # update ev1
-        if household.ev1:
-            household.ev1.load = self.household_profiles["ev1_load"][household.time]
-            household.ev1.at_home = self.household_profiles["ev1_at_home"][household.time]
-            household.ev1.at_charging_station = self.household_profiles["ev1_at_charging_station"][household.time]
-            household.ev1.buy_price = self.household_profiles["ev1_buy_price"][household.time]
-            household.ev1.max_charge = self.household_profiles["ev1_max_charge"][household.time]
+        if ev1:
+            ev1.load = profiles["ev1_load"][time]
+            ev1.at_home = profiles["ev1_at_home"][time]
+            ev1.at_charging_station = profiles["ev1_at_charging_station"][time]
+            ev1.buy_price = profiles["ev1_buy_price"][time]
+            ev1.max_charge = profiles["ev1_max_charge"][time]
 
         # update ev2
-        if household.ev2:
-            household.ev2.load = self.household_profiles["ev2_load"][household.time]
-            household.ev2.at_home = self.household_profiles["ev2_at_home"][household.time]
-            household.ev2.at_charging_station = self.household_profiles["ev2_at_charging_station"][household.time]
-            household.ev2.buy_price = self.household_profiles["ev2_buy_price"][household.time]
-            household.ev2.max_charge = self.household_profiles["ev2_max_charge"][household.time]
+        if ev2:
+            ev2.load = profiles["ev2_load"][time]
+            ev2.at_home = profiles["ev2_at_home"][time]
+            ev2.at_charging_station = profiles["ev2_at_charging_station"][time]
+            ev2.buy_price = profiles["ev2_buy_price"][time]
+            ev2.max_charge = profiles["ev2_max_charge"][time]
 
         # update buy / sell prices
-        household.buy_price = self.household_profiles["buy_price"][household.time]
-        household.sell_price = self.household_profiles["sell_price"][household.time]
+        household.buy_price = profiles["buy_price"][time]
+        household.sell_price = profiles["sell_price"][time]
 
 
     def load_results_to_sqlite(self, household: Household, policy_name="basic_bess"):
@@ -174,14 +190,20 @@ class Simulation:
 
         self.sqlite_cursor.execute(
             '''
-            INSERT INTO results (policy, player_id, has_pv, has_bess, total_cost, total_consumption)
+            INSERT INTO results (
+            policy, player_id, has_pv, has_bess, total_cost, total_consumption)
             VALUES (?, ?, ?, ?, ?, ?)
             ''',
-            (policy_name, household.player_id, household.has_pv, household.has_bess, total_cost, total_consumption)
+            (policy_name, household.player_id, household.has_pv,
+             household.has_bess, total_cost, total_consumption)
         )
         self.sqlite_conn.commit()
 
-    def load_history_to_influx(self, household: Household, policy_name="basic_bess", measurements=None):
+    def load_history_to_influx(
+            self,
+            household: Household,
+            policy_name="basic_bess",
+            measurements=None):
         if measurements is None:
             measurements = [
                 "net_load",
@@ -195,7 +217,7 @@ class Simulation:
                 "ev2_soc",
                 "ev2_power",
             ]
-            
+
 
         for m in measurements:
             points = []

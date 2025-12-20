@@ -1,10 +1,22 @@
+import matplotlib.pyplot as plt
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
 
 
 class Household:
-    def __init__(self, player_id=1, start_time=0, pv=None, bess=None, ev1=None, ev2=None, fixed_cost=0.0):
+    '''
+    Represents a household with various energy components and their states.
+    '''
+    def __init__(
+            self,
+            player_id=1,
+            start_time=0,
+            pv:PV|None=None,
+            bess:BESS|None=None,
+            ev1:EV|None=None,
+            ev2:EV|None=None,
+            fixed_cost=0.0):
         # timing info
         self.time = start_time  # start time of the simulation for this household
         self.player_id = player_id
@@ -50,7 +62,7 @@ class Household:
             "ev2_power": 0.0
         }
 
-    
+
     def apply_controls(self, controls, duration_hours=0.25):
         if controls is not None:
             self.controls = controls
@@ -63,24 +75,24 @@ class Household:
             elif power < 0:
                 self.bess.discharge(-power, duration_hours)
 
-        if self.ev1 and "ev1_power" in controls and (self.ev1.at_home or self.ev1.at_charging_station):
-            power = controls["ev1_power"]
-            if power > 0:
-                self.ev1.charge(power, duration_hours)
-            # EVs cannot discharge to the grid in this model
-
-        if self.ev2 and "ev2_power" in controls and (self.ev2.at_home or self.ev2.at_charging_station):
-            power = controls["ev2_power"]
-            if power > 0:
-                self.ev2.charge(power, duration_hours)
-            # EVs cannot discharge to the grid in this model
-
+        if self.ev1 and "ev1_power" in controls:
+            if (self.ev1.at_home or self.ev1.at_charging_station):
+                power = controls["ev1_power"]
+                if power > 0:
+                    self.ev1.charge(power, duration_hours)
+                # EVs cannot discharge to the grid in this model
+        if self.ev2 and "ev2_power" in controls:
+            if (self.ev2.at_home or self.ev2.at_charging_station):
+                power = controls["ev2_power"]
+                if power > 0:
+                    self.ev2.charge(power, duration_hours)
+                # EVs cannot discharge to the grid in this model
         for ev in [self.ev1, self.ev2]:
             if ev and not (ev.at_home or ev.at_charging_station):
                 # apply driving load (load = 0 when idle)
                 ev.discharge(ev.load, duration_hours)
 
-    
+
     def update_history(self):
         '''
         logs current states to history for current timestep
@@ -141,7 +153,9 @@ class Household:
 
 
     def plot_history(self):
-        import matplotlib.pyplot as plt
+        '''
+        plots each measurement in its own figure
+        '''
         for key, series in self.history.items():
             if not series:
                 continue
@@ -157,11 +171,10 @@ class Household:
 
         plt.show()
 
-        import matplotlib.pyplot as plt
 
-
-    def plot_history_all(self, plots=[]):
-        import matplotlib.pyplot as plt
+    def plot_history_all(self, plots:list|None=None):
+        '''
+        plots: list of measurement names to plot. if None, plot all.'''
         plt.figure(figsize=(12, 6))
 
         for key, series in self.history.items():
@@ -205,16 +218,15 @@ class Household:
         ev1_load = self.controls.get("ev1_power", 0.0) if self.ev1 and self.ev1.at_home else 0.0
         ev2_load = self.controls.get("ev2_power", 0.0) if self.ev2 and self.ev2.at_home else 0.0
         return base_load + bess_load + ev1_load + ev2_load - pv_generation
-    
+
     @property
     def total_generation(self):
         return sum(self.history["pv_gen"].values()) * 0.25 if self.pv else 0.0
-    
+
     @property
     def total_consumption(self):
         return sum(self.history["net_load"].values()) * 0.25
-    
+
     @property
     def total_cost(self):
         return sum(self.history["net_cost"].values()) * 0.25 + self.fixed_cost
-    
