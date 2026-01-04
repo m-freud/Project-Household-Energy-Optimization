@@ -38,8 +38,8 @@ def basic_ev(household:Household):
     Simple EV charging policy:
     at charging station: charge if cheaper than at home so far
     at home: charge if cheaper than at charging station, or if pv excess generation
-    
     '''
+
     controls = {
         "bess_power": 0.0,
         "ev1_power": 0.0,
@@ -111,19 +111,18 @@ def advanced_ev_bess(household:Household):
     requirements = household.charge_requirements
 
     net_load = base_load - pv_generation
+
     controls = {
         "bess_power": 0.0,
         "ev1_power": 0.0,
-        "ev2_power": 0.0,
+        "ev2_power": 0.0
     }
 
-    if net_load < 0:
-        evs_at_home = []
-        if household.ev1 and household.ev1.at_home:
-            evs_at_home.append(household.ev1)
-        if household.ev2 and household.ev2.at_home:
-            evs_at_home.append(household.ev2)
-
-        
-
+    # decision tree time!
+    # goal: minimize consumption of the day.
+    # requirements: BESS SOC 50% by 96, etc
+    # so for any t: do what you have to do for the requirements while minimizing consumption
+    # have to? absolutely have to vs just a good time:
+    # do stuff when it makes sense. unless u have to. then do it because you have to.
+    # decision tree to walk down the priority ladder
 
