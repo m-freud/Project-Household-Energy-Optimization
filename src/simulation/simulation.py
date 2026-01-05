@@ -148,7 +148,7 @@ class Simulation:
 
     def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
         self.time = time
-        self.update_household(household)
+        self.update_household_inputs(household)
 
         controls = policy(household)
         household.apply_controls(controls, duration_hours=duration_hours)
@@ -156,7 +156,7 @@ class Simulation:
         household.update_history()
 
 
-    def update_household(self, household: Household):
+    def update_household_inputs(self, household: Household):
         # update time
         time = self.time
         household.time = self.time

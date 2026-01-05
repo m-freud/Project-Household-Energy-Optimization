@@ -87,12 +87,14 @@ class Household:
                 if power > 0:
                     self.ev1.charge(power, duration_hours)
                 # EVs cannot discharge to the grid in this model
+
         if self.ev2 and "ev2_power" in controls:
             if (self.ev2.at_home or self.ev2.at_charging_station):
                 power = controls["ev2_power"]
                 if power > 0:
                     self.ev2.charge(power, duration_hours)
                 # EVs cannot discharge to the grid in this model
+
         for ev in [self.ev1, self.ev2]:
             if ev and not (ev.at_home or ev.at_charging_station):
                 # apply driving load (load = 0 when idle)
