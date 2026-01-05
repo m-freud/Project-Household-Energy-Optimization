@@ -1,3 +1,6 @@
+# goal: minimize consumption.
+# requirements: this
+
 
 basic_charge_requirements = {
     "ev1": {
