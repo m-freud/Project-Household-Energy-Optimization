@@ -17,17 +17,17 @@ def basic_bess(household:Household):
     }
 
     pv_generation = household.pv.generation if household.pv else 0.0
-    load = household.base_load
-    net_load = load - pv_generation
+    base_load = household.base_load
+    adjusted_base_load = base_load - pv_generation
 
-    if net_load < 0 and household.bess:
-        excess = -net_load
+    if adjusted_base_load < 0 and household.bess:
+        excess = -adjusted_base_load
         # charge BESS with excess PV, up to max charge rate
         charge_power = min(excess, household.bess.max_charge)
         controls["bess_power"] = charge_power  # positive for charging
-    elif net_load > 0 and household.bess and household.bess.soc > 0:
+    elif adjusted_base_load > 0 and household.bess and household.bess.soc > 0:
         # discharge BESS to cover deficit, up to max discharge rate
-        discharge_power = min(net_load, household.bess.max_discharge, household.bess.soc)
+        discharge_power = min(adjusted_base_load, household.bess.max_discharge, household.bess.soc)
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
@@ -88,16 +88,16 @@ def basic_ev_bess(household:Household):
     if household.ev2 and household.ev2.at_home:
         ev_load += controls["ev2_power"]
 
-    net_load = base_load + ev_load - pv_generation
+    adjusted_base_load = base_load + ev_load - pv_generation
 
-    if net_load < 0 and household.bess:
-        excess = -net_load
+    if adjusted_base_load < 0 and household.bess:
+        excess = -adjusted_base_load
         # charge BESS with excess PV, up to max charge rate
         charge_power = min(excess, household.bess.max_charge)
         controls["bess_power"] = charge_power  # positive for charging
-    elif net_load > 0 and household.bess and household.bess.soc > 0:
+    elif adjusted_base_load > 0 and household.bess and household.bess.soc > 0:
         # discharge BESS to cover deficit, up to max discharge rate
-        discharge_power = min(net_load, household.bess.max_discharge, household.bess.soc)
+        discharge_power = min(adjusted_base_load, household.bess.max_discharge, household.bess.soc)
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
@@ -110,7 +110,7 @@ def advanced_ev_bess(household:Household):
     pv_generation = household.pv.generation if household.pv else 0.0
     requirements = household.charge_requirements
 
-    net_load = base_load - pv_generation
+    adjusted_base_load = base_load - pv_generation
 
     controls = {
         "bess_power": 0.0,
@@ -126,9 +126,9 @@ def advanced_ev_bess(household:Household):
     # do stuff when it makes sense. unless u have to. then do it because you have to.
     # decision tree to walk down the priority ladder
     
-    # distribute suprlus first
-    if net_load < 0:
-        surplus = -net_load
+    # distribute surplus first
+    if adjusted_base_load < 0:
+        surplus = -adjusted_base_load
 
         # 1. charge evs first
         evs_at_home = []
@@ -153,5 +153,8 @@ def advanced_ev_bess(household:Household):
             bess = household.bess
             charge_power = min(surplus, bess.max_charge)
             controls["bess_power"] = charge_power  # positive for charging
+
+        # "3. export remaining surplus to grid"
+        # this happens passively and is accounted for when calling household.net_load
     
     return controls
