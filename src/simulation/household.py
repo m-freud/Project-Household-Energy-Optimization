@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
+from src.simulation.requirements.charge_requirements import basic_charge_requirements
 
 
 class Household:
@@ -17,7 +18,7 @@ class Household:
             ev1:EV|None=None,
             ev2:EV|None=None,
             fixed_cost=0.0,
-            charge_requirements=None):
+            charge_requirements=basic_charge_requirements):
         # timing info
         self.time = start_time  # start time of the simulation for this household
         self.player_id = player_id
