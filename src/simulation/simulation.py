@@ -45,7 +45,7 @@ class Simulation:
             "passive": {},
         } # store histories for all households if needed
 
-        self.time = 0  # current timestep in the simulation.
+        self.current_timestep = 0  # current timestep in the simulation.
 
         self.sqlite_cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
@@ -147,7 +147,7 @@ class Simulation:
 
 
     def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
-        self.time = time
+        self.current_timestep = time
         self.update_household_inputs(household)
 
         controls = policy(household)
@@ -158,8 +158,8 @@ class Simulation:
 
     def update_household_inputs(self, household: Household):
         # update time
-        time = self.time
-        household.time = self.time
+        timestep = self.current_timestep
+        household.current_timestep = self.current_timestep
 
         profiles = self.household_profiles
         ev1 = household.ev1
@@ -167,31 +167,31 @@ class Simulation:
         pv = household.pv
 
         # update base load
-        household.base_load = profiles["load"][time]
+        household.base_load = profiles["load"][timestep]
 
         # update pv
         if pv:
-            pv.generation = profiles["pv_gen"][time]
+            pv.generation = profiles["pv_gen"][timestep]
 
         # update ev1
         if ev1:
-            ev1.load = profiles["ev1_load"][time]
-            ev1.at_home = profiles["ev1_at_home"][time]
-            ev1.at_charging_station = profiles["ev1_at_charging_station"][time]
-            ev1.buy_price = profiles["ev1_buy_price"][time]
-            ev1.max_charge = profiles["ev1_max_charge"][time]
+            ev1.load = profiles["ev1_load"][timestep]
+            ev1.at_home = profiles["ev1_at_home"][timestep]
+            ev1.at_charging_station = profiles["ev1_at_charging_station"][timestep]
+            ev1.buy_price = profiles["ev1_buy_price"][timestep]
+            ev1.max_charge = profiles["ev1_max_charge"][timestep]
 
         # update ev2
         if ev2:
-            ev2.load = profiles["ev2_load"][time]
-            ev2.at_home = profiles["ev2_at_home"][time]
-            ev2.at_charging_station = profiles["ev2_at_charging_station"][time]
-            ev2.buy_price = profiles["ev2_buy_price"][time]
-            ev2.max_charge = profiles["ev2_max_charge"][time]
+            ev2.load = profiles["ev2_load"][timestep]
+            ev2.at_home = profiles["ev2_at_home"][timestep]
+            ev2.at_charging_station = profiles["ev2_at_charging_station"][timestep]
+            ev2.buy_price = profiles["ev2_buy_price"][timestep]
+            ev2.max_charge = profiles["ev2_max_charge"][timestep]
 
         # update buy / sell prices
-        household.buy_price = profiles["buy_price"][time]
-        household.sell_price = profiles["sell_price"][time]
+        household.buy_price = profiles["buy_price"][timestep]
+        household.sell_price = profiles["sell_price"][timestep]
 
 
     def load_results_to_sqlite(self, household: Household, policy_name="basic_bess"):
