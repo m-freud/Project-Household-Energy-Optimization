@@ -1,6 +1,7 @@
 
 from src.simulation.simulation import Simulation
 from src.simulation.policies.blind import no_control
+from src.simulation.policies.greedy import advanced_ev_bess
 from src import connections
 from src.simulation.requirements.charge_requirements import basic_charge_requirements
 
@@ -17,7 +18,7 @@ if __name__ == "__main__":
         charge_requirements=charge_requirements
     )
 
-    simulation.run_all_households(policy=no_control, start_time=0)
+    simulation.run_all_households(policy=advanced_ev_bess, start_time=0)
 
     if sqlite_conn:
         sqlite_conn.close()
