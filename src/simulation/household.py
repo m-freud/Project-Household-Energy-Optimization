@@ -20,7 +20,7 @@ class Household:
             fixed_cost=0.0,
             charge_requirements=basic_charge_requirements):
         # timing info
-        self.time = start_time  # start time of the simulation for this household
+        self.current_timestep = start_time  # start time of the simulation for this household
         self.player_id = player_id
 
         # you can create empty or full
@@ -106,58 +106,58 @@ class Household:
         logs current states to history for current timestep
         '''
         # base load
-        self.history["base_load"][self.time] = self.base_load
-        self.history["buy_price"][self.time] = self.buy_price
-        self.history["sell_price"][self.time] = self.sell_price
+        self.history["base_load"][self.current_timestep] = self.base_load
+        self.history["buy_price"][self.current_timestep] = self.buy_price
+        self.history["sell_price"][self.current_timestep] = self.sell_price
 
         # PV
         if self.pv:
-            self.history["pv_gen"][self.time] = self.pv.generation
+            self.history["pv_gen"][self.current_timestep] = self.pv.generation
         else:
-            self.history["pv_gen"][self.time] = 0.0
+            self.history["pv_gen"][self.current_timestep] = 0.0
 
         # BESS
         if self.bess:
-            self.history["bess_soc"][self.time] = self.bess.soc
+            self.history["bess_soc"][self.current_timestep] = self.bess.soc
         else:
-            self.history["bess_soc"][self.time] = 0.0
+            self.history["bess_soc"][self.current_timestep] = 0.0
 
         # EV1
         if self.ev1:
-            self.history["ev1_soc"][self.time] = self.ev1.soc
-            self.history["ev1_load"][self.time] = self.ev1.load
-            self.history["ev1_at_home"][self.time] = int(self.ev1.at_home)
-            self.history["ev1_at_charging_station"][self.time] = int(self.ev1.at_charging_station)
+            self.history["ev1_soc"][self.current_timestep] = self.ev1.soc
+            self.history["ev1_load"][self.current_timestep] = self.ev1.load
+            self.history["ev1_at_home"][self.current_timestep] = int(self.ev1.at_home)
+            self.history["ev1_at_charging_station"][self.current_timestep] = int(self.ev1.at_charging_station)
         else:
-            self.history["ev1_soc"][self.time] = 0.0
-            self.history["ev1_load"][self.time] = 0.0
-            self.history["ev1_at_home"][self.time] = 0
-            self.history["ev1_at_charging_station"][self.time] = 0
+            self.history["ev1_soc"][self.current_timestep] = 0.0
+            self.history["ev1_load"][self.current_timestep] = 0.0
+            self.history["ev1_at_home"][self.current_timestep] = 0
+            self.history["ev1_at_charging_station"][self.current_timestep] = 0
 
         # EV2
         if self.ev2:
-            self.history["ev2_soc"][self.time] = self.ev2.soc
-            self.history["ev2_load"][self.time] = self.ev2.load
-            self.history["ev2_at_home"][self.time] = int(self.ev2.at_home)
-            self.history["ev2_at_charging_station"][self.time] = int(self.ev2.at_charging_station)
+            self.history["ev2_soc"][self.current_timestep] = self.ev2.soc
+            self.history["ev2_load"][self.current_timestep] = self.ev2.load
+            self.history["ev2_at_home"][self.current_timestep] = int(self.ev2.at_home)
+            self.history["ev2_at_charging_station"][self.current_timestep] = int(self.ev2.at_charging_station)
         else:
-            self.history["ev2_soc"][self.time] = 0.0
-            self.history["ev2_load"][self.time] = 0.0
-            self.history["ev2_at_home"][self.time] = 0
-            self.history["ev2_at_charging_station"][self.time] = 0
+            self.history["ev2_soc"][self.current_timestep] = 0.0
+            self.history["ev2_load"][self.current_timestep] = 0.0
+            self.history["ev2_at_home"][self.current_timestep] = 0
+            self.history["ev2_at_charging_station"][self.current_timestep] = 0
 
         # controls
         for control_key in self.controls:
-            self.history[control_key][self.time] = self.controls[control_key]
+            self.history[control_key][self.current_timestep] = self.controls[control_key]
 
         # net load and cost
-        self.history["net_cost"][self.time] = self.net_cost
-        self.history["net_load"][self.time] = self.net_load
+        self.history["net_cost"][self.current_timestep] = self.net_cost
+        self.history["net_load"][self.current_timestep] = self.net_load
 
         # totals
-        self.history["total_generation"][self.time] = self.total_generation
-        self.history["total_consumption"][self.time] = self.total_consumption
-        self.history["total_cost"][self.time] = self.total_cost
+        self.history["total_generation"][self.current_timestep] = self.total_generation
+        self.history["total_consumption"][self.current_timestep] = self.total_consumption
+        self.history["total_cost"][self.current_timestep] = self.total_cost
 
 
     def plot_history(self):
