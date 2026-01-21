@@ -4,3 +4,4 @@ data/EC_EV_dataset (fixed error).xlsx
 ~lock.*#
 data/.~lock.A.xlsx#
 /influx/
+/grafana/
