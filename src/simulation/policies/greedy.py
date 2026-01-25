@@ -204,7 +204,7 @@ def advanced_ev_bess(household:Household):
     remaining_prices = buy_prices[current_timestep:]
     avg_future_price = sum(remaining_prices) / len(remaining_prices) if remaining_prices else buy_prices[current_timestep]
     current_price = buy_prices[current_timestep]
-    current_sell_price = sell_prices[current_timestep]
+    # current_sell_price = sell_prices[current_timestep]
     
     # Price advantage: positive means good time to charge, negative means good time to discharge
     price_advantage = (avg_future_price - current_price) / avg_future_price if avg_future_price > 0 else 0
