@@ -23,21 +23,34 @@ class PolicyAnalyzer:
         self.conn = None
         self.results_df = None
         
-    def load_results(self):
-        """Load all simulation results from database."""
-        self.conn = sqlite3.connect(self.db_path)
+    def load_results(self) -> pd.DataFrame:
+        """Load simulation results from SQLite database."""
         query = """
             SELECT 
-                policy,
+                policy_name,
                 player_id,
+                CAST(total_cost as REAL) as total_cost,
+                CAST(total_grid_import as REAL) as total_grid_import,
+                CAST(total_grid_export as REAL) as total_grid_export,
+                CAST(total_pv_generation as REAL) as total_pv_generation,
+                CAST(total_self_consumption as REAL) as total_self_consumption,
+                CAST(bess_cycles as REAL) as bess_cycles,
+                CAST(ev1_final_soc as REAL) as ev1_final_soc,
+                CAST(ev2_final_soc as REAL) as ev2_final_soc,
                 has_pv,
                 has_bess,
-                total_cost,
-                total_consumption
-            FROM results
+                has_ev1,
+                has_ev2
+            FROM simulation_results
         """
-        self.results_df = pd.read_sql_query(query, self.conn)
-        return self.results_df
+        df = pd.read_sql_query(query, self.db_path)
+        
+        # Convert boolean columns
+        for col in ['has_pv', 'has_bess', 'has_ev1', 'has_ev2']:
+            if col in df.columns:
+                df[col] = df[col].astype(bool)
+        
+        return df
     
     def compute_summary_stats(self):
         """Compute comprehensive summary statistics by policy."""

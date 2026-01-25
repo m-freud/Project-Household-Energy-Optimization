@@ -132,7 +132,7 @@ class EnergyManagementEnv(gym.Env):
         config = self.household_config
         
         # Create components
-        pv = PV(capacity=config.get('pv_capacity', 5.0)) if config.get('has_pv') else None
+        pv = PV() if config.get('has_pv') else None
         
         bess = BESS(
             capacity=config.get('bess_capacity', 13.5),
