@@ -14,6 +14,7 @@ class Simulation:
     def __init__(self, sqlite_conn, influx_client, charge_requirements=basic_charge_requirements):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
+        self.influx_client = influx_client
         self.influx_query_api = influx_client.query_api()
         self.influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 
@@ -70,8 +71,8 @@ class Simulation:
         for t in range(start_time, self.num_timesteps):
             self.step(household, policy=policy, duration_hours=0.25, time=t)
 
-        self.load_history_to_influx(household, policy_name=f"P-{policy.__name__}")
-        self.load_results_to_sqlite(household, policy_name=f"P-{policy.__name__}")
+        self.load_history_to_influx(household, policy_name=policy.__name__)
+        self.load_results_to_sqlite(household, policy_name=policy.__name__)
 
         return household
 
@@ -208,6 +209,7 @@ class Simulation:
              household.has_bess, total_cost, total_consumption)
         )
         self.sqlite_conn.commit()
+
 
     def load_history_to_influx(
             self,

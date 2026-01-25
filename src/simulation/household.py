@@ -46,7 +46,6 @@ class Household:
             "sell_price": {},
             "net_load": {},
             "net_cost": {},
-            "bess_power": {},
             "ev1_soc": {},
             "ev2_soc": {},
             "ev1_at_home": {},
@@ -57,6 +56,7 @@ class Household:
             "ev2_load": {},
             "ev1_power": {},
             "ev2_power": {},
+            "bess_power": {},
             "total_generation": {},
             "total_consumption": {},
             "total_cost": {}
