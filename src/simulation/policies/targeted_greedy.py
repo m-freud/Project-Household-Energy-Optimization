@@ -16,9 +16,10 @@ from src.simulation.scenarios.example_scenarios import Scenario
 
 def targeted_greedy(household:Household, scenario:Scenario):
     '''
-    Targeted myopic policy for EV and BESS control:
-    - Prioritize EV charging based on immediate cost savings
-    - Use BESS to balance load and PV generation
+    greedy policy with targets.
+    calculates average needed power to meet target soc by deadline,
+    then sets charge power to exactly that amount (capped by max charge rate).
+    uses pv surplus to charge bess if available.
     '''
 
     # ev1 control
@@ -54,6 +55,7 @@ def targeted_greedy(household:Household, scenario:Scenario):
             charge_power = min(avg_needed_power, household.ev2.max_charge)
             household.controls["ev2_power"] = charge_power
 
+
     # bess control - we do this last to 
     if household.bess:
         current_soc = household.bess.soc
@@ -83,3 +85,6 @@ def targeted_greedy(household:Household, scenario:Scenario):
     controls = household.controls
 
     return household.controls
+
+
+# todo add price awareness
