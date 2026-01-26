@@ -11,7 +11,12 @@ from src.simulation.requirements.charge_requirements import half_full_by_midnigh
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, influx_client, charge_requirements=half_full_by_midnight):
+    def __init__(
+            self,
+            sqlite_conn,
+            influx_client,
+            charge_requirements=half_full_by_midnight,
+            initial_SOCs={'bess': 0.0, 'ev1': 0.2, 'ev2': 0.2}):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.influx_client = influx_client
@@ -22,6 +27,7 @@ class Simulation:
         self.num_timesteps = 96
 
         self.charge_requirements = charge_requirements
+        self.initial_SOCs = initial_SOCs
 
         self.env_inputs = [ # influx table names
             "load",
@@ -130,6 +136,8 @@ class Simulation:
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
+
+
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
 
         # plug in EV2
@@ -143,6 +151,11 @@ class Simulation:
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
+
+        for component in [household.bess, household.ev1, household.ev2]:
+            if component:
+                if component.name in self.initial_SOCs:
+                    component.soc = self.initial_SOCs[component.name]
 
         return household
 

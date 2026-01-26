@@ -13,7 +13,6 @@ sys.path.insert(0, str(repo_root))
 from src.simulation.household import Household
 
 
-
 def targeted_greedy(household:Household):
     '''
     Targeted myopic policy for EV and BESS control:
@@ -80,5 +79,7 @@ def targeted_greedy(household:Household):
             # discharge to cover load
             discharge_power = min(household.net_load, household.bess.max_discharge, current_soc * 4)
             household.controls["bess_power"] = -discharge_power
+
+    controls = household.controls
 
     return household.controls
