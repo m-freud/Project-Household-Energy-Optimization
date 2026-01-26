@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
-from src.simulation.requirements.charge_requirements import half_full_by_midnight
 
 
 class Household:
@@ -17,8 +16,7 @@ class Household:
             bess:BESS|None=None,
             ev1:EV|None=None,
             ev2:EV|None=None,
-            fixed_cost=0.0,
-            charge_requirements=half_full_by_midnight):
+            fixed_cost=0.0):
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
         self.player_id = player_id
@@ -28,7 +26,6 @@ class Household:
         self.bess = bess
         self.ev1 = ev1
         self.ev2 = ev2
-        self.charge_requirements = charge_requirements
 
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity

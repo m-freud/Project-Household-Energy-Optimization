@@ -21,6 +21,7 @@ class EV:
         self.at_home = at_home  # boolean
         self.at_charging_station = at_charging_station  # boolean
         self.buy_price = 0.0  # current (white) power price for charging
+        self.name = name
 
 
     def charge(self, power, duration_hours):
