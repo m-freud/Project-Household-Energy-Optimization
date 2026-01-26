@@ -17,7 +17,7 @@ no_requirements = {
 }
 
 
-basic_charge_requirements = {
+half_full_by_midnight = {
     "ev1": {
         "soc": 0.5,  # required state of charge (fraction of capacity)
         "deadline": 96,  # timestep by which required_soc must be met

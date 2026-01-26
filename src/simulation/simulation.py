@@ -7,11 +7,11 @@ from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
 from src.simulation.household import Household
 from src.simulation.policies.blind import no_control
-from src.simulation.requirements.charge_requirements import basic_charge_requirements
+from src.simulation.requirements.charge_requirements import half_full_by_midnight
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, influx_client, charge_requirements=basic_charge_requirements):
+    def __init__(self, sqlite_conn, influx_client, charge_requirements=half_full_by_midnight):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.influx_client = influx_client

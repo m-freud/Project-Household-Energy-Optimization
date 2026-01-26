@@ -18,7 +18,7 @@ class Household:
             ev1:EV|None=None,
             ev2:EV|None=None,
             fixed_cost=0.0,
-            charge_requirements=basic_charge_requirements):
+            charge_requirements=half_full_by_midnight):
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
         self.player_id = player_id
