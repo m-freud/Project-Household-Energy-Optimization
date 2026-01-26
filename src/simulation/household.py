@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
-from src.simulation.requirements.charge_requirements import basic_charge_requirements
+from src.simulation.requirements.charge_requirements import half_full_by_midnight
 
 
 class Household:
