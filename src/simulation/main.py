@@ -1,7 +1,7 @@
 
 from src.simulation.simulation import Simulation
 from src.simulation.policies.blind import no_control
-from src.simulation.policies.greedy import advanced_ev_bess
+from simulation.policies.basic_advanced_slop import advanced_ev_bess
 from src import connections
 from src.simulation.requirements.charge_requirements import basic_charge_requirements
 
