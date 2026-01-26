@@ -7,15 +7,14 @@ from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
 from src.simulation.household import Household
 from src.simulation.policies.blind import no_control
-from src.simulation.requirements.charge_requirements import half_full_by_midnight
-
+from src.simulation.scenarios.example_scenarios import default_scenario
+from src.simulation.scenarios.scenario import Scenario
 
 class Simulation:
     def __init__(
             self,
             sqlite_conn,
             influx_client,
-            charge_requirements=half_full_by_midnight,
             initial_SOCs={'bess': 0.0, 'ev1': 0.2, 'ev2': 0.2}):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
@@ -26,7 +25,6 @@ class Simulation:
         self.num_households = 250
         self.num_timesteps = 96
 
-        self.charge_requirements = charge_requirements
         self.initial_SOCs = initial_SOCs
 
         self.env_inputs = [ # influx table names
@@ -57,6 +55,7 @@ class Simulation:
         self.sqlite_cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
                 policy TEXT,
+                scenario TEXT,
                 player_id INTEGER,
                 has_pv BOOLEAN,
                 has_bess BOOLEAN,
@@ -65,29 +64,26 @@ class Simulation:
             )''')
 
 
-    def run_all_households(self, policy=no_control, start_time=0):
+    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
         for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, policy=policy, start_time=start_time)
+            self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
 
 
-    def run_household(self, player_id, policy=no_control, start_time=0):
+    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
         print(f"running household {player_id} with policy {policy.__name__}")
-        household = self.create_household(player_id, start_time)
+        household = self.create_household(player_id, scenario, start_time)
 
         for t in range(start_time, self.num_timesteps):
-            self.step(household, policy=policy, duration_hours=0.25, time=t)
+            self.step(household, policy=policy, scenario=scenario, duration_hours=0.25, time=t)
 
-        self.load_history_to_influx(household, policy_name=policy.__name__)
-        self.load_results_to_sqlite(household, policy_name=policy.__name__)
+        self.load_history_to_influx(household, policy_name=policy.__name__, scenario_name=scenario.name)
+        self.load_results_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
 
         return household
 
 
-    def create_household(self, player_id, start_time=0):
+    def create_household(self, player_id:int, scenario:Scenario, start_time=0):
         household = Household(player_id=player_id, start_time=start_time)
-        
-        if self.charge_requirements:
-            household.charge_requirements = self.charge_requirements
 
         household.fixed_cost = self.sqlite_cursor.execute(
             "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
@@ -124,7 +120,7 @@ class Simulation:
             ).fetchone()
 
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
-            household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc)
+            household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc, name="bess")
 
         # plug in EV1
         ev1_data = self.sqlite_cursor.execute(
@@ -138,7 +134,7 @@ class Simulation:
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
 
 
-        household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
+        household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
 
         # plug in EV2
         ev2_data = self.sqlite_cursor.execute(
@@ -150,21 +146,22 @@ class Simulation:
             (player_id,)
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
-        household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc)
+        household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
 
+        # set initial SOCs from scenario
         for component in [household.bess, household.ev1, household.ev2]:
             if component:
-                if component.name in self.initial_SOCs:
-                    component.soc = self.initial_SOCs[component.name]
-
+                device_config = getattr(scenario, component.name, None)
+                if device_config:
+                    component.soc = device_config.start_soc
         return household
 
 
-    def step(self, household: Household, policy=no_control, duration_hours=0.25, time=0):
+    def step(self, household: Household, policy=no_control, scenario: Scenario=default_scenario, duration_hours=0.25, time=0):
         self.current_timestep = time
         self.update_household_inputs(household)
 
-        controls = policy(household)
+        controls = policy(household, scenario=scenario)
         household.apply_controls(controls, duration_hours=duration_hours)
 
         household.update_history()
@@ -208,17 +205,17 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
-    def load_results_to_sqlite(self, household: Household, policy_name="basic_bess"):
+    def load_results_to_sqlite(self, household: Household, policy_name:str="basic_bess", scenario_name:str="default_scenario"):
         total_cost = household.total_cost
         total_consumption = household.total_consumption
 
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
-            policy, player_id, has_pv, has_bess, total_cost, total_consumption)
-            VALUES (?, ?, ?, ?, ?, ?)
+            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ''',
-            (policy_name, household.player_id, household.has_pv,
+            (policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption)
         )
         self.sqlite_conn.commit()
@@ -228,6 +225,7 @@ class Simulation:
             self,
             household: Household,
             policy_name="basic_bess",
+            scenario_name: str="default_scenario",
             measurements=None):
         if measurements is None:
             measurements = [
@@ -249,7 +247,7 @@ class Simulation:
             for t, value in household.history[m].items():
                 points.append({
                     "measurement": m,
-                    "tags": {"player_id": str(household.player_id), "policy": policy_name},
+                    "tags": {"player_id": str(household.player_id), "policy": policy_name, "scenario": scenario_name.__str__()},
                     "fields": {"value": value},
                     "time": period_to_epoch(t),
                 })

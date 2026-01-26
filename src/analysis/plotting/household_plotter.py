@@ -8,11 +8,13 @@ import matplotlib.pyplot as plt
 from typing import List, Dict, Optional
 from src.connections import get_influx_query_api
 from src.config import Config
-
+from src.simulation.scenarios.example_scenarios import Scenario, default_scenario
+from src.simulation.policies.targeted_greedy import targeted_greedy
 
 def plot_household(
     household_id: int,
     policy: str,
+    scenario: Scenario,
     fields: List[str],
     colors: Optional[Dict[str, str]] = None,
     title: Optional[str] = None,
@@ -59,6 +61,7 @@ def plot_household(
         |> range(start: 0)
         |> filter(fn: (r) => r["player_id"] == "{household_id}")
         |> filter(fn: (r) => r["policy"] == "{policy}" or not exists r["policy"]) // base inputs dont have a policy tag
+        |> filter(fn: (r) => r["scenario"] == "{scenario.name}" or not exists r["scenario"]) // base inputs dont have a scenario tag
         |> filter(fn: (r) => contains(value: r["_measurement"], set: {flux_set}))
         |> sort(columns: ["_time"])
     '''
@@ -93,11 +96,28 @@ def plot_household(
         ax.plot(data[field]['times'], data[field]['values'], 
                 label=field, color=color, linewidth=1.5)
     
+    # Add horizontal target_soc lines for each device
+    device_soc_fields = {
+        'bess_soc': scenario.bess,
+        'ev1_soc': scenario.ev1,
+        'ev2_soc': scenario.ev2,
+    }
+    
+    for soc_field, device_config in device_soc_fields.items():
+        if soc_field in fields and soc_field in data:
+            target_soc = device_config.target_soc
+            if target_soc > 0:  # Only plot if there's a meaningful target
+                times = data[soc_field]['times']
+                ax.hlines(target_soc, times[0], times[-1], 
+                         colors='red', linestyles='dotted', linewidth=1.5,
+                         label=f'{soc_field} target')
+    
     ax.set_xlabel('Time')
     ax.set_ylabel('Value')
     ax.set_title(title or f'Household {household_id} with policy {policy}')
     ax.legend()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
+    plt.show()
     
     return fig

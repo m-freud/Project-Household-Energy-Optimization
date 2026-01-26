@@ -13,7 +13,6 @@ def init_simulation(charge_requirements=half_full_by_midnight):
     simulation = Simulation(
         sqlite_conn=sqlite_conn,
         influx_client=influx_client,
-        charge_requirements=charge_requirements
     )
 
     return simulation
