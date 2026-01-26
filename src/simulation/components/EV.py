@@ -1,10 +1,17 @@
 
 
 class EV:
-    def __init__(self, capacity, max_charge, max_discharge,
-                 efficiency, soc=0.0, load=0.0,
-                 at_home=False, at_charging_station=False,
-                 constraints={"deadline": None, "required_soc": None}):
+    def __init__(
+            self,
+            capacity,
+            max_charge,
+            max_discharge,
+            efficiency,
+            soc=0.0,
+            load=0.0,
+            at_home=False,
+            at_charging_station=False,
+            name="ev"):
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
         self.max_discharge = max_discharge  # in kW (per hour)
@@ -14,8 +21,6 @@ class EV:
         self.at_home = at_home  # boolean
         self.at_charging_station = at_charging_station  # boolean
         self.buy_price = 0.0  # current (white) power price for charging
-
-        self.constraints = constraints  # dict with "deadline" (time by which to be charged) and "required_soc" (kWh)
 
 
     def charge(self, power, duration_hours):
@@ -40,10 +45,7 @@ class EV:
     @soc.setter
     def soc(self, value):
         self._soc = max(0, min(value, self.capacity))
-
+        
     @property
-    def soc_missing_to_target(self):
-        if self.constraints["required_soc"] is not None:
-            return max(0.0, self.constraints["required_soc"] - self.soc)
-        else:
-            return 0.0
+    def soc_fraction(self):
+        return self.soc / self.capacity
