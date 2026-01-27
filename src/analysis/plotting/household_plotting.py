@@ -16,7 +16,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.scenarios.scenario import default_scenario
-from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction
+from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
 
 
 from src.connections import get_sqlite_cursor
@@ -186,11 +186,12 @@ def plot_household_fields(
 
 def plot_household_devices(
     household_id: int,
-    policy= naive_linear_satisfaction,
+    policy= last_minute_satisfaction,
     scenario= default_scenario,
     colors = default_colors,
     figsize = (12, 6)
-):
+    ):
+    
     fields = [
         "bess_soc",
         "ev1_soc",
@@ -256,17 +257,8 @@ def plot_household_costs(
 if __name__ == "__main__":
     # Example usage
     fields = ["base_load", "pv_gen", "net_load", "bess_soc", "ev1_soc", "ev2_soc"]
-    fig = plot_household_fields(
+    fig = plot_household_devices(
         household_id=1,
-        policy=naive_linear_satisfaction,
+        policy=last_minute_satisfaction,
         scenario=default_scenario,
-        fields=fields,
-        title="Household 1: Load and PV Generation",
-    )
-    fig = plot_household_costs(
-        household_id=1,
-        policy=naive_linear_satisfaction,
-        scenario=default_scenario,
-        colors=default_colors,
-        figsize=(12, 6)
     )
