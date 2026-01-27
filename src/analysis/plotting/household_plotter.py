@@ -15,7 +15,7 @@ def plot_household(
     household_id: int,
     policy= naive_linear_satisfaction,
     scenario= default_scenario,
-    fields: List[str]=["load", "pv_gen"],
+    fields: List[str]=["base_load", "pv_gen"],
     colors: Optional[Dict[str, str]] = None,
     title: Optional[str] = None,
     figsize: tuple = (12, 6)

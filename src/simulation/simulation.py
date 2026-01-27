@@ -28,7 +28,7 @@ class Simulation:
         self.initial_SOCs = initial_SOCs
 
         self.env_inputs = [ # influx table names
-            "load",
+            "base_load",
             "pv_gen",
             "ev1_load",
             "ev2_load",
@@ -178,7 +178,7 @@ class Simulation:
         pv = household.pv
 
         # update base load
-        household.base_load = profiles["load"][timestep]
+        household.base_load = profiles["base_load"][timestep]
 
         # update pv
         if pv:
@@ -247,7 +247,7 @@ class Simulation:
             for t, value in household.history[m].items():
                 points.append({
                     "measurement": m,
-                    "tags": {"player_id": str(household.player_id), "policy": policy_name, "scenario": scenario_name.__str__()},
+                    "tags": {"player_id": str(household.player_id), "policy": policy_name, "scenario": scenario_name},
                     "fields": {"value": value},
                     "time": period_to_epoch(t),
                 })
