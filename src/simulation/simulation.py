@@ -2,9 +2,9 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 from src.config import Config
 from src.connections import fetch_multiple_timeseries
 from src.ingestion.data_loader import period_to_epoch
-from src.simulation.components.BESS import BESS
-from src.simulation.components.EV import EV
-from src.simulation.components.PV import PV
+from src.simulation.components.bess import BESS
+from src.simulation.components.ev import EV
+from src.simulation.components.pv import PV
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.policies.basic_examples import no_control

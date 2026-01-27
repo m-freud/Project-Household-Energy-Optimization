@@ -25,7 +25,7 @@ def naive_linear_satisfaction(household:Household, scenario:Scenario):
     # ev1 control
     if household.ev1:
         current_soc = household.ev1.soc
-        required_soc = scenario.ev1.target_soc
+        required_soc = scenario.ev1.target_soc * household.ev1.capacity
         soc_deficit = required_soc - current_soc
         if soc_deficit > 0 and (household.ev1.at_home or household.ev1.at_charging_station):
             # charge to meet soc requirement
@@ -42,7 +42,7 @@ def naive_linear_satisfaction(household:Household, scenario:Scenario):
     # ev2 control
     if household.ev2:
         current_soc = household.ev2.soc
-        required_soc = scenario.ev2.target_soc
+        required_soc = scenario.ev2.target_soc * household.ev2.capacity
         soc_deficit = required_soc - current_soc
         if soc_deficit > 0 and (household.ev2.at_home or household.ev2.at_charging_station):
             # charge to meet soc requirement
@@ -59,7 +59,7 @@ def naive_linear_satisfaction(household:Household, scenario:Scenario):
     # bess control - we do this last to 
     if household.bess:
         current_soc = household.bess.soc
-        required_soc = scenario.bess.target_soc
+        required_soc = scenario.bess.target_soc * household.bess.capacity
         soc_deficit = required_soc - current_soc
         if soc_deficit > 0:
             # charge to meet soc requirement

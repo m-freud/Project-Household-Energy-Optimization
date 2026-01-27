@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-from src.simulation.components.BESS import BESS
-from src.simulation.components.EV import EV
-from src.simulation.components.PV import PV
+from src.simulation.components.bess import BESS
+from src.simulation.components.ev import EV
+from src.simulation.components.pv import PV
 
 
 class Household:
