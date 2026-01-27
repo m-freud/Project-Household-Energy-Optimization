@@ -6,9 +6,9 @@ from src.simulation.components.BESS import BESS
 from src.simulation.components.EV import EV
 from src.simulation.components.PV import PV
 from src.simulation.household import Household
-from src.simulation.policies.blind import no_control
-from src.simulation.scenarios.example_scenarios import default_scenario
 from src.simulation.scenarios.scenario import Scenario
+from src.simulation.policies.basic_examples import no_control
+from src.simulation.scenarios.scenario import default_scenario
 
 class Simulation:
     def __init__(

@@ -9,8 +9,8 @@ sys.path.insert(0, str(repo_root))
 
 from src.config import Config
 from src.simulation.main import init_simulation
-from simulation.policies.targeted_greedy import targeted_greedy
-from simulation.scenarios.example_scenarios import default_scenario
+from simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction
+from simulation.scenarios.scenario import default_scenario
 from src.analysis.plotting.household_plotter import plot_household
 
 simulation = init_simulation()
@@ -18,12 +18,12 @@ simulation = init_simulation()
 # print(household_1.has_bess)
 
 
-h1 = simulation.run_household(1, policy=targeted_greedy, scenario=default_scenario, start_time=0)
+h1 = simulation.run_household(1, policy=naive_linear_satisfaction, scenario=default_scenario, start_time=0)
 print(h1.has_bess)
 
 fig = plot_household(
     household_id=1,
-    policy="targeted_greedy",
+    policy=naive_linear_satisfaction,
     scenario=default_scenario,
     fields=["net_load", "pv_gen", "bess_soc", "ev1_soc", "ev2_soc"],
     colors={"net_load": "blue", "pv_gen": "orange", "bess_soc": "green", "ev1_soc": "red", "ev2_soc": "purple"},

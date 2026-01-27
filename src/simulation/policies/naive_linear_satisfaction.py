@@ -11,10 +11,10 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
-from src.simulation.scenarios.example_scenarios import Scenario
+from src.simulation.scenarios.scenario import Scenario
 
 
-def targeted_greedy(household:Household, scenario:Scenario):
+def naive_linear_satisfaction(household:Household, scenario:Scenario):
     '''
     greedy policy with targets.
     calculates average needed power to meet target soc by deadline,

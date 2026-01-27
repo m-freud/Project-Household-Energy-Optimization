@@ -6,16 +6,16 @@ Decoupled from simulation - queries data directly from InfluxDB.
 
 import matplotlib.pyplot as plt
 from typing import List, Dict, Optional
+from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction
 from src.connections import get_influx_query_api
 from src.config import Config
-from src.simulation.scenarios.example_scenarios import Scenario, default_scenario
-from src.simulation.policies.targeted_greedy import targeted_greedy
+from src.simulation.scenarios.scenario import default_scenario
 
 def plot_household(
     household_id: int,
-    policy: str,
-    scenario: Scenario,
-    fields: List[str],
+    policy= naive_linear_satisfaction,
+    scenario= default_scenario,
+    fields: List[str]=["load", "pv_gen"],
     colors: Optional[Dict[str, str]] = None,
     title: Optional[str] = None,
     figsize: tuple = (12, 6)
@@ -60,7 +60,7 @@ def plot_household(
     from(bucket: "{Config.INFLUX_BUCKET}")
         |> range(start: 0)
         |> filter(fn: (r) => r["player_id"] == "{household_id}")
-        |> filter(fn: (r) => r["policy"] == "{policy}" or not exists r["policy"]) // base inputs dont have a policy tag
+        |> filter(fn: (r) => r["policy"] == "{policy.__name__}" or not exists r["policy"]) // base inputs dont have a policy tag
         |> filter(fn: (r) => r["scenario"] == "{scenario.name}" or not exists r["scenario"]) // base inputs dont have a scenario tag
         |> filter(fn: (r) => contains(value: r["_measurement"], set: {flux_set}))
         |> sort(columns: ["_time"])
