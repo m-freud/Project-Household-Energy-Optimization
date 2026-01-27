@@ -3,9 +3,33 @@ Docstring for src.simulation.policies.rule_based
 '''
 
 from src.simulation.household import Household
+import random
 
 
-def basic_bess(household:Household):
+def no_control(household:Household):
+    """A policy that does not control anything, all controls are set to zero."""
+    controls = {
+        "bess_power": 0.0,
+        "ev1_power": 0.0,
+        "ev2_power": 0.0,
+    }
+
+    return controls
+
+
+def random_control(household:Household):
+    """A policy that sets random controls within the allowed limits."""
+
+    controls = {
+        "bess_power": random.uniform(-household.bess.max_discharge, household.bess.max_charge) if household.bess else 0.0,
+        "ev1_power": random.uniform(0, household.ev1.max_charge) if household.ev1 else 0.0,
+        "ev2_power": random.uniform(0, household.ev2.max_charge) if household.ev2 else 0.0,
+    }
+
+    return controls
+
+
+def example_bess(household:Household):
     '''
     if there is excess PV generation, charge the BESS
     if there is a deficit, discharge the BESS
@@ -26,7 +50,7 @@ def basic_bess(household:Household):
     return household.controls
 
 
-def basic_ev(household:Household):
+def example_ev(household:Household):
     '''
     Simple EV charging policy:
     at charging station: charge if cheaper than at home so far
@@ -59,12 +83,12 @@ def basic_ev(household:Household):
     return household.controls
 
 
-def basic_ev_bess(household:Household):
+def example_ev_bess(household:Household):
     '''
     Combined policy based on priority:
     charge ev first, then battery
     '''
-    controls = basic_ev(household)
+    controls = example_ev(household)
 
     if not household.bess:
         return controls
@@ -92,5 +116,4 @@ def basic_ev_bess(household:Household):
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
-
 

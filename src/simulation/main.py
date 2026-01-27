@@ -1,9 +1,9 @@
 
 from src.simulation.simulation import Simulation
-from src.simulation.policies.blind import no_control
-from simulation.policies.advanced_slop import advanced_ev_bess
+from src.simulation.policies.basic_examples import no_control
 from src import connections
 from src.simulation.requirements.charge_requirements import half_full_by_midnight
+from src.simulation.scenarios.scenario import default_scenario
 
 
 def init_simulation(charge_requirements=half_full_by_midnight):
@@ -21,7 +21,7 @@ def init_simulation(charge_requirements=half_full_by_midnight):
 if __name__ == "__main__":
     simulation = init_simulation()
 
-    simulation.run_all_households(policy=advanced_ev_bess, start_time=0)
+    simulation.run_all_households(policy=no_control, scenario=default_scenario, start_time=0)
 
     if simulation.sqlite_conn:
         simulation.sqlite_conn.close()
