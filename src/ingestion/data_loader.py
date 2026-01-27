@@ -13,7 +13,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from src.ingestion.table_config import table_instructions
+from ingestion.table_load_config import table_ingestion_config
 import src.connections as connections
 from src.config import Config
 
@@ -211,6 +211,6 @@ def load_all_tables(wb, table_instructions):
 if __name__ == "__main__":
     wb = load_workbook(Config.EXCEL_FILE_PATH, data_only=True)
 
-    load_all_tables(wb, table_instructions)
+    load_all_tables(wb, table_ingestion_config)
 
     sqlite_conn.close()

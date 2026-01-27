@@ -32,7 +32,7 @@ TIME_SERIES_DEFAULT = {
 }
 
 
-table_instructions = {
+table_ingestion_config = {
     "player_pv_bess": {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
@@ -79,7 +79,7 @@ table_instructions = {
         "transpose": True,
         "process": lambda df: df[["player_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
     },
-    "load": {
+    "base_load": {
         "sheet_name": "Load",
         **TIME_SERIES_DEFAULT
     },
