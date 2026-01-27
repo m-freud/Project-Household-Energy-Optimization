@@ -137,7 +137,7 @@ def compute_and_store_averages():
     """
     query_api = connections.get_influx_query_api()
     
-    for measurement in ["pv_gen", "load"]:
+    for measurement in ["pv_gen", "base_load"]:
         print(f"Computing average for {measurement}...")
         
         # Let Flux compute the average across all player_ids

@@ -4,14 +4,36 @@ Household Plotter - Query and visualize household energy data from InfluxDB.
 Decoupled from simulation - queries data directly from InfluxDB.
 """
 
+# paste this to enable src. imports
+
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 import matplotlib.pyplot as plt
 from typing import List, Dict, Optional
 from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction
 from src.connections import get_influx_query_api
 from src.config import Config
 from src.simulation.scenarios.scenario import default_scenario
+from src.connections import get_sqlite_cursor
 
-def plot_household(
+
+sqlite_cursor = get_sqlite_cursor()
+
+def get_household_info(household_id, table, field):
+    sqlite_cursor.execute(
+        f"SELECT {field} FROM {table} WHERE player_id = ?", (household_id,)
+    )
+
+    result = sqlite_cursor.fetchone()
+    return result[0] if result else None
+
+
+def plot_household_fields(
     household_id: int,
     policy= naive_linear_satisfaction,
     scenario= default_scenario,
@@ -97,20 +119,20 @@ def plot_household(
                 label=field, color=color, linewidth=1.5)
     
     # Add horizontal target_soc lines for each device
-    device_soc_fields = {
-        'bess_soc': scenario.bess,
-        'ev1_soc': scenario.ev1,
-        'ev2_soc': scenario.ev2,
-    }
+    bess_capacity = get_household_info(household_id, table="bess", field="capacity")
+    if bess_capacity is not None:
+        target_soc = scenario.bess.target_soc * bess_capacity
+        ax.axhline(y=target_soc, color='green', linestyle='--', label='BESS Target SOC')
     
-    for soc_field, device_config in device_soc_fields.items():
-        if soc_field in fields and soc_field in data:
-            target_soc = device_config.target_soc
-            if target_soc > 0:  # Only plot if there's a meaningful target
-                times = data[soc_field]['times']
-                ax.hlines(target_soc, times[0], times[-1], 
-                         colors='red', linestyles='dotted', linewidth=1.5,
-                         label=f'{soc_field} target')
+    ev1_capacity = get_household_info(household_id, table="ev1", field="capacity")
+    if ev1_capacity is not None:
+        target_soc_ev1 = scenario.ev1.target_soc * ev1_capacity
+        ax.axhline(y=target_soc_ev1, color='purple', linestyle='--', label='EV1 Target SOC')
+
+    ev2_capacity = get_household_info(household_id, table="ev2", field="capacity")
+    if ev2_capacity is not None:
+        target_soc_ev2 = scenario.ev2.target_soc * ev2_capacity
+        ax.axhline(y=target_soc_ev2, color='brown', linestyle='--', label='EV2 Target SOC')
     
     ax.set_xlabel('Time')
     ax.set_ylabel('Value')
@@ -121,3 +143,53 @@ def plot_household(
     plt.show()
     
     return fig
+
+
+def plot_household_full(
+    household_id: int,
+    policy= naive_linear_satisfaction,
+    scenario= default_scenario,
+    figsize: tuple = (12, 8)
+):
+    """
+    Plot a comprehensive set of household fields.
+    
+    Parameters:
+    -----------
+    household_id : int
+        The household ID to query
+    policy : str
+        The policy name to query
+    scenario : Scenario
+        The scenario configuration
+    figsize : tuple
+        Figure size (width, height)
+    
+    Returns:
+    --------
+    matplotlib.figure.Figure
+        The created figure
+    """
+    fields = [
+        "base_load",
+        "pv_gen",
+        "net_load",
+        "bess_power",
+        "bess_soc",
+        "ev1_power",
+        "ev1_soc",
+        "ev2_power",
+        "ev2_soc",
+    ]
+    
+    return plot_household_fields(
+        household_id=household_id,
+        policy=policy,
+        scenario=scenario,
+        fields=fields,
+        figsize=figsize
+    )
+
+if __name__ == "__main__":
+    max_charge_bess_h1 = get_household_info(household_id=1, table="bess", field="capacity")
+    print(f"Max Charge BESS for Household 1: {max_charge_bess_h1}")
