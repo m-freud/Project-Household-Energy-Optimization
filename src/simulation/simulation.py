@@ -10,6 +10,7 @@ from src.simulation.scenarios.scenario import Scenario
 from src.simulation.policies.basic_examples import no_control
 from src.simulation.scenarios.scenario import default_scenario
 
+
 class Simulation:
     def __init__(
             self,
@@ -145,6 +146,7 @@ class Simulation:
             ''',
             (player_id,)
         ).fetchone()
+
         capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
 
@@ -153,7 +155,11 @@ class Simulation:
             if component:
                 device_config = getattr(scenario, component.name, None)
                 if device_config:
-                    component.soc = device_config.start_soc
+                    component.soc = device_config.start_soc * component.capacity
+                    print(f"Set initial SOC of {component.name} to {component.soc} kWh which is {device_config.start_soc*100}% of capacity")
+                else:
+                    print(f"No scenario config found for {component.name}, using default initial SOC of {component.soc} kWh")
+
         return household
 
 

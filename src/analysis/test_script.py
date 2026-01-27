@@ -11,7 +11,7 @@ from src.config import Config
 from src.simulation.main import init_simulation
 from simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction
 from simulation.scenarios.scenario import default_scenario
-from src.analysis.plotting.household_plotter import plot_household
+from src.analysis.plotting.household_plotter import plot_household_fields
 
 simulation = init_simulation()
 # household_1 = simulation.create_household(1)
@@ -21,7 +21,7 @@ simulation = init_simulation()
 h1 = simulation.run_household(1, policy=naive_linear_satisfaction, scenario=default_scenario, start_time=0)
 print(h1.has_bess)
 
-fig = plot_household(
+fig = plot_household_fields(
     household_id=1,
     policy=naive_linear_satisfaction,
     scenario=default_scenario,

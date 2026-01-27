@@ -25,6 +25,10 @@ def create_sqlite_connection():
     return sqlite3.connect(Config.SQLITE_PATH)
 
 
+def get_sqlite_cursor():
+    return create_sqlite_connection().cursor()
+
+
 def fetch_multiple_timeseries(influx_query_api, player_id, measurements:list):
     timeseries_data = {m: [] for m in measurements}
 

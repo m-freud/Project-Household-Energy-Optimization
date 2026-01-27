@@ -39,6 +39,7 @@ class Household:
             "base_load": {},            
             "pv_gen": {},
             "bess_soc": {},
+            "bess_soc_fraction": {},
             "buy_price": {},
             "sell_price": {},
             "net_load": {},
@@ -116,8 +117,10 @@ class Household:
         # BESS
         if self.bess:
             self.history["bess_soc"][self.current_timestep] = self.bess.soc
+            self.history["bess_soc_fraction"][self.current_timestep] = self.bess.soc_fraction
         else:
             self.history["bess_soc"][self.current_timestep] = 0.0
+            self.history["bess_soc_fraction"][self.current_timestep] = 0.0
 
         # EV1
         if self.ev1:
