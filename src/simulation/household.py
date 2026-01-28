@@ -79,7 +79,7 @@ class Household:
 
         # apply controls to controllable participants
         if self.bess and "bess_power" in controls:
-            power = controls["bess_power"]
+            power = self.controls["bess_power"]
             if power > 0:
                 self.bess.charge(power, duration_hours)
             elif power < 0:
@@ -87,14 +87,14 @@ class Household:
 
         if self.ev1 and "ev1_power" in controls:
             if (self.ev1.at_home or self.ev1.at_charging_station):
-                power = controls["ev1_power"]
+                power = self.controls["ev1_power"]
                 if power > 0:
                     self.ev1.charge(power, duration_hours)
                 # EVs cannot discharge to the grid in this model
 
         if self.ev2 and "ev2_power" in controls:
             if (self.ev2.at_home or self.ev2.at_charging_station):
-                power = controls["ev2_power"]
+                power = self.controls["ev2_power"]
                 if power > 0:
                     self.ev2.charge(power, duration_hours)
                 # EVs cannot discharge to the grid in this model
@@ -103,6 +103,14 @@ class Household:
             if ev and not (ev.at_home or ev.at_charging_station):
                 # apply driving load (load = 0 when idle)
                 ev.discharge(ev.load, duration_hours)
+
+
+    def apply_policy(self, policy, scenario, duration_hours=0.25):
+        '''
+        applies a policy function to determine controls and then applies them
+        '''
+        controls = policy(self, scenario)
+        self.apply_controls(controls, duration_hours)
 
 
     def update_history(self):
