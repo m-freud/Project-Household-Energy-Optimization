@@ -19,15 +19,7 @@ from src.config import Config
 
 
 # sqlite connection
-sqlite_conn = connections.create_sqlite_connection()
-
-# influx connection
-write_api = connections.get_influx_write_api()
-query_api = connections.get_influx_query_api()
-buckets_api = connections.get_influx_buckets_api()
-
-if not buckets_api.find_bucket_by_name(Config.INFLUX_BUCKET):
-    buckets_api.create_bucket(bucket_name=Config.INFLUX_BUCKET, org=Config.INFLUX_ORG)
+sqlite_conn = sql_connection.create_sqlite_connection()
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -55,46 +47,6 @@ def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=Fals
         data = np.array(data).T.tolist()
 
     return pd.DataFrame(data, columns=column_names)
-
-
-def period_to_epoch(period):
-    seconds = period * 15 * 60
-    base = dt.datetime(2000,1,1,0,0)
-    ts = base + dt.timedelta(seconds=seconds)
-    return ts
-
-
-def convert_to_timeseries(df):
-    '''
-    Converts a DataFrame from wide format to long format suitable for Influx.
-    Assumes wide format (periods x players).
-    '''
-    # time conversion
-    df["timestamp"] = df["period"].apply(period_to_epoch)
-
-    # melt to long format
-    df = df.melt(
-        id_vars=["timestamp"],
-        var_name="player_id",
-        value_name="value").sort_values(by=["player_id", "timestamp"]).reset_index(drop=True)
-    
-    return df
-
-
-def load_to_influx(df, table_name):
-    '''
-    Loads a DataFrame into InfluxDB as a time series.
-    Assumes wide format (periods x players).
-    '''
-    df = convert_to_timeseries(df)
-
-    write_api.write(
-        bucket=Config.INFLUX_BUCKET,
-        record=df,
-        data_frame_measurement_name=table_name,
-        data_frame_field_name="value",
-        data_frame_tag_columns=["player_id"],
-        data_frame_timestamp_column="timestamp")
 
 
 def load_to_sqlite(df, table_name, config):
@@ -125,75 +77,46 @@ def load_table_to_db(wb, table_name, config):
         config["transpose"]
     )
 
-    if config.get("time_series"):
-        load_to_influx(df, table_name)
-    else:
-        load_to_sqlite(df, table_name, config)
+    load_to_sqlite(df, table_name, config)
 
 
 def compute_and_store_averages():
     """
-    Query InfluxDB to compute averages using Flux aggregation and store back.
+    Compute average profiles from SQLite and store them back to SQLite.
     """
-    query_api = connections.get_influx_query_api()
-    
     for measurement in ["pv_gen", "base_load"]:
         print(f"Computing average for {measurement}...")
-        
-        # Let Flux compute the average across all player_ids
-        query = f'''
-        from(bucket: "{Config.INFLUX_BUCKET}")
-            |> range(start: 0)
-            |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-            |> group(columns: ["_time"])
-            |> mean()
-        '''
-        
-        result = query_api.query(org=Config.INFLUX_ORG, query=query)
-        
-        if not result:
+
+        try:
+            avg_df = pd.read_sql_query(
+                f'''
+                SELECT period, AVG(value) AS value
+                FROM {measurement}
+                GROUP BY period
+                ORDER BY period
+                ''',
+                sqlite_conn
+            )
+        except Exception as exc:
+            print(f"  Could not compute average for {measurement}: {exc}")
+            continue
+
+        if avg_df.empty:
             print(f"  No data found for {measurement}, skipping...")
             continue
-        
-        # Extract averaged data
-        records = []
-        for table in result:
-            for record in table.records:
-                records.append({
-                    'player_id': "avg",
-                    'value': record.get_value(),
-                    'timestamp': record.get_time(),
-                })
-        
-        if records:
-            df = pd.DataFrame(records)
-            
-            # Write raw average
-            write_api.write(
-                bucket=Config.INFLUX_BUCKET,
-                record=df,
-                data_frame_measurement_name=measurement,
-                data_frame_field_name='value',
-                data_frame_tag_columns=["player_id"],
-                data_frame_timestamp_column='timestamp'
-            )
-            
-            # Write normalized version
-            max_val = df['value'].max()
-            if max_val > 0:
-                df_norm = df.copy()
-                df_norm['value'] = df['value'] / max_val
-                df_norm['player_id'] = "avg_norm"
-                write_api.write(
-                    bucket=Config.INFLUX_BUCKET,
-                    record=df_norm,
-                    data_frame_measurement_name=measurement,
-                    data_frame_field_name='value',
-                    data_frame_tag_columns=["player_id"],
-                    data_frame_timestamp_column='timestamp'
-                )
-            
-            print(f"  Stored avg_{measurement} ({len(records)} timesteps)")
+
+        avg_table_name = f"{measurement}_avg"
+        avg_df.to_sql(avg_table_name, sqlite_conn, if_exists='replace', index=False)
+
+        max_val = avg_df['value'].max()
+        if pd.notna(max_val) and max_val > 0:
+            norm_df = avg_df.copy()
+            norm_df['value'] = norm_df['value'] / max_val
+            norm_table_name = f"{measurement}_avg_norm"
+            norm_df.to_sql(norm_table_name, sqlite_conn, if_exists='replace', index=False)
+
+        sqlite_conn.commit()
+        print(f"  Stored {avg_table_name} ({len(avg_df)} timesteps)")
 
 
 def load_all_tables(wb, table_instructions):
