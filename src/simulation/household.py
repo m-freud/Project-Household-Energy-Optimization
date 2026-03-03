@@ -17,6 +17,7 @@ class Household:
             ev1:EV|None=None,
             ev2:EV|None=None,
             fixed_cost=0.0):
+        
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
         self.player_id = player_id
@@ -27,6 +28,7 @@ class Household:
         self.ev1 = ev1
         self.ev2 = ev2
 
+        # current states
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity
         self.sell_price = 0.0  # current sell price for electricity
