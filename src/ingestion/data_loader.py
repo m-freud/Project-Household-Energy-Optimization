@@ -13,13 +13,13 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from ingestion.table_load_config import table_ingestion_config
-import src.connections as connections
+from src.ingestion.table_load_config import table_config
+from src.sql_connection import create_sqlite_connection
 from src.config import Config
 
 
 # sqlite connection
-sqlite_conn = sql_connection.create_sqlite_connection()
+sqlite_conn = create_sqlite_connection()
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -55,11 +55,7 @@ def load_to_sqlite(df, table_name, config):
     if process:
         df = process(df)
 
-    # create table schema first
     sqlite_conn.execute(f"DROP TABLE IF EXISTS {table_name}")
-
-    if len(config.get("schema", "").strip()) > 0:
-        sqlite_conn.execute(config["schema"])
 
     # load data
     df.to_sql(table_name, sqlite_conn, if_exists='append', index=False)
@@ -74,13 +70,13 @@ def load_table_to_db(wb, table_name, config):
         config["sheet_name"],
         config["rectangle"],
         config["df_column_names"],
-        config["transpose"]
+        config.get("transpose", False)
     )
 
     load_to_sqlite(df, table_name, config)
 
 
-def compute_and_store_averages():
+def compute_and_store_averages():  # probably not necessary, if you need avg you can just query
     """
     Compute average profiles from SQLite and store them back to SQLite.
     """
@@ -126,7 +122,7 @@ def load_all_tables(wb, table_instructions):
         load_table_to_db(wb, table_name, config)
     
     print("\nComputing and storing average profiles...")
-    compute_and_store_averages()
+    # compute_and_store_averages()
     
     print("done!")
 
@@ -134,6 +130,6 @@ def load_all_tables(wb, table_instructions):
 if __name__ == "__main__":
     wb = load_workbook(Config.EXCEL_FILE_PATH, data_only=True)
 
-    load_all_tables(wb, table_ingestion_config)
+    load_all_tables(wb, table_config)
 
     sqlite_conn.close()

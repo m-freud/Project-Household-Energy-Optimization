@@ -1,6 +1,6 @@
 from influxdb_client.client.write_api import SYNCHRONOUS
 from src.config import Config
-from src.connections import fetch_multiple_timeseries
+from sql_connection import fetch_multiple_timeseries
 from src.ingestion.data_loader import period_to_epoch
 from src.simulation.components.bess import BESS
 from src.simulation.components.ev import EV

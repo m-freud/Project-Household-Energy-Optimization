@@ -1,14 +1,14 @@
 
 from src.simulation.simulation import Simulation
 from src.simulation.policies.basic_examples import no_control
-from src import connections
+from . import sql_connection
 from src.simulation.requirements.charge_requirements import half_full_by_midnight
 from src.simulation.scenarios.scenario import default_scenario
 
 
 def init_simulation(charge_requirements=half_full_by_midnight):
-    sqlite_conn = connections.create_sqlite_connection()
-    influx_client = connections.create_influx_client()
+    sqlite_conn = sql_connection.create_sqlite_connection()
+    influx_client = sql_connection.create_influx_client()
 
     simulation = Simulation(
         sqlite_conn=sqlite_conn,

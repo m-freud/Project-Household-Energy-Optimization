@@ -1,5 +1,23 @@
 # Table instructions for loading data from Excel sheets into sqlite and influxdb.
 
+def ensure_type():
+    pass
+
+
+def convert_to_timeseries(df):
+    '''
+    Converts a DataFrame from wide format to long format suitable for Influx.
+    Assumes wide format (periods x players).
+    '''
+    # melt to long format
+    df = df.melt(
+        id_vars=["period"],
+        var_name="player_id",
+        value_name="value").sort_values(by=["player_id", "period"]).reset_index(drop=True)
+    
+    return df
+
+
 EV_COLUMNS = [
     "player_id",
     "model_id",
@@ -26,56 +44,44 @@ EV_COLUMNS = [
 
 TIME_SERIES_DEFAULT = {
     "rectangle": "A2:IQ97",
-    "transpose": False,
-    "df_column_names": ["period"] + [i for i in range(1, 251)],
-    "time_series": True
+    "df_column_names": ["period"] + [i for i in range(1, 251)], # one for period + 250 player ids
+    "process": convert_to_timeseries
 }
 
 
-table_ingestion_config = {
+table_config = {
     "player_pv_bess": {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
-        "transpose": False,
         "df_column_names": ["player_id", "has_pv", "has_bess"],
-        "process": None,
-        "time_series": False,
-        "schema": """
-        CREATE TABLE IF NOT EXISTS player_pv_bess (
-            player_id INTEGER PRIMARY KEY,
-            has_pv Boolean,
-            has_bess Boolean
-        )""",
+        "process": lambda df: df.assign(  # ensure correct data types
+            # player_id=lambda x: x.player_id.astype(int),
+            has_pv=lambda x: x.has_pv.astype(bool),
+            has_bess=lambda x: x.has_bess.astype(bool)
+        )
     },
     "bess": {
         "sheet_name": "BESS",
         "rectangle": "B1:IQ8",
         "df_column_names": ["player_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
-        "schema": "",
         "transpose": True,
-        "process": lambda df: df.assign(model_id=lambda x: x.model_id.astype(int)) # ensure model_id is int
     },
     "ev1": {
         "sheet_name": "EVs",
         "rectangle": "B6:IQ25",
         "df_column_names": EV_COLUMNS,
-        "schema": "",
         "transpose": True,
-        "process": None
     },
     "ev2": {
         "sheet_name": "EVs",
         "rectangle": "B27:IQ46",
         "df_column_names": EV_COLUMNS,
-        "schema": "",
         "transpose": True,
-        "process": None
     },
     "fixed_costs": {
         "sheet_name": "Limits",
         "rectangle": "B1:IQ10",
         "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
-        "schema": "",
         "transpose": True,
         "process": lambda df: df[["player_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
     },

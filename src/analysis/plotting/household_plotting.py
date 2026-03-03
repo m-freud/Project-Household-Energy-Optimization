@@ -19,11 +19,9 @@ from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
 
 
-from src.connections import get_sqlite_cursor
+from src.sql_connection import get_sqlite_cursor
 sqlite_cursor = get_sqlite_cursor()
 
-from src.connections import get_influx_query_api
-influx_query_api = get_influx_query_api()
 
 from src.config import Config
 
