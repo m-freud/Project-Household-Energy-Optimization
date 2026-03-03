@@ -21,5 +21,5 @@ default_scenario = Scenario(
     name="default_scenario",
     ev1=DeviceScenario(start_soc=0.2, target_soc=0.5, deadline=96),
     ev2=DeviceScenario(start_soc=0.2, target_soc=0.5, deadline=96),
-    bess=DeviceScenario(start_soc=0.0, target_soc=0.5, deadline=96)
+    bess=DeviceScenario(start_soc=0.2, target_soc=0.5, deadline=96)
 )
