@@ -9,21 +9,17 @@ Different functions focus on different aspects of household day history/performa
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
-from datetime import datetime
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.scenarios.scenario import default_scenario
-from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
+from src.simulation.step_functions.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
 
 
-from src.sql_connection import get_sqlite_cursor
+from src.sqlite_connection import get_sqlite_cursor
 sqlite_cursor = get_sqlite_cursor()
-
-
-from src.config import Config
 
 
 default_colors = {
@@ -51,10 +47,45 @@ def get_household_info(household_id, table, field):
     return result[0] if result else None
 
 
-def datetime_parser(dt_str):
-    # convert from datetime object to hh:mm format
-    if isinstance(dt_str, datetime):
-        return dt_str.strftime("%H:%M")
+def _table_columns(table_name):
+    rows = sqlite_cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return {row[1] for row in rows}
+
+
+def _fetch_sqlite_series(measurement, household_id, policy_name, scenario_name):
+    columns = _table_columns(measurement)
+
+    long_schema = {"player_id", "policy", "scenario", "period", "value"}
+    if long_schema.issubset(columns):
+        rows = sqlite_cursor.execute(
+            f'''
+            SELECT period, value
+            FROM {measurement}
+            WHERE player_id = ?
+              AND policy = ?
+              AND scenario = ?
+            ORDER BY period
+            ''',
+            (household_id, policy_name, scenario_name),
+        ).fetchall()
+        times = [row[0] for row in rows]
+        values = [row[1] for row in rows]
+        return times, values
+
+    player_column = str(household_id)
+    if player_column in columns:
+        rows = sqlite_cursor.execute(
+            f'''
+            SELECT period, "{player_column}" as value
+            FROM {measurement}
+            ORDER BY period
+            '''
+        ).fetchall()
+        times = [row[0] for row in rows]
+        values = [row[1] for row in rows]
+        return times, values
+
+    return [], []
 
 
 def plot_household_fields(
@@ -69,36 +100,24 @@ def plot_household_fields(
     '''
     plot specified fields for a household given a policy and scenario
     '''
-    
-    # Build Flux query
-    flux_set = "[" + ",".join(f'"{f}"' for f in fields) + "]"
-    query = f'''
-    from(bucket: "{Config.INFLUX_BUCKET}")
-        |> range(start: 0)
-        |> filter(fn: (r) => r["player_id"] == "{household_id}")
-        |> filter(fn: (r) => r["policy"] == "{policy.__name__}" or not exists r["policy"]) // base inputs dont have a policy tag
-        |> filter(fn: (r) => r["scenario"] == "{scenario.name}" or not exists r["scenario"]) // base inputs dont have a scenario tag
-        |> filter(fn: (r) => contains(value: r["_measurement"], set: {flux_set}))
-        |> sort(columns: ["_time"])
-    '''
-
-    result = influx_query_api.query(org=Config.INFLUX_ORG, query=query)
-
-    if not result:
-        raise ValueError("No data returned from InfluxDB for the given parameters.")
+    policy_name = policy.__name__ if hasattr(policy, "__name__") else str(policy)
+    scenario_name = scenario.name if hasattr(scenario, "name") else str(scenario)
     
     # Extract data
     data = {}
-    for table in result:
-        if not table.records:
+    for measurement in fields:
+        times, values = _fetch_sqlite_series(
+            measurement=measurement,
+            household_id=household_id,
+            policy_name=policy_name,
+            scenario_name=scenario_name,
+        )
+        if not values:
             continue
-        measurement = table.records[0].values['_measurement']
-        times = [datetime_parser(record.get_time()) for record in table.records]
-        values = [record.get_value() for record in table.records]
         data[measurement] = {'times': times, 'values': values}
     
     if not data:
-        raise ValueError(f"No data found for fields {fields} in household {household_id} with policy {policy.__name__} and scenario {scenario.name}")
+        raise ValueError(f"No data found for fields {fields} in household {household_id} with policy {policy_name} and scenario {scenario_name}")
     
     # Plot
     fig, ax = plt.subplots(figsize=figsize)
@@ -138,7 +157,7 @@ def plot_household_fields(
     
     ax.set_xlabel('Time')
     ax.set_ylabel('Value')
-    ax.set_title(title or f'Household {household_id} with policy {policy.__name__} and scenario {scenario.name}')
+    ax.set_title(title or f'Household {household_id} with policy {policy_name} and scenario {scenario_name}')
     # Configure x-axis ticks: prefer fixed hourly ticks at 0,4,8,12,16,20,24 (hours)
     # For 15-min steps each hour = 4 steps -> positions = hour * 4
     sample_times = None
@@ -157,11 +176,6 @@ def plot_household_fields(
                 xtick_labels = [f"{h:02d}:00" for h in hours if h * 4 <= (N - 1)]
                 ax.set_xticks(xticks)
                 ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
-        elif isinstance(first, datetime):
-            import matplotlib.dates as mdates
-            ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            fig.autofmt_xdate()
         else:
             try:
                 max_step = max(int(float(t)) for t in sample_times)
