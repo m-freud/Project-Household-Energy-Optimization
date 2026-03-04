@@ -1,23 +1,5 @@
 # Table instructions for loading data from Excel sheets into sqlite and influxdb.
 
-def ensure_type():
-    pass
-
-
-def convert_to_timeseries(df):
-    '''
-    Converts a DataFrame from wide format to long format suitable for Influx.
-    Assumes wide format (periods x players).
-    '''
-    # melt to long format
-    df = df.melt(
-        id_vars=["period"],
-        var_name="player_id",
-        value_name="value").sort_values(by=["player_id", "period"]).reset_index(drop=True)
-    
-    return df
-
-
 EV_COLUMNS = [
     "player_id",
     "model_id",
@@ -44,8 +26,7 @@ EV_COLUMNS = [
 
 TIME_SERIES_DEFAULT = {
     "rectangle": "A2:IQ97",
-    "df_column_names": ["period"] + [i for i in range(1, 251)], # one for period + 250 player ids
-    "process": convert_to_timeseries
+    "df_column_names": ["period"] + [i for i in range(1, 251)],
 }
 
 
@@ -54,11 +35,6 @@ table_config = {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
         "df_column_names": ["player_id", "has_pv", "has_bess"],
-        "process": lambda df: df.assign(  # ensure correct data types
-            # player_id=lambda x: x.player_id.astype(int),
-            has_pv=lambda x: x.has_pv.astype(bool),
-            has_bess=lambda x: x.has_bess.astype(bool)
-        )
     },
     "bess": {
         "sheet_name": "BESS",
