@@ -9,7 +9,7 @@ sys.path.insert(0, str(repo_root))
 
 
 from src.simulation.simulation import Simulation
-from src.simulation.step_functions.basic_examples import no_control
+from src.simulation.policies.naive_linear import make_naive_linear_policy
 from src.sqlite_connection import sqlite_conn
 from src.simulation.scenarios.scenario import default_scenario
 
@@ -21,5 +21,12 @@ if __name__ == "__main__":
     # Load the scenario
     scenario = default_scenario
 
-    # Run the simulation for all households in the scenario
-    sim.run_all_households(policy=no_control, scenario=scenario, start_time=0)
+    policies = [
+        make_naive_linear_policy(urgency=1.0, delay=0.0),
+        make_naive_linear_policy(urgency=0.0, delay=0.0),
+        make_naive_linear_policy(urgency=0.0, delay=1.0),
+        make_naive_linear_policy(urgency=0.5, delay=0.5),
+    ]
+
+    for policy in policies:
+        sim.run_all_households(policy=policy, scenario=scenario, start_time=0)

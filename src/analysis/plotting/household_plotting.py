@@ -15,7 +15,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.scenarios.scenario import default_scenario
-from src.simulation.step_functions.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
+from src.simulation.policies.naive_linear_satisfaction import naive_linear_satisfaction, last_minute_satisfaction
 
 
 from src.sqlite_connection import get_sqlite_cursor
