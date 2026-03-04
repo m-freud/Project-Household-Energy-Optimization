@@ -29,3 +29,25 @@ It shows typical consumer behaviour, but without any autmoated energy decisions.
 - uvm
 
 So we get a good model of a customer and can show real optimization
+
+## Streamlit dashboard
+
+For lightweight demos/presentations without Docker/Grafana:
+
+1. Install dependencies
+	- `pip install -r requirements.txt`
+2. Run simulation once (to populate SQLite measurement tables)
+	- `python -m src.simulation.main`
+3. Launch app
+	- `streamlit run src/analysis/streamlit_app.py`
+
+In the app you can choose:
+- `player_id`
+- `policy`
+- `scenario`
+- `day`
+- multiple measurement checkboxes
+
+Views:
+- `Timeseries`: multi-line day plot for selected measurements
+- `Summary`: total cost and total consumption from `results`
