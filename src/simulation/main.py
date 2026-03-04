@@ -1,29 +1,25 @@
+# paste this to enable src. imports
+
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 
 from src.simulation.simulation import Simulation
-from src.simulation.policies.basic_examples import no_control
-from . import sql_connection
-from src.simulation.requirements.charge_requirements import half_full_by_midnight
+from src.simulation.step_functions.basic_examples import no_control
+from src.sqlite_connection import sqlite_conn
 from src.simulation.scenarios.scenario import default_scenario
 
 
-def init_simulation(charge_requirements=half_full_by_midnight):
-    sqlite_conn = sql_connection.create_sqlite_connection()
-    influx_client = sql_connection.create_influx_client()
-
-    simulation = Simulation(
-        sqlite_conn=sqlite_conn,
-        influx_client=influx_client,
-    )
-
-    return simulation
-    
-
 if __name__ == "__main__":
-    simulation = init_simulation()
+    # Create a simulation instance
+    sim = Simulation(sqlite_conn)
 
-    simulation.run_all_households(policy=no_control, scenario=default_scenario, start_time=0)
+    # Load the scenario
+    scenario = default_scenario
 
-    if simulation.sqlite_conn:
-        simulation.sqlite_conn.close()
-    if simulation.influx_client:
-        simulation.influx_client.close()
+    # Run the simulation for all households in the scenario
+    sim.run_all_households(policy=no_control, scenario=scenario, start_time=0)

@@ -25,17 +25,16 @@ sqlite_cursor = get_sqlite_cursor()
 def fetch_timeseries(sqlite_cursor, player_id, measurement):
     data = sqlite_cursor.execute(
         f'''
-        SELECT period, "{player_id}" as value
+        SELECT "{player_id}" as value
         FROM {measurement}
-        ORDER BY period
         ''',
     ).fetchall()
 
-    return data
+    return [row[0] for row in data]
 
 
 def fetch_multiple_timeseries(sqlite_cursor, player_id, measurements):
-    timeseries_data = {}
+    timeseries_data = {measurement: [] for measurement in measurements}
     for measurement in measurements:
         data = fetch_timeseries(sqlite_cursor, player_id, measurement)
         timeseries_data[measurement] = data

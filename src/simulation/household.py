@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
-from src.simulation.components.bess import BESS
-from src.simulation.components.ev import EV
-from src.simulation.components.pv import PV
+from src.simulation.devices.bess import BESS
+from src.simulation.devices.ev import EV
+from src.simulation.devices.pv import PV
+
 
 
 class Household:
@@ -161,49 +161,6 @@ class Household:
         self.history["total_consumption"][self.current_timestep] = self.total_consumption
         self.history["total_cost"][self.current_timestep] = self.total_cost
 
-
-    def plot_history(self):
-        '''
-        plots each measurement in its own figure
-        '''
-        for key, series in self.history.items():
-            if not series:
-                continue
-            t = list(series.keys())
-            y = list(series.values())
-
-            plt.figure()
-            plt.plot(t, y)
-            plt.title(key)
-            plt.xlabel("time step")
-            plt.ylabel(key)
-            plt.grid(True)
-
-        plt.show()
-
-
-    def plot_history_all(self, plots:list|None=None):
-        '''
-        plots: list of measurement names to plot. if None, plot all.'''
-        plt.figure(figsize=(12, 6))
-
-        for key, series in self.history.items():
-            if not series:
-                continue
-
-            if plots and key not in plots:
-                continue
-
-            t = list(series.keys())
-            y = list(series.values())
-            plt.plot(t, y, label=key)
-
-        plt.xlabel("time step")
-        plt.ylabel("value")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
 
     @property
     def has_pv(self):

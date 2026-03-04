@@ -1,34 +1,34 @@
-from influxdb_client.client.write_api import SYNCHRONOUS
+# paste this to enable src. imports
+
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from src.config import Config
-from sql_connection import fetch_multiple_timeseries
-from src.ingestion.data_loader import period_to_epoch
-from src.simulation.components.bess import BESS
-from src.simulation.components.ev import EV
-from src.simulation.components.pv import PV
-from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.simulation.policies.basic_examples import no_control
+from src.simulation.household import Household
+from src.sqlite_connection import fetch_multiple_timeseries
+from src.simulation.devices.pv import PV
+from src.simulation.devices.bess import BESS
+from src.simulation.devices.ev import EV
+
+from src.simulation.scenarios.scenario import Scenario
+from src.simulation.step_functions.basic_examples import no_control
 from src.simulation.scenarios.scenario import default_scenario
 
 
 class Simulation:
-    def __init__(
-            self,
-            sqlite_conn,
-            influx_client,
-            initial_SOCs={'bess': 0.0, 'ev1': 0.2, 'ev2': 0.2}):
+    def __init__(self, sqlite_conn):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
-        self.influx_client = influx_client
-        self.influx_query_api = influx_client.query_api()
-        self.influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 
         self.num_households = 250
         self.num_timesteps = 96
 
-        self.initial_SOCs = initial_SOCs
-
-        self.env_inputs = [ # influx table names
+        self.env_inputs = [ # time series table names
             "base_load",
             "pv_gen",
             "ev1_load",
@@ -47,9 +47,6 @@ class Simulation:
 
         self.household_profiles = {}
 
-        self.histories = {
-            "passive": {},
-        } # store histories for all households if needed
 
         self.current_timestep = 0  # current timestep in the simulation.
 
@@ -64,25 +61,7 @@ class Simulation:
                 total_consumption REAL
             )''')
 
-
-    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
-        for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
-
-
-    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
-        print(f"running household {player_id} with policy {policy.__name__}")
-        household = self.create_household(player_id, scenario, start_time)
-
-        for t in range(start_time, self.num_timesteps):
-            self.step(household, policy=policy, scenario=scenario, duration_hours=0.25, time=t)
-
-        self.load_history_to_influx(household, policy_name=policy.__name__, scenario_name=scenario.name)
-        self.load_results_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
-
-        return household
-
-
+    
     def create_household(self, player_id:int, scenario:Scenario, start_time=0):
         household = Household(player_id=player_id, start_time=start_time)
 
@@ -95,17 +74,6 @@ class Simulation:
             "SELECT has_pv, has_bess FROM player_pv_bess WHERE player_id = ?",
             (player_id,)
         ).fetchone()
-
-        # only query once for all profiles. the simulation now knows the future
-        self.household_profiles = fetch_multiple_timeseries(
-            self.influx_query_api,
-            player_id,
-            measurements=self.env_inputs
-        )
-
-        # household gets access to prices over day
-        household.buy_price_day_profile = self.household_profiles["buy_price"]
-        household.sell_price_day_profile = self.household_profiles["sell_price"]
 
         # plug in PV
         if has_pv:
@@ -156,12 +124,24 @@ class Simulation:
                 device_config = getattr(scenario, component.name, None)
                 if device_config:
                     component.soc = device_config.start_soc * component.capacity
-                    print(f"Set initial SOC of {component.name} to {component.soc} kWh which is {device_config.start_soc*100}% of capacity")
+                    # print(f"Set initial SOC of {component.name} to {component.soc} kWh which is {device_config.start_soc*100}% of capacity")
                 else:
                     print(f"No scenario config found for {component.name}, using default initial SOC of {component.soc} kWh")
 
-        return household
 
+        # only query once for all profiles. the simulation now knows the future
+        self.household_profiles = fetch_multiple_timeseries(
+            self.sqlite_cursor,
+            player_id,
+            measurements=self.env_inputs
+        )
+
+        # household gets access to prices over day
+        household.buy_price_day_profile = self.household_profiles["buy_price"]
+        household.sell_price_day_profile = self.household_profiles["sell_price"]
+
+        return household
+    
 
     def step(self, household: Household, policy=no_control, scenario: Scenario=default_scenario, duration_hours=0.25, time=0):
         self.current_timestep = time
@@ -211,6 +191,24 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
+    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
+        print(f"running household {player_id} with policy {policy.__name__}")
+        household = self.create_household(player_id, scenario, start_time)
+
+        for t in range(start_time, self.num_timesteps):
+            self.step(household, policy=policy, scenario=scenario, duration_hours=0.25, time=t)
+
+        self.load_history_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
+        self.load_results_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
+
+        return household
+
+
+    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
+        for player_id in range(1, self.num_households + 1):
+            self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
+
+
     def load_results_to_sqlite(self, household: Household, policy_name:str="basic_bess", scenario_name:str="default_scenario"):
         total_cost = household.total_cost
         total_consumption = household.total_consumption
@@ -227,12 +225,9 @@ class Simulation:
         self.sqlite_conn.commit()
 
 
-    def load_history_to_influx(
-            self,
-            household: Household,
-            policy_name="basic_bess",
-            scenario_name: str="default_scenario",
-            measurements=None):
+    def load_history_to_sqlite(self,
+                               household, policy_name,
+                               scenario_name, measurements=None):
         if measurements is None:
             measurements = [
                 "net_load",
@@ -247,22 +242,49 @@ class Simulation:
                 "ev2_power",
             ]
 
+        for measurement in measurements:
+            # create table if not exists
+            self.sqlite_cursor.execute(
+                f'''
+                CREATE TABLE IF NOT EXISTS {measurement} (
+                    player_id INTEGER,
+                    scenario TEXT,
+                    policy TEXT,
+                    period INTEGER,
+                    value REAL
+                )'''
+            )
 
-        for m in measurements:
+
             points = []
-            for t, value in household.history[m].items():
+
+            for t, value in household.history[measurement].items():
                 points.append({
-                    "measurement": m,
-                    "tags": {"player_id": str(household.player_id), "policy": policy_name, "scenario": scenario_name},
-                    "fields": {"value": value},
-                    "time": period_to_epoch(t),
+                    "measurement": measurement,
+                    "tags": {
+                        "player_id": household.player_id,
+                        "policy": policy_name,
+                        "scenario": scenario_name,
+                    },
+                    "value": value,
+                    "period": t,
                 })
 
-            try:
-                self.influx_write_api.write(
-                    bucket=Config.INFLUX_BUCKET,
-                    org=Config.INFLUX_ORG,
-                    record=points
+
+            for point in points:
+                self.sqlite_cursor.execute(
+                    f'''
+                    INSERT INTO {measurement} (
+                    player_id, scenario, policy, period, value
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        point["tags"]["player_id"],
+                        point["tags"]["scenario"],
+                        point["tags"]["policy"],
+                        point["period"],
+                        point["value"]
+                    )
                 )
-            except Exception as e:
-                raise RuntimeError(f"Failed to write {len(points)} points to InfluxDB: {e}") from e
+
+            self.sqlite_conn.commit()

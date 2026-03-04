@@ -1,11 +1,17 @@
 
 
 class EV:
-    def __init__(self, capacity,
-                 max_charge, max_discharge,
-                 efficiency, soc=0.0, load=0.0,
-                 at_home=False, at_charging_station=False,
-                 name="ev"):
+    def __init__(
+            self,
+            capacity,
+            max_charge,
+            max_discharge,
+            efficiency,
+            soc=0.0,
+            load=0.0,
+            at_home=False,
+            at_charging_station=False,
+            name="ev"):
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
         self.max_discharge = max_discharge  # in kW (per hour)
