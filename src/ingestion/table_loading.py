@@ -14,7 +14,7 @@ sys.path.insert(0, str(repo_root))
 
 
 from src.ingestion.table_config import table_config
-from sqlite_connection import sqlite_conn
+from src.sqlite_connection import sqlite_conn
 from src.config import Config
 
 
