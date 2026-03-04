@@ -104,11 +104,6 @@ def main():
 			chart_df = pd.concat(series_frames, ignore_index=True)
 			pivot_df = chart_df.pivot(index="hour", columns="policy", values="avg_total_cost")
 			st.line_chart(pivot_df)
-			# st.dataframe(
-			# 	chart_df[["policy", "period", "hour", "avg_total_cost"]],
-			# 	use_container_width=True,
-			# 	hide_index=True,
-			# )
 
 
 if __name__ == "__main__":

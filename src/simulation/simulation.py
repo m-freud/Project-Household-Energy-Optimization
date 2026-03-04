@@ -16,7 +16,7 @@ from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 
 from src.simulation.scenarios.scenario import Scenario
-from src.simulation.step_functions.basic_examples import no_control
+from src.simulation.policies.basic_examples import no_control
 from src.simulation.scenarios.scenario import default_scenario
 
 
