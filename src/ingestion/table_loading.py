@@ -13,13 +13,10 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from src.ingestion.table_load_config import table_config
-from src.sql_connection import create_sqlite_connection
+from src.ingestion.table_config import table_config
+from sqlite_connection import sqlite_conn
 from src.config import Config
 
-
-# sqlite connection
-sqlite_conn = create_sqlite_connection()
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -50,11 +47,12 @@ def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=Fals
 
 
 def load_to_sqlite(df, table_name, config):
-    # do something with the table before loading if needed
+    # apply optional processing function
     process = config.get("process")
     if process:
         df = process(df)
 
+    # drop table if exists
     sqlite_conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
     # load data
@@ -76,55 +74,12 @@ def load_table_to_db(wb, table_name, config):
     load_to_sqlite(df, table_name, config)
 
 
-def compute_and_store_averages():  # probably not necessary, if you need avg you can just query
-    """
-    Compute average profiles from SQLite and store them back to SQLite.
-    """
-    for measurement in ["pv_gen", "base_load"]:
-        print(f"Computing average for {measurement}...")
-
-        try:
-            avg_df = pd.read_sql_query(
-                f'''
-                SELECT period, AVG(value) AS value
-                FROM {measurement}
-                GROUP BY period
-                ORDER BY period
-                ''',
-                sqlite_conn
-            )
-        except Exception as exc:
-            print(f"  Could not compute average for {measurement}: {exc}")
-            continue
-
-        if avg_df.empty:
-            print(f"  No data found for {measurement}, skipping...")
-            continue
-
-        avg_table_name = f"{measurement}_avg"
-        avg_df.to_sql(avg_table_name, sqlite_conn, if_exists='replace', index=False)
-
-        max_val = avg_df['value'].max()
-        if pd.notna(max_val) and max_val > 0:
-            norm_df = avg_df.copy()
-            norm_df['value'] = norm_df['value'] / max_val
-            norm_table_name = f"{measurement}_avg_norm"
-            norm_df.to_sql(norm_table_name, sqlite_conn, if_exists='replace', index=False)
-
-        sqlite_conn.commit()
-        print(f"  Stored {avg_table_name} ({len(avg_df)} timesteps)")
-
-
 def load_all_tables(wb, table_instructions):
     for table_name, config in table_instructions.items():
-        destination = "InfluxDB" if config.get("time_series") else "SQLite"
-        print(f"Loading table: {table_name} to {destination}...")
+        print(f"Loading table: {table_name} to sqlite...")
         load_table_to_db(wb, table_name, config)
     
-    print("\nComputing and storing average profiles...")
-    # compute_and_store_averages()
-    
-    print("done!")
+    print("tables loaded successfully!")
 
 
 if __name__ == "__main__":
