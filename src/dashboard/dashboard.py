@@ -14,21 +14,7 @@ from src.config import Config
 
 
 @st.cache_data(show_spinner=False)
-def load_policy_averages() -> pd.DataFrame:
-	with sqlite3.connect(Config.SQLITE_PATH) as conn:
-		return pd.read_sql_query(
-			"""
-			SELECT policy, AVG(total_cost) AS avg_total_cost
-			FROM results
-			GROUP BY policy
-			ORDER BY avg_total_cost ASC
-			""",
-			conn,
-		)
-
-
-@st.cache_data(show_spinner=False)
-def load_total_cost_avg(policy_name: str, scenario_name: str) -> pd.DataFrame:
+def load_avg_total_cost(policy_name: str, scenario_name: str) -> pd.DataFrame:
 	with sqlite3.connect(Config.SQLITE_PATH) as conn:
 		result = pd.read_sql_query(
 			"""
@@ -54,7 +40,7 @@ def load_total_cost_avg(policy_name: str, scenario_name: str) -> pd.DataFrame:
 def load_policies() -> list[str]:
 	with sqlite3.connect(Config.SQLITE_PATH) as conn:
 		rows = conn.execute(
-			"SELECT DISTINCT policy FROM total_cost ORDER BY policy"
+			"SELECT DISTINCT policy FROM results ORDER BY policy"
 		).fetchall()
 	return [row[0] for row in rows]
 
@@ -63,14 +49,14 @@ def load_policies() -> list[str]:
 def load_scenarios() -> list[str]:
 	with sqlite3.connect(Config.SQLITE_PATH) as conn:
 		rows = conn.execute(
-			"SELECT DISTINCT scenario FROM total_cost ORDER BY scenario"
+			"SELECT DISTINCT scenario FROM results ORDER BY scenario"
 		).fetchall()
 	return [row[0] for row in rows]
 
 
 def main():
-	st.set_page_config(page_title="Policy Cost Comparison", layout="wide")
-	st.title("Policy Comparison")
+	st.set_page_config(page_title="Household Energy Management", layout="wide")
+	st.title("Household Energy Management - Analytics")
 	st.caption("Average total cost across all households")
 
 	policies = load_policies()
@@ -83,7 +69,8 @@ def main():
 	left_col, right_col = st.columns([1, 3], gap="large")
 
 	with left_col:
-		st.subheader("Policies")
+		# TODO 
+		st.subheader("Display Options")
 		selected_scenario = st.selectbox("Scenario", options=scenarios, index=0)
 		selected_policies = []
 		for policy_name in policies:
@@ -92,7 +79,7 @@ def main():
 
 	series_frames = []
 	for policy_name in selected_policies:
-		series_df = load_total_cost_avg(policy_name, selected_scenario)
+		series_df = load_avg_total_cost(policy_name, selected_scenario)
 		if not series_df.empty:
 			series_frames.append(series_df)
 
