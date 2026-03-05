@@ -10,13 +10,14 @@ sys.path.insert(0, str(repo_root))
 from src.config import Config
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.household import Household
-from src.sqlite_connection import fetch_multiple_timeseries
+from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.policies.basic_examples import no_control
+from src.simulation.policies.naive_linear import make_naive_linear_policy
 from src.simulation.scenarios.scenario import default_scenario
 
 
@@ -288,3 +289,22 @@ class Simulation:
                 )
 
             self.sqlite_conn.commit()
+
+
+if __name__ == "__main__":
+    # Create a simulation instance
+    sim = Simulation(sqlite_conn)
+
+    # Load the scenario
+    scenario = default_scenario
+
+    policies = [
+        no_control,
+        make_naive_linear_policy(urgency=1.0, delay=0.0),
+        make_naive_linear_policy(urgency=0.0, delay=0.0),
+        make_naive_linear_policy(urgency=0.0, delay=1.0),
+        make_naive_linear_policy(urgency=0.5, delay=0.5),
+    ]
+
+    for policy in policies:
+        sim.run_all_households(policy=policy, scenario=scenario, start_time=0)
