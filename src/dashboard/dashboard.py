@@ -145,12 +145,13 @@ def plot_single_household_view(
 	ev2_at_home_df = load_series("ev2_at_home", player_id)
 	ev2_at_station_df = load_series("ev2_at_charging_station", player_id)
 
-	fig, axes = plt.subplots(3, 2, figsize=(14, 12), sharex=True)
+	fig, axes = plt.subplots(2, 3, figsize=(18, 8), sharex=True)
 
 	# PV
-	pv_ax = axes[0, 0]
+	pv_ax = axes[1, 0]
 	pv_ax.set_title("PV")
 	pv_ax.set_ylabel("Power (kW)")
+	pv_ax.set_xlabel("Hour")
 	if pv_gen_df.empty:
 		pv_ax.text(0.5, 0.5, "No PV data", transform=pv_ax.transAxes, ha="center", va="center")
 	else:
@@ -159,7 +160,7 @@ def plot_single_household_view(
 		pv_ax.legend(loc="upper left")
 
 	# BESS
-	bess_ax = axes[0, 1]
+	bess_ax = axes[0, 0]
 	bess_ax.set_title("BESS")
 	bess_ax.set_ylabel("SOC (kWh)")
 	if bess_soc_df.empty:
@@ -183,7 +184,7 @@ def plot_single_household_view(
 			bess_ax.legend(loc="upper left")
 
 	# EV1
-	ev1_ax = axes[1, 0]
+	ev1_ax = axes[0, 1]
 	ev1_ax.set_title("EV1")
 	ev1_ax.set_ylabel("SOC (kWh)")
 	shade_ev_location_background(ev1_ax, ev1_at_home_df, ev1_at_station_df)
@@ -203,7 +204,7 @@ def plot_single_household_view(
 		ev1_ax.legend(loc="upper left")
 
 	# EV2
-	ev2_ax = axes[1, 1]
+	ev2_ax = axes[0, 2]
 	ev2_ax.set_title("EV2")
 	ev2_ax.set_ylabel("SOC (kWh)")
 	shade_ev_location_background(ev2_ax, ev2_at_home_df, ev2_at_station_df)
@@ -223,7 +224,7 @@ def plot_single_household_view(
 		ev2_ax.legend(loc="upper left")
 
 	# Net Load
-	net_load_ax = axes[2, 0]
+	net_load_ax = axes[1, 1]
 	net_load_ax.set_title("Net Load")
 	net_load_ax.set_ylabel("Power (kW)")
 	net_load_ax.set_xlabel("Hour")
@@ -235,7 +236,7 @@ def plot_single_household_view(
 		net_load_ax.legend(loc="upper left")
 
 	# Net Cost
-	net_cost_ax = axes[2, 1]
+	net_cost_ax = axes[1, 2]
 	net_cost_ax.set_title("Net Cost")
 	net_cost_ax.set_ylabel("Cost")
 	net_cost_ax.set_xlabel("Hour")
@@ -268,13 +269,13 @@ def main():
 
 	st.header("Overview")
 
-	left_col, right_col = st.columns([1, 3], gap="large")
+	overview_c1, overview_c2, overview_c3 = st.columns([1, 1, 2], gap="large")
 
-	with left_col:
-		# TODO 
-		st.subheader("Display Options")
+	with overview_c1:
 		selected_scenario = st.selectbox("Scenario", options=scenarios, index=0)
+	with overview_c2:
 		selected_metric = st.selectbox("Metric", options=list(METRIC_CONFIG.keys()), index=2)
+	with overview_c3:
 		selected_policies = st.multiselect(
 			"Policy",
 			options=policies,
@@ -287,34 +288,33 @@ def main():
 		if not series_df.empty:
 			series_frames.append(series_df)
 
-	with right_col:
-		st.subheader(METRIC_CONFIG[selected_metric]["title"])
-		if not series_frames:
-			st.info("Select at least one policy.")
-		else:
-			chart_df = pd.concat(series_frames, ignore_index=True)
-			pivot_df = chart_df.pivot(
-				index="hour",
-				columns="policy",
-				values=METRIC_CONFIG[selected_metric]["value_col"],
-			)
-			st.line_chart(pivot_df)
+	st.subheader(METRIC_CONFIG[selected_metric]["title"])
+	if not series_frames:
+		st.info("Select at least one policy.")
+	else:
+		chart_df = pd.concat(series_frames, ignore_index=True)
+		pivot_df = chart_df.pivot(
+			index="hour",
+			columns="policy",
+			values=METRIC_CONFIG[selected_metric]["value_col"],
+		)
+		st.line_chart(pivot_df)
 
 	st.divider()
 	st.header("Single View")
 
-	single_left_col, single_right_col = st.columns([1, 3], gap="large")
+	single_c1, single_c2, single_c3 = st.columns([1, 1, 1], gap="large")
 
-	with single_left_col:
-		st.subheader("Display Options")
+	with single_c1:
 		selected_player_id = st.selectbox("Household ID", options=household_ids, index=0)
-
+	with single_c2:
 		selected_single_scenario = st.selectbox(
 			"Scenario",
 			options=scenarios,
 			index=0,
 			key="single_view_scenario",
 		)
+	with single_c3:
 		selected_single_policy = st.selectbox(
 			"Policy",
 			options=policies,
@@ -322,15 +322,14 @@ def main():
 			key="single_view_policy",
 		)
 
-	with single_right_col:
-		st.subheader("Single Household")
-		figure = plot_single_household_view(
-			player_id=selected_player_id,
-			scenario_name=selected_single_scenario,
-			policy_name=selected_single_policy,
-		)
-		st.pyplot(figure, use_container_width=True)
-		plt.close(figure)
+	st.subheader("Single Household")
+	figure = plot_single_household_view(
+		player_id=selected_player_id,
+		scenario_name=selected_single_scenario,
+		policy_name=selected_single_policy,
+	)
+	st.pyplot(figure, use_container_width=True)
+	plt.close(figure)
 
 
 if __name__ == "__main__":
