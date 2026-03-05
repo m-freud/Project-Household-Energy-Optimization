@@ -137,6 +137,7 @@ def plot_single_household_view(
 	ev1_soc_df = load_series("ev1_soc", player_id, scenario_name, policy_name)
 	ev2_soc_df = load_series("ev2_soc", player_id, scenario_name, policy_name)
 	net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
+	net_cost_df = load_series("net_cost", player_id, scenario_name, policy_name)
 
 	pv_gen_df = load_series("pv_gen", player_id)
 	ev1_at_home_df = load_series("ev1_at_home", player_id)
@@ -144,18 +145,18 @@ def plot_single_household_view(
 	ev2_at_home_df = load_series("ev2_at_home", player_id)
 	ev2_at_station_df = load_series("ev2_at_charging_station", player_id)
 
-	fig, axes = plt.subplots(2, 2, figsize=(14, 8), sharex=True)
+	fig, axes = plt.subplots(3, 2, figsize=(14, 12), sharex=True)
 
-	# Net Load
-	net_load_ax = axes[0, 0]
-	net_load_ax.set_title("Net Load")
-	net_load_ax.set_ylabel("Power (kW)")
-	if net_load_df.empty:
-		net_load_ax.text(0.5, 0.5, "No net load data", transform=net_load_ax.transAxes, ha="center", va="center")
+	# PV
+	pv_ax = axes[0, 0]
+	pv_ax.set_title("PV")
+	pv_ax.set_ylabel("Power (kW)")
+	if pv_gen_df.empty:
+		pv_ax.text(0.5, 0.5, "No PV data", transform=pv_ax.transAxes, ha="center", va="center")
 	else:
-		net_load_ax.plot(net_load_df["hour"], net_load_df["value"], label="Net Load", linewidth=2)
-		net_load_ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.5)
-		net_load_ax.legend(loc="upper left")
+		pv_ax.plot(pv_gen_df["hour"], pv_gen_df["value"], label="PV Gen", color="tab:orange", linewidth=2)
+		pv_ax.fill_between(pv_gen_df["hour"], pv_gen_df["value"], color="tab:orange", alpha=0.2)
+		pv_ax.legend(loc="upper left")
 
 	# BESS
 	bess_ax = axes[0, 1]
@@ -176,22 +177,8 @@ def plot_single_household_view(
 			)
 		else:
 			target_line = None
-
-		if not pv_gen_df.empty:
-			pv_ax = bess_ax.twinx()
-			pv_line = pv_ax.plot(
-				pv_gen_df["hour"],
-				pv_gen_df["value"],
-				color="tab:orange",
-				alpha=0.85,
-				linewidth=1.5,
-				label="PV Gen",
-			)
-			pv_ax.set_ylabel("PV Gen (kW)")
-			legend_handles = [bess_line[0], pv_line[0]]
-			if target_line is not None:
-				legend_handles.append(target_line)
-			bess_ax.legend(handles=legend_handles, loc="upper left")
+		if target_line is not None:
+			bess_ax.legend(handles=[bess_line[0], target_line], loc="upper left")
 		else:
 			bess_ax.legend(loc="upper left")
 
@@ -199,7 +186,6 @@ def plot_single_household_view(
 	ev1_ax = axes[1, 0]
 	ev1_ax.set_title("EV1")
 	ev1_ax.set_ylabel("SOC (kWh)")
-	ev1_ax.set_xlabel("Hour")
 	shade_ev_location_background(ev1_ax, ev1_at_home_df, ev1_at_station_df)
 	if ev1_soc_df.empty:
 		ev1_ax.text(0.5, 0.5, "No EV1 SOC data", transform=ev1_ax.transAxes, ha="center", va="center")
@@ -220,7 +206,6 @@ def plot_single_household_view(
 	ev2_ax = axes[1, 1]
 	ev2_ax.set_title("EV2")
 	ev2_ax.set_ylabel("SOC (kWh)")
-	ev2_ax.set_xlabel("Hour")
 	shade_ev_location_background(ev2_ax, ev2_at_home_df, ev2_at_station_df)
 	if ev2_soc_df.empty:
 		ev2_ax.text(0.5, 0.5, "No EV2 SOC data", transform=ev2_ax.transAxes, ha="center", va="center")
@@ -236,6 +221,30 @@ def plot_single_household_view(
 				label="Target SOC",
 			)
 		ev2_ax.legend(loc="upper left")
+
+	# Net Load
+	net_load_ax = axes[2, 0]
+	net_load_ax.set_title("Net Load")
+	net_load_ax.set_ylabel("Power (kW)")
+	net_load_ax.set_xlabel("Hour")
+	if net_load_df.empty:
+		net_load_ax.text(0.5, 0.5, "No net load data", transform=net_load_ax.transAxes, ha="center", va="center")
+	else:
+		net_load_ax.plot(net_load_df["hour"], net_load_df["value"], label="Net Load", linewidth=2)
+		net_load_ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.5)
+		net_load_ax.legend(loc="upper left")
+
+	# Net Cost
+	net_cost_ax = axes[2, 1]
+	net_cost_ax.set_title("Net Cost")
+	net_cost_ax.set_ylabel("Cost")
+	net_cost_ax.set_xlabel("Hour")
+	if net_cost_df.empty:
+		net_cost_ax.text(0.5, 0.5, "No net cost data", transform=net_cost_ax.transAxes, ha="center", va="center")
+	else:
+		net_cost_ax.plot(net_cost_df["hour"], net_cost_df["value"], label="Net Cost", linewidth=2, color="tab:purple")
+		net_cost_ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.5)
+		net_cost_ax.legend(loc="upper left")
 
 	for ax in axes.flatten():
 		ax.grid(alpha=0.25)
@@ -299,6 +308,7 @@ def main():
 	with single_left_col:
 		st.subheader("Display Options")
 		selected_player_id = st.selectbox("Household ID", options=household_ids, index=0)
+
 		selected_single_scenario = st.selectbox(
 			"Scenario",
 			options=scenarios,
