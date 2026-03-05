@@ -121,6 +121,66 @@ def load_attribute(table_name: str, player_id: int, attribute_name: str):
     return row[0]
 
 
+def load_avg_profile(
+    policy_name: str,
+    scenario_name: str,
+    table_name: str,
+    value_col: str,
+) -> pd.DataFrame:
+    if not _is_safe_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
+
+    if not _is_safe_identifier(value_col):
+        raise ValueError(f"Invalid value column alias: {value_col}")
+
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        try:
+            result = pd.read_sql_query(
+                f"""
+                SELECT period, AVG(value) AS {value_col}
+                FROM {table_name}
+                WHERE policy = ? AND scenario = ?
+                GROUP BY period
+                ORDER BY period
+                """,
+                conn,
+                params=(policy_name, scenario_name),
+            )
+        except (pd.errors.DatabaseError, sqlite3.OperationalError):
+            return pd.DataFrame()
+
+    if result.empty:
+        return result
+
+    result["policy"] = policy_name
+    result["hour"] = result["period"] / 4.0
+    return result
+
+
+def load_policies() -> list[str]:
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT policy FROM results ORDER BY policy"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+def load_scenarios() -> list[str]:
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT scenario FROM results ORDER BY scenario"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
+def load_household_ids() -> list[int]:
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT player_id FROM results ORDER BY player_id"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 def fetch_timeseries(sqlite_cursor, player_id, measurement):
     data = sqlite_cursor.execute(
         f'''
