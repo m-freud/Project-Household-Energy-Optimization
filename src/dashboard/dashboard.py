@@ -13,13 +13,44 @@ sys.path.insert(0, str(repo_root))
 from src.config import Config
 
 
+METRIC_CONFIG = {
+	"avg cost": {
+		"table": "net_cost",
+		"value_col": "avg_cost",
+		"title": "Average Cost Over Time",
+	},
+	"avg load": {
+		"table": "net_load",
+		"value_col": "avg_load",
+		"title": "Average Load Over Time",
+	},
+	"avg total cost": {
+		"table": "total_cost",
+		"value_col": "avg_total_cost",
+		"title": "Average Total Cost Over Time",
+	},
+	"avg total load": {
+		"table": "total_consumption",
+		"value_col": "avg_total_load",
+		"title": "Average Total Load Over Time",
+	},
+}
+
+
 @st.cache_data(show_spinner=False)
-def load_avg_total_cost(policy_name: str, scenario_name: str) -> pd.DataFrame:
+def load_avg_profile(policy_name: str, scenario_name: str, metric: str) -> pd.DataFrame:
+	if metric not in METRIC_CONFIG:
+		raise ValueError(f"Unsupported metric: {metric}")
+
+	metric_config = METRIC_CONFIG[metric]
+	table_name = metric_config["table"]
+	value_col = metric_config["value_col"]
+
 	with sqlite3.connect(Config.SQLITE_PATH) as conn:
 		result = pd.read_sql_query(
-			"""
-			SELECT period, AVG(value) AS avg_total_cost
-			FROM total_cost
+			f"""
+			SELECT period, AVG(value) AS {value_col}
+			FROM {table_name}
 			WHERE policy = ? AND scenario = ?
 			GROUP BY period
 			ORDER BY period
@@ -57,7 +88,7 @@ def load_scenarios() -> list[str]:
 def main():
 	st.set_page_config(page_title="Household Energy Management", layout="wide")
 	st.title("Household Energy Management - Analytics")
-	st.caption("Average total cost across all households")
+	st.caption("Average profiles across all households")
 
 	policies = load_policies()
 	scenarios = load_scenarios()
@@ -72,25 +103,33 @@ def main():
 		# TODO 
 		st.subheader("Display Options")
 		selected_scenario = st.selectbox("Scenario", options=scenarios, index=0)
-		selected_policies = []
-		for policy_name in policies:
-			if st.checkbox(policy_name, value=True):
-				selected_policies.append(policy_name)
+		selected_metric = st.selectbox("Metric", options=list(METRIC_CONFIG.keys()), index=2)
+		selected_policies = st.multiselect(
+			"Policy",
+			options=policies,
+			default=policies,
+		)
 
 	series_frames = []
 	for policy_name in selected_policies:
-		series_df = load_avg_total_cost(policy_name, selected_scenario)
+		series_df = load_avg_profile(policy_name, selected_scenario, selected_metric)
 		if not series_df.empty:
 			series_frames.append(series_df)
 
 	with right_col:
-		st.subheader("Average Total Cost Over Time")
+		st.subheader(METRIC_CONFIG[selected_metric]["title"])
 		if not series_frames:
 			st.info("Select at least one policy.")
 		else:
 			chart_df = pd.concat(series_frames, ignore_index=True)
-			pivot_df = chart_df.pivot(index="hour", columns="policy", values="avg_total_cost")
+			pivot_df = chart_df.pivot(
+				index="hour",
+				columns="policy",
+				values=METRIC_CONFIG[selected_metric]["value_col"],
+			)
 			st.line_chart(pivot_df)
+
+	st.divider()
 
 
 if __name__ == "__main__":
