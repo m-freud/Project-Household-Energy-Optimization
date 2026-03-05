@@ -1,5 +1,6 @@
 import sqlite3
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 # paste this to enable src. imports
@@ -11,6 +12,8 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
+from src.sqlite_connection import load_series
+from src.simulation.scenarios.scenario import get_scenario_value
 
 
 METRIC_CONFIG = {
@@ -35,7 +38,6 @@ METRIC_CONFIG = {
 		"title": "Average Total Load Over Time",
 	},
 }
-
 
 @st.cache_data(show_spinner=False)
 def load_avg_profile(policy_name: str, scenario_name: str, metric: str) -> pd.DataFrame:
@@ -85,6 +87,163 @@ def load_scenarios() -> list[str]:
 	return [row[0] for row in rows]
 
 
+@st.cache_data(show_spinner=False)
+def load_household_ids() -> list[int]:
+	with sqlite3.connect(Config.SQLITE_PATH) as conn:
+		rows = conn.execute(
+			"SELECT DISTINCT player_id FROM results ORDER BY player_id"
+		).fetchall()
+	return [row[0] for row in rows]
+
+def shade_ev_location_background(ax, at_home_df: pd.DataFrame, at_station_df: pd.DataFrame) -> None:
+	if at_home_df.empty or at_station_df.empty:
+		return
+
+	merged = at_home_df[["hour", "value"]].rename(columns={"value": "at_home"}).merge(
+		at_station_df[["hour", "value"]].rename(columns={"value": "at_station"}),
+		on="hour",
+		how="inner",
+	)
+
+	if merged.empty:
+		return
+
+	hours = merged["hour"].tolist()
+	at_home_values = merged["at_home"].tolist()
+	at_station_values = merged["at_station"].tolist()
+
+	for idx, start_hour in enumerate(hours):
+		if idx < len(hours) - 1:
+			end_hour = hours[idx + 1]
+		else:
+			end_hour = start_hour + 0.25
+
+		if at_station_values[idx] == 1:
+			color = "lightblue"
+		elif at_home_values[idx] == 1:
+			color = "lightgreen"
+		else:
+			color = "lightgrey"
+
+		ax.axvspan(start_hour, end_hour, color=color, alpha=0.22, linewidth=0)
+
+
+def plot_single_household_view(
+	player_id: int,
+	scenario_name: str,
+	policy_name: str,
+):
+	bess_soc_df = load_series("bess_soc", player_id, scenario_name, policy_name)
+	ev1_soc_df = load_series("ev1_soc", player_id, scenario_name, policy_name)
+	ev2_soc_df = load_series("ev2_soc", player_id, scenario_name, policy_name)
+	net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
+
+	pv_gen_df = load_series("pv_gen", player_id)
+	ev1_at_home_df = load_series("ev1_at_home", player_id)
+	ev1_at_station_df = load_series("ev1_at_charging_station", player_id)
+	ev2_at_home_df = load_series("ev2_at_home", player_id)
+	ev2_at_station_df = load_series("ev2_at_charging_station", player_id)
+
+	fig, axes = plt.subplots(2, 2, figsize=(14, 8), sharex=True)
+
+	# Net Load
+	net_load_ax = axes[0, 0]
+	net_load_ax.set_title("Net Load")
+	net_load_ax.set_ylabel("Power (kW)")
+	if net_load_df.empty:
+		net_load_ax.text(0.5, 0.5, "No net load data", transform=net_load_ax.transAxes, ha="center", va="center")
+	else:
+		net_load_ax.plot(net_load_df["hour"], net_load_df["value"], label="Net Load", linewidth=2)
+		net_load_ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.5)
+		net_load_ax.legend(loc="upper left")
+
+	# BESS
+	bess_ax = axes[0, 1]
+	bess_ax.set_title("BESS")
+	bess_ax.set_ylabel("SOC (kWh)")
+	if bess_soc_df.empty:
+		bess_ax.text(0.5, 0.5, "No BESS SOC data", transform=bess_ax.transAxes, ha="center", va="center")
+	else:
+		bess_line = bess_ax.plot(bess_soc_df["hour"], bess_soc_df["value"], label="SOC", linewidth=2)
+		target_soc_bess = get_scenario_value(scenario_name, "bess", player_id, "target_soc")
+		if target_soc_bess is not None:
+			target_line = bess_ax.axhline(
+				y=target_soc_bess,
+				color="tab:red",
+				linestyle="--",
+				linewidth=1.5,
+				label="Target SOC",
+			)
+		else:
+			target_line = None
+
+		if not pv_gen_df.empty:
+			pv_ax = bess_ax.twinx()
+			pv_line = pv_ax.plot(
+				pv_gen_df["hour"],
+				pv_gen_df["value"],
+				color="tab:orange",
+				alpha=0.85,
+				linewidth=1.5,
+				label="PV Gen",
+			)
+			pv_ax.set_ylabel("PV Gen (kW)")
+			legend_handles = [bess_line[0], pv_line[0]]
+			if target_line is not None:
+				legend_handles.append(target_line)
+			bess_ax.legend(handles=legend_handles, loc="upper left")
+		else:
+			bess_ax.legend(loc="upper left")
+
+	# EV1
+	ev1_ax = axes[1, 0]
+	ev1_ax.set_title("EV1")
+	ev1_ax.set_ylabel("SOC (kWh)")
+	ev1_ax.set_xlabel("Hour")
+	shade_ev_location_background(ev1_ax, ev1_at_home_df, ev1_at_station_df)
+	if ev1_soc_df.empty:
+		ev1_ax.text(0.5, 0.5, "No EV1 SOC data", transform=ev1_ax.transAxes, ha="center", va="center")
+	else:
+		ev1_ax.plot(ev1_soc_df["hour"], ev1_soc_df["value"], label="SOC", linewidth=2)
+		target_soc_ev1 = get_scenario_value(scenario_name, "ev1", player_id, "target_soc")
+		if target_soc_ev1 is not None:
+			ev1_ax.axhline(
+				y=target_soc_ev1,
+				color="tab:red",
+				linestyle="--",
+				linewidth=1.5,
+				label="Target SOC",
+			)
+		ev1_ax.legend(loc="upper left")
+
+	# EV2
+	ev2_ax = axes[1, 1]
+	ev2_ax.set_title("EV2")
+	ev2_ax.set_ylabel("SOC (kWh)")
+	ev2_ax.set_xlabel("Hour")
+	shade_ev_location_background(ev2_ax, ev2_at_home_df, ev2_at_station_df)
+	if ev2_soc_df.empty:
+		ev2_ax.text(0.5, 0.5, "No EV2 SOC data", transform=ev2_ax.transAxes, ha="center", va="center")
+	else:
+		ev2_ax.plot(ev2_soc_df["hour"], ev2_soc_df["value"], label="SOC", linewidth=2)
+		target_soc_ev2 = get_scenario_value(scenario_name, "ev2", player_id, "target_soc")
+		if target_soc_ev2 is not None:
+			ev2_ax.axhline(
+				y=target_soc_ev2,
+				color="tab:red",
+				linestyle="--",
+				linewidth=1.5,
+				label="Target SOC",
+			)
+		ev2_ax.legend(loc="upper left")
+
+	for ax in axes.flatten():
+		ax.grid(alpha=0.25)
+
+	fig.tight_layout()
+	return fig
+
+
 def main():
 	st.set_page_config(page_title="Household Energy Management", layout="wide")
 	st.title("Household Energy Management - Analytics")
@@ -92,10 +251,13 @@ def main():
 
 	policies = load_policies()
 	scenarios = load_scenarios()
+	household_ids = load_household_ids()
 
-	if not policies or not scenarios:
+	if not policies or not scenarios or not household_ids:
 		st.warning("No rows found in total_cost. Run a simulation first.")
 		return
+
+	st.header("Overview")
 
 	left_col, right_col = st.columns([1, 3], gap="large")
 
@@ -130,6 +292,35 @@ def main():
 			st.line_chart(pivot_df)
 
 	st.divider()
+	st.header("Single View")
+
+	single_left_col, single_right_col = st.columns([1, 3], gap="large")
+
+	with single_left_col:
+		st.subheader("Display Options")
+		selected_player_id = st.selectbox("Household ID", options=household_ids, index=0)
+		selected_single_scenario = st.selectbox(
+			"Scenario",
+			options=scenarios,
+			index=0,
+			key="single_view_scenario",
+		)
+		selected_single_policy = st.selectbox(
+			"Policy",
+			options=policies,
+			index=0,
+			key="single_view_policy",
+		)
+
+	with single_right_col:
+		st.subheader("Single Household")
+		figure = plot_single_household_view(
+			player_id=selected_player_id,
+			scenario_name=selected_single_scenario,
+			policy_name=selected_single_policy,
+		)
+		st.pyplot(figure, use_container_width=True)
+		plt.close(figure)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,7 @@
 import sqlite3
+import re
+
+import pandas as pd
 
 
 # paste this to enable src. imports
@@ -20,6 +23,102 @@ def get_sqlite_cursor():
 
 sqlite_conn = create_sqlite_connection()
 sqlite_cursor = get_sqlite_cursor()
+
+
+def _is_safe_identifier(value: str) -> bool:
+    return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", value))
+
+
+def load_series(
+    table_name: str,
+    player_id: int,
+    scenario_name: str | None = None,
+    policy_name: str | None = None,
+) -> pd.DataFrame:
+    if not _is_safe_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
+
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        try:
+            table_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        except sqlite3.OperationalError:
+            return pd.DataFrame()
+
+        if not table_info:
+            return pd.DataFrame()
+
+        columns = [row[1] for row in table_info]
+
+        try:
+            if "player_id" in columns and "value" in columns:
+                where_clauses = ["player_id = ?"]
+                params: list[object] = [player_id]
+
+                if scenario_name is not None and "scenario" in columns:
+                    where_clauses.append("scenario = ?")
+                    params.append(scenario_name)
+
+                if policy_name is not None and "policy" in columns:
+                    where_clauses.append("policy = ?")
+                    params.append(policy_name)
+
+                query = f"""
+                    SELECT period, value
+                    FROM {table_name}
+                    WHERE {' AND '.join(where_clauses)}
+                    ORDER BY period
+                """
+                result = pd.read_sql_query(query, conn, params=params)
+            else:
+                player_col = str(player_id)
+                if player_col not in columns:
+                    return pd.DataFrame()
+
+                if "period" in columns:
+                    query = f"""
+                        SELECT period, "{player_col}" AS value
+                        FROM {table_name}
+                        ORDER BY period
+                    """
+                else:
+                    query = f"""
+                        SELECT "{player_col}" AS value
+                        FROM {table_name}
+                    """
+
+                result = pd.read_sql_query(query, conn)
+        except (pd.errors.DatabaseError, sqlite3.OperationalError):
+            return pd.DataFrame()
+
+    if result.empty:
+        return result
+
+    if "period" in result.columns:
+        result["hour"] = result["period"] / 4.0
+
+    return result
+
+
+def load_attribute(table_name: str, player_id: int, attribute_name: str):
+    if not _is_safe_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
+
+    if not _is_safe_identifier(attribute_name):
+        raise ValueError(f"Invalid attribute name: {attribute_name}")
+
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        try:
+            row = conn.execute(
+                f"SELECT {attribute_name} FROM {table_name} WHERE player_id = ? LIMIT 1",
+                (player_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None
+
+    if row is None:
+        return None
+
+    return row[0]
 
 
 def fetch_timeseries(sqlite_cursor, player_id, measurement):
