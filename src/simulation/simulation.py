@@ -59,14 +59,46 @@ class Simulation:
                 has_pv BOOLEAN,
                 has_bess BOOLEAN,
                 total_cost REAL,
-                total_consumption REAL
+                total_consumption REAL,
+                target_met_bess BOOLEAN,
+                target_met_ev1 BOOLEAN,
+                target_met_ev2 BOOLEAN,
+                soc_at_deadline_bess REAL,
+                soc_at_deadline_ev1 REAL,
+                soc_at_deadline_ev2 REAL
             )''')
+
+        self._ensure_results_columns()
+
+
+    def _ensure_results_columns(self):
+        columns = {
+            row[1]
+            for row in self.sqlite_cursor.execute("PRAGMA table_info(results)").fetchall()
+        }
+
+        required_columns = [
+            ("target_met_bess", "BOOLEAN"),
+            ("target_met_ev1", "BOOLEAN"),
+            ("target_met_ev2", "BOOLEAN"),
+            ("soc_at_deadline_bess", "REAL"),
+            ("soc_at_deadline_ev1", "REAL"),
+            ("soc_at_deadline_ev2", "REAL"),
+        ]
+
+        for column_name, column_type in required_columns:
+            if column_name not in columns:
+                self.sqlite_cursor.execute(
+                    f"ALTER TABLE results ADD COLUMN {column_name} {column_type}"
+                )
+
+        self.sqlite_conn.commit()
 
     
     def create_household(self, player_id:int, scenario:Scenario, start_time=0):
-        household = Household(player_id=player_id, start_time=start_time)
+        household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
 
-        household.fixed_cost = self.sqlite_cursor.execute(
+        household.base_cost = self.sqlite_cursor.execute(
             "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
             (player_id,)
         ).fetchone()[0]
@@ -214,18 +246,29 @@ class Simulation:
             self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
 
 
-    def load_results_to_sqlite(self, household: Household, policy_name:str="basic_bess", scenario_name:str="default_scenario"):
+    def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario"):
         total_cost = household.total_cost
         total_consumption = household.total_consumption
+        target_met_bess = household.has_met_target("bess")
+        target_met_ev1 = household.has_met_target("ev1")
+        target_met_ev2 = household.has_met_target("ev2")
+        soc_at_deadline_bess = household.history["bess_soc"].get(getattr(household.scenario.bess, "deadline", None), None) if household.scenario else None
+        soc_at_deadline_ev1 = household.history["ev1_soc"].get(getattr(household.scenario.ev1, "deadline", None), None) if household.scenario else None
+        soc_at_deadline_ev2 = household.history["ev2_soc"].get(getattr(household.scenario.ev2, "deadline", None), None) if household.scenario else None
 
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
-            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
+            target_met_bess, target_met_ev1, target_met_ev2,
+            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (policy_name, scenario_name, household.player_id, household.has_pv,
-             household.has_bess, total_cost, total_consumption)
+             household.has_bess, total_cost, total_consumption,
+             target_met_bess, target_met_ev1, target_met_ev2,
+             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
         )
         self.sqlite_conn.commit()
 
@@ -304,9 +347,9 @@ if __name__ == "__main__":
 
     policies = [
         no_control,
-        make_naive_linear_policy(urgency=1.0, delay=0.0),
-        make_naive_linear_policy(urgency=0.0, delay=0.0),
-        make_naive_linear_policy(urgency=0.0, delay=1.0),
+        # make_naive_linear_policy(urgency=1.0, delay=0.0),
+        # make_naive_linear_policy(urgency=0.0, delay=0.0),
+        # make_naive_linear_policy(urgency=0.0, delay=1.0),
         make_naive_linear_policy(urgency=0.5, delay=0.5),
     ]
 

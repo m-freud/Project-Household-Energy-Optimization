@@ -10,8 +10,14 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.sqlite_connection import load_series
+from src.sqlite_connection import load_household_kpi_result, load_series
 from src.simulation.scenarios.scenario import get_scenario_value
+
+
+def _to_optional_bool(value):
+	if pd.isna(value):
+		return None
+	return bool(int(value))
 
 
 def _shade_ev_location_background(ax, at_home_df: pd.DataFrame, at_station_df: pd.DataFrame) -> None:
@@ -101,6 +107,22 @@ def plot_single_household_view(
 		net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
 		net_cost_df = load_series("net_cost", player_id, scenario_name, policy_name)
 		total_cost_df = load_series("total_cost", player_id, scenario_name, policy_name)
+		result_df = load_household_kpi_result(player_id, scenario_name, policy_name)
+
+		bess_target_met = None
+		ev1_target_met = None
+		ev2_target_met = None
+		soc_at_deadline_bess = None
+		soc_at_deadline_ev1 = None
+		soc_at_deadline_ev2 = None
+		if not result_df.empty:
+			result_row = result_df.iloc[0]
+			bess_target_met = _to_optional_bool(result_row.get("target_met_bess"))
+			ev1_target_met = _to_optional_bool(result_row.get("target_met_ev1"))
+			ev2_target_met = _to_optional_bool(result_row.get("target_met_ev2"))
+			soc_at_deadline_bess = result_row.get("soc_at_deadline_bess")
+			soc_at_deadline_ev1 = result_row.get("soc_at_deadline_ev1")
+			soc_at_deadline_ev2 = result_row.get("soc_at_deadline_ev2")
 
 		if not bess_soc_df.empty:
 			bess_has_data = True
@@ -129,34 +151,27 @@ def plot_single_household_view(
 		else:
 			total_cost_value = float(net_cost_df["value"].sum() * 0.25) if not net_cost_df.empty else 0.0
 
-		target_status = {}
-		for device_name in ["bess", "ev1", "ev2"]:
+		if not result_df.empty and pd.notna(result_df.iloc[0].get("total_cost")):
+			total_cost_value = float(result_df.iloc[0]["total_cost"])
+
+		device_target_map = {
+			"bess": (bess_target_met, soc_at_deadline_bess),
+			"ev1": (ev1_target_met, soc_at_deadline_ev1),
+			"ev2": (ev2_target_met, soc_at_deadline_ev2),
+		}
+
+		for device_name, (met_target, soc_at_deadline_kwh) in device_target_map.items():
 			target_soc_kwh = get_scenario_value(scenario_name, device_name, player_id, "target_soc")
 			deadline_period = get_scenario_value(scenario_name, device_name, player_id, "deadline")
-			soc_df = load_series(f"{device_name}_soc", player_id, scenario_name, policy_name)
-
 			deadline_hour = None if deadline_period is None else float(deadline_period) / 4.0
-			soc_at_deadline = None
-			met_target = None
-	
-			if deadline_period is not None and not soc_df.empty:
-				print("A")
-				at_deadline_df = soc_df[soc_df["period"] == int(deadline_period)]
-				if not at_deadline_df.empty:
-					soc_at_deadline = float(at_deadline_df["value"].iloc[0])
-					if target_soc_kwh is not None:
-						met_target = soc_at_deadline >= float(target_soc_kwh)
-
-			target_status[device_name] = met_target
-			print(target_status)
-			print(f"Device: {device_name.upper()}, Deadline Hour: {deadline_hour}, SOC at Deadline: {soc_at_deadline}, Target SOC: {target_soc_kwh}, Met Target: {met_target}")
+			soc_at_deadline_value = None if pd.isna(soc_at_deadline_kwh) else float(soc_at_deadline_kwh)
 
 			debug_rows.append(
 				{
 					"policy": policy_name,
 					"device": device_name.upper(),
 					"deadline_hour": deadline_hour,
-					"soc_at_deadline_kwh": soc_at_deadline,
+					"soc_at_deadline_kwh": soc_at_deadline_value,
 					"target_soc_kwh": None if target_soc_kwh is None else float(target_soc_kwh),
 					"deadline_missed": None if met_target is None else (not met_target),
 					"peak_load_hour": peak_load_hour,
@@ -171,9 +186,9 @@ def plot_single_household_view(
 				"peak_load": peak_load_val,
 				"imported_energy_kwh": imported_energy_kwh,
 				"exported_energy_kwh": exported_energy_kwh,
-				"bess_target_met": target_status["bess"],
-				"ev1_target_met": target_status["ev1"],
-				"ev2_target_met": target_status["ev2"],
+				"target_met_bess": bess_target_met,
+				"target_met_ev1": ev1_target_met,
+				"target_met_ev2": ev2_target_met,
 			}
 		)
 

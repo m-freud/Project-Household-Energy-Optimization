@@ -181,6 +181,40 @@ def load_household_ids() -> list[int]:
     return [row[0] for row in rows]
 
 
+def load_household_kpi_result(
+    player_id: int,
+    scenario_name: str,
+    policy_name: str,
+) -> pd.DataFrame:
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        try:
+            result = pd.read_sql_query(
+                """
+                SELECT
+                    policy,
+                    scenario,
+                    player_id,
+                    total_cost,
+                    target_met_bess,
+                    target_met_ev1,
+                    target_met_ev2,
+                    soc_at_deadline_bess,
+                    soc_at_deadline_ev1,
+                    soc_at_deadline_ev2
+                FROM results
+                WHERE player_id = ? AND scenario = ? AND policy = ?
+                ORDER BY rowid DESC
+                LIMIT 1
+                """,
+                conn,
+                params=(player_id, scenario_name, policy_name),
+            )
+        except (pd.errors.DatabaseError, sqlite3.OperationalError):
+            return pd.DataFrame()
+
+    return result
+
+
 def fetch_timeseries(sqlite_cursor, player_id, measurement):
     data = sqlite_cursor.execute(
         f'''
@@ -205,5 +239,5 @@ if __name__ == "__main__":
     # Example usage
     player_id = 12
     measurement = 'base_load'
-    series = load_series(measurement, player_id)
-    print(series.head())
+    result = load_household_kpi_result(player_id, "default_scenario", "no_control")
+    print(result)
