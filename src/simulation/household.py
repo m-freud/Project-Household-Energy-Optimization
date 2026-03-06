@@ -11,7 +11,7 @@ class Household:
     def __init__(
             self,
             player_id=1,
-            start_time=0,
+            start_time=1,
             pv:PV|None=None,
             bess:BESS|None=None,
             ev1:EV|None=None,

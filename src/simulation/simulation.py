@@ -49,7 +49,7 @@ class Simulation:
         self.household_profiles = {}
 
 
-        self.current_timestep = 0  # current timestep in the simulation.
+        self.current_timestep = 1  # current timestep in the simulation.
 
         self.sqlite_cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
@@ -192,8 +192,12 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
-    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
+    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=1):
         print(f"running household {player_id} with policy {policy.__name__}")
+
+        if start_time < 1 or start_time > self.num_timesteps:
+            raise ValueError(f"start_time must be between 1 and {self.num_timesteps}")
+
         household = self.create_household(player_id, scenario, start_time)
 
         for t in range(start_time, self.num_timesteps):
@@ -205,7 +209,7 @@ class Simulation:
         return household
 
 
-    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=0):
+    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=1):
         for player_id in range(1, self.num_households + 1):
             self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
 
@@ -307,4 +311,4 @@ if __name__ == "__main__":
     ]
 
     for policy in policies:
-        sim.run_all_households(policy=policy, scenario=scenario, start_time=0)
+        sim.run_all_households(policy=policy, scenario=scenario, start_time=1)
