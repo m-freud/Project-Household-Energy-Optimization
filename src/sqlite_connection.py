@@ -205,5 +205,5 @@ if __name__ == "__main__":
     # Example usage
     player_id = 12
     measurement = 'base_load'
-    data = fetch_timeseries(sqlite_cursor, player_id, measurement)
-    print(data)
+    series = load_series(measurement, player_id)
+    print(series.head())
