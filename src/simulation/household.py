@@ -1,6 +1,7 @@
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
+from src.simulation.scenarios.scenario import Scenario
 
 
 
@@ -16,7 +17,8 @@ class Household:
             bess:BESS|None=None,
             ev1:EV|None=None,
             ev2:EV|None=None,
-            fixed_cost=0.0):
+            base_cost=0.0,
+            scenario:Scenario|None=None):
         
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
@@ -28,11 +30,13 @@ class Household:
         self.ev1 = ev1
         self.ev2 = ev2
 
+        self.scenario = scenario
+
         # current states
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity
         self.sell_price = 0.0  # current sell price for electricity
-        self.fixed_cost = fixed_cost  # fixed cost per day
+        self.base_cost = base_cost  # fixed cost per day
 
         self.buy_price_day_profile = []  # store buy price profile for the day
         self.sell_price_day_profile = []  # store sell price profile for the day
@@ -162,6 +166,27 @@ class Household:
         self.history["total_cost"][self.current_timestep] = self.total_cost
 
 
+    def has_met_target(self, device_name:str)->bool:
+        deadline = getattr(self.scenario, device_name).deadline if self.scenario else None
+        if deadline is None:
+            return True  # if no deadline specified, consider target met
+        
+        if self.current_timestep < deadline:
+            return False  # if before deadline, target not met
+        
+        target_soc = getattr(self.scenario, device_name).target_soc if self.scenario else None
+        if target_soc is None:
+            return True  # if no target SOC specified, consider target met
+        
+        # check if SOC at deadline meets target
+        soc_at_deadline = self.history[f"{device_name}_soc"].get(deadline, None)
+
+        if soc_at_deadline is None:
+            return False  # if no SOC data available at deadline, consider target not met
+
+        return soc_at_deadline >= target_soc
+
+
     @property
     def has_pv(self):
         return self.pv is not None
@@ -196,4 +221,4 @@ class Household:
 
     @property
     def total_cost(self):
-        return sum(self.history["net_cost"].values()) * 0.25 + self.fixed_cost
+        return sum(self.history["net_cost"].values()) * 0.25 + self.base_cost
