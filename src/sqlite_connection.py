@@ -125,19 +125,15 @@ def load_avg_profile(
     policy_name: str,
     scenario_name: str,
     table_name: str,
-    value_col: str,
 ) -> pd.DataFrame:
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
-
-    if not _is_safe_identifier(value_col):
-        raise ValueError(f"Invalid value column alias: {value_col}")
-
+    
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
         try:
             result = pd.read_sql_query(
                 f"""
-                SELECT period, AVG(value) AS {value_col}
+                SELECT period, AVG(value) AS avg_value
                 FROM {table_name}
                 WHERE policy = ? AND scenario = ?
                 GROUP BY period
