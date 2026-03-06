@@ -2,6 +2,14 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from src.sqlite_connection import load_series
 from src.simulation.scenarios.scenario import get_scenario_value
 
@@ -130,8 +138,9 @@ def plot_single_household_view(
 			deadline_hour = None if deadline_period is None else float(deadline_period) / 4.0
 			soc_at_deadline = None
 			met_target = None
-
+	
 			if deadline_period is not None and not soc_df.empty:
+				print("A")
 				at_deadline_df = soc_df[soc_df["period"] == int(deadline_period)]
 				if not at_deadline_df.empty:
 					soc_at_deadline = float(at_deadline_df["value"].iloc[0])
@@ -139,6 +148,8 @@ def plot_single_household_view(
 						met_target = soc_at_deadline >= float(target_soc_kwh)
 
 			target_status[device_name] = met_target
+			print(target_status)
+			print(f"Device: {device_name.upper()}, Deadline Hour: {deadline_hour}, SOC at Deadline: {soc_at_deadline}, Target SOC: {target_soc_kwh}, Met Target: {met_target}")
 
 			debug_rows.append(
 				{
@@ -306,3 +317,14 @@ def plot_single_household_view(
 
 	debug_df = pd.DataFrame(debug_rows)
 	return fig, kpi_df, debug_df
+
+
+if __name__ == "__main__":
+	player_id = 1
+	scenario_name = "default_scenario"
+	policy_names = ["no_control"]
+
+	fig, kpi_df, debug_df = plot_single_household_view(player_id, scenario_name, policy_names)
+	print(kpi_df)
+	print(debug_df)
+	fig.show()
