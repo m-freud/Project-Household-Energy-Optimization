@@ -15,7 +15,8 @@ from src.sqlite_connection import (
 	load_scenarios as db_load_scenarios,
 )
 
-from src.dashboard_2.aggregate.aggregate_profiles_view import render_aggregate_profile_section
+from src.dashboard_2.general_performance.general_performance import render_general_performance
+from src.dashboard_2.single_performance.single_performance import render_single_performance
 
 
 @st.cache_data(show_spinner=False)
@@ -45,6 +46,20 @@ def main():
 		st.warning("No rows found in total_cost. Run a simulation first.")
 		return
 	
-	render_aggregate_profile_section(policies, scenarios) #test me
+	render_general_performance(
+		policies,
+		scenarios
+	) #test me
+
+	st.divider()
+
+	render_single_performance(
+		player_id=household_ids[0],
+		scenario_name=scenarios[0],
+		policy_names=policies,
+	)
 	st.divider()
 	
+
+if __name__ == "__main__":
+	main()
