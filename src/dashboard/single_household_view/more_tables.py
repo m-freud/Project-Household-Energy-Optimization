@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.sqlite_connection import load_household_kpi_result, load_series
+from src.sqlite_connection import load_household_result, load_household_result, load_series
 
 
 def _to_optional_bool(value):
@@ -17,7 +17,7 @@ def build_kpi_table(
 	kpi_rows = []
 
 	for policy_name in policy_names:
-		result_df = load_household_kpi_result(player_id, scenario_name, policy_name)
+		result_df = load_household_result(player_id, scenario_name, policy_name)
 		net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
 		net_cost_df = load_series("net_cost", player_id, scenario_name, policy_name)
 		total_cost_df = load_series("total_cost", player_id, scenario_name, policy_name)
@@ -75,7 +75,7 @@ def build_debug_table(
 	debug_rows = []
 
 	for policy_name in policy_names:
-		result_df = load_household_kpi_result(player_id, scenario_name, policy_name)
+		result_df = load_household_result(player_id, scenario_name, policy_name)
 		net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
 		net_cost_df = load_series("net_cost", player_id, scenario_name, policy_name)
 
