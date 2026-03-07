@@ -10,13 +10,13 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.dashboard_2.single_performance.debug_table import render_debug_table
-from src.dashboard_2.single_performance.kpi_table import render_kpi_strip
-from src.dashboard_2.single_performance.subplots.plot_bess import plot_bess
-from src.dashboard_2.single_performance.subplots.plot_ev import plot_ev
-from src.dashboard_2.single_performance.subplots.plot_pv import plot_pv
-from src.dashboard_2.single_performance.subplots.plot_net_cost import plot_net_cost
-from src.dashboard_2.single_performance.subplots.plot_net_load import plot_net_load
+from src.dashboard.single_performance.debug_table import render_debug_table
+from src.dashboard.single_performance.kpi_table import render_kpi_strip
+from src.dashboard.single_performance.subplots.plot_bess import plot_bess
+from src.dashboard.single_performance.subplots.plot_ev import plot_ev
+from src.dashboard.single_performance.subplots.plot_pv import plot_pv
+from src.dashboard.single_performance.subplots.plot_net_cost import plot_net_cost
+from src.dashboard.single_performance.subplots.plot_net_load import plot_net_load
 
 
 from src.sqlite_connection import load_household_result

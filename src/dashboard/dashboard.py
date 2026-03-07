@@ -15,8 +15,8 @@ from src.sqlite_connection import (
 	load_scenarios as db_load_scenarios,
 )
 
-from src.dashboard_2.general_performance.general_performance import render_general_performance
-from src.dashboard_2.single_performance.single_performance import render_single_performance
+from src.dashboard.general_performance.general_performance import render_general_performance
+from src.dashboard.single_performance.single_performance import render_single_performance
 
 
 @st.cache_data(show_spinner=False)
