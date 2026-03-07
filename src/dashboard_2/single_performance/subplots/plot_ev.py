@@ -10,7 +10,8 @@ def plot_ev(ax: plt.Axes,
             ev_number: str,
             scenario_name: str,
             player_id: int,
-            policy_colors: dict[str, str]
+            policy_colors: dict[str, str],
+            missed_deadline: bool = False,
             ) -> None:
     ax.set_title(f"EV{ev_number}")
     ax.set_ylabel("SOC (kWh)")
@@ -29,6 +30,8 @@ def plot_ev(ax: plt.Axes,
         linewidth=1.5,
         label="Target SOC",
     )
+
+    has_data = False
         
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
@@ -37,8 +40,15 @@ def plot_ev(ax: plt.Axes,
         if ev_soc_df.empty:
             continue
 
+        has_data = True
+
         ax.plot(ev_soc_df["hour"], ev_soc_df["value"], color=color, linewidth=2)
+
+    if not has_data:
+        ax.text(0.5, 0.5, f"No EV{ev_number} SOC data", transform=ax.transAxes, ha="center", va="center")
 
     if ev_deadline is not None:
         ev_deadline_hour = float(ev_deadline) / 4.0
         ax.axvline(x=ev_deadline_hour, color="darkblue", linewidth=1.8)
+        if missed_deadline:
+            ax.axvline(x=ev_deadline_hour + 0.03, color="red", linewidth=1.8)

@@ -92,5 +92,5 @@ def render_debug_table(
 	if debug_df.empty:
 		st.info("No debug timestamps available for selected inputs.")
 	else:
-		st.dataframe(debug_df, use_container_width=True)
+		st.dataframe(debug_df, width="stretch")
 		

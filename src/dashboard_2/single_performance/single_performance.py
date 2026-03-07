@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-import pandas as pd
 import streamlit as st
 
 # paste this to enable src. imports
@@ -20,15 +19,53 @@ from src.dashboard_2.single_performance.subplots.plot_net_cost import plot_net_c
 from src.dashboard_2.single_performance.subplots.plot_net_load import plot_net_load
 
 
-from src.sqlite_connection import load_household_result, load_series
-from src.simulation.scenarios.scenario import get_scenario_value
+from src.sqlite_connection import load_household_result
+
+
+def _to_optional_bool(value):
+	if value is None:
+		return None
+	return bool(int(value))
 
 
 def render_single_performance(
-        player_id: int,
-        scenario_name: str,
-        policy_names: list[str],
+        policies: list[str],
+        scenarios: list[str],
+        household_ids: list[int],
     )-> None:
+	st.header("Single View")
+
+	single_c1, single_c2, single_c3 = st.columns([1, 1, 2], gap="large")
+
+	with single_c1:
+		selected_household_id = st.selectbox(
+			"Household ID",
+			options=household_ids,
+			index=0,
+			key="single_view_household",
+		)
+	with single_c2:
+		selected_scenario_name = st.selectbox(
+			"Scenario",
+			options=scenarios,
+			index=0,
+			key="single_view_scenario",
+		)
+	with single_c3:
+		selected_policy_names = st.multiselect(
+			"Policy",
+			options=policies,
+			default=policies[:2] if len(policies) >= 2 else policies,
+			key="single_view_policy_multi",
+		)
+
+	if not selected_policy_names:
+		st.info("Select at least one policy.")
+		return
+
+	player_id = selected_household_id
+	scenario_name = selected_scenario_name
+	policy_names = selected_policy_names
 
 	fig, axes = plt.subplots(2, 3, figsize=(18, 8), sharex=True)
 
@@ -38,14 +75,57 @@ def render_single_performance(
 		for i, policy_name in enumerate(policy_names)
 	}
 
+	missed_by_device = {
+		"BESS": False,
+		"EV1": False,
+		"EV2": False,
+	}
+
+	for policy_name in policy_names:
+		result_df = load_household_result(player_id, scenario_name, policy_name)
+		if result_df.empty:
+			continue
+
+		result_row = result_df.iloc[0]
+		bess_target_met = _to_optional_bool(result_row.get("target_met_bess"))
+		ev1_target_met = _to_optional_bool(result_row.get("target_met_ev1"))
+		ev2_target_met = _to_optional_bool(result_row.get("target_met_ev2"))
+
+		if bess_target_met is False:
+			missed_by_device["BESS"] = True
+		if ev1_target_met is False:
+			missed_by_device["EV1"] = True
+		if ev2_target_met is False:
+			missed_by_device["EV2"] = True
+
 	# BESS
-	plot_bess(ax=axes[0, 0], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	plot_bess(
+		ax=axes[0, 0],
+		scenario_name=scenario_name,
+		player_id=player_id,
+		policy_colors=policy_colors,
+		missed_deadline=missed_by_device["BESS"],
+	)
 	
 	# EV1
-	plot_ev(ax=axes[0, 1], ev_number="1", scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	plot_ev(
+		ax=axes[0, 1],
+		ev_number="1",
+		scenario_name=scenario_name,
+		player_id=player_id,
+		policy_colors=policy_colors,
+		missed_deadline=missed_by_device["EV1"],
+	)
 
 	# EV2
-	plot_ev(ax=axes[0, 2], ev_number="2", scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	plot_ev(
+		ax=axes[0, 2],
+		ev_number="2",
+		scenario_name=scenario_name,
+		player_id=player_id,
+		policy_colors=policy_colors,
+		missed_deadline=missed_by_device["EV2"],
+	)
 
 	# PV
 	plot_pv(ax=axes[1, 0], player_id=player_id)
@@ -87,5 +167,3 @@ def render_single_performance(
 	st.divider()
 
 	render_debug_table(player_id, scenario_name, policy_names)
-
-	st.balloons()

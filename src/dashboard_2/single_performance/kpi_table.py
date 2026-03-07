@@ -97,4 +97,4 @@ def render_kpi_strip(
 	for col in ["total_cost", "peak_load", "imported_energy_kwh", "exported_energy_kwh"]:
 		kpi_display[col] = kpi_display[col].map(lambda value: round(value, 2) if pd.notna(value) else None)
 
-	st.dataframe(kpi_display, use_container_width=True)
+	st.dataframe(kpi_display, width="stretch")

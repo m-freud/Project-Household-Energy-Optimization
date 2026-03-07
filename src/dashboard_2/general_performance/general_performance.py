@@ -64,4 +64,4 @@ def render_general_performance(policies: list[str], scenarios: list[str]) -> Non
             index="period",
             columns="policy",
             values="value")
-        st.line_chart(pivot_df, use_container_width=True)
+        st.line_chart(pivot_df, width="stretch")
