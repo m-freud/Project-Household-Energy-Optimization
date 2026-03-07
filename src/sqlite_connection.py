@@ -133,7 +133,7 @@ def load_avg_profile(
         try:
             result = pd.read_sql_query(
                 f"""
-                SELECT period, AVG(value) AS avg_value
+                SELECT period, AVG(value) AS value
                 FROM {table_name}
                 WHERE policy = ? AND scenario = ?
                 GROUP BY period

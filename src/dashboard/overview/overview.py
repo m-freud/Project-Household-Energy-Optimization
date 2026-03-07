@@ -1,6 +1,15 @@
 import pandas as pd
 import streamlit as st
 
+
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from src.sqlite_connection import load_avg_profile as db_load_avg_profile
 
 
@@ -38,7 +47,6 @@ def load_avg_profile(policy_name: str, scenario_name: str, metric: str) -> pd.Da
 		policy_name=policy_name,
 		scenario_name=scenario_name,
 		table_name=metric_config["table"],
-		value_col=metric_config["value_col"],
 	)
 
 
@@ -72,6 +80,6 @@ def render_overview_section(policies: list[str], scenarios: list[str]) -> None:
 		pivot_df = chart_df.pivot(
 			index="hour",
 			columns="policy",
-			values=METRIC_CONFIG[selected_metric]["value_col"],
+			values="value",
 		)
 		st.line_chart(pivot_df)
