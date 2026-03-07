@@ -10,7 +10,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.sqlite_connection import load_household_kpi_result, load_series
+from src.sqlite_connection import load_household_result, load_series
 from src.simulation.scenarios.scenario import get_scenario_value
 
 
@@ -107,7 +107,7 @@ def plot_household_overview(
 	for policy_name in policy_names:
 		color = policy_colors[policy_name]
 		bess_soc_df = load_series("bess_soc", player_id, scenario_name, policy_name)
-		result_df = load_household_kpi_result(player_id, scenario_name, policy_name)
+		result_df = load_household_result(player_id, scenario_name, policy_name)
 		if not result_df.empty:
 			result_row = result_df.iloc[0]
 			bess_target_met = _to_optional_bool(result_row.get("target_met_bess"))
