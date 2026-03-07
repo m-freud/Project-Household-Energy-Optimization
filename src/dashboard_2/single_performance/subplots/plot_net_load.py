@@ -10,6 +10,8 @@ def plot_net_load(
     ax.set_title("Net Load")
     ax.set_ylabel("Power (kW)")
     ax.set_xlabel("Hour")
+
+    has_data = False
     
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
@@ -18,8 +20,12 @@ def plot_net_load(
         if net_load_df.empty:
             continue
 
+        has_data = True
+
         ax.plot(net_load_df["hour"], net_load_df["value"], color=color, linewidth=2)
         ax.fill_between(net_load_df["hour"], net_load_df["value"], color=color, alpha=0.2)
+
+    if not has_data:
+        ax.text(0.5, 0.5, "No net load data", transform=ax.transAxes, ha="center", va="center")
     
     ax.axhline(y=0.0, color="black", linewidth=1, alpha=0.5)
-    ax.legend(loc="upper left")
