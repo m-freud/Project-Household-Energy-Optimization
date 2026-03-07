@@ -177,7 +177,7 @@ def load_household_ids() -> list[int]:
     return [row[0] for row in rows]
 
 
-def load_household_kpi_result(
+def load_household_result(
     player_id: int,
     scenario_name: str,
     policy_name: str,
@@ -186,17 +186,7 @@ def load_household_kpi_result(
         try:
             result = pd.read_sql_query(
                 """
-                SELECT
-                    policy,
-                    scenario,
-                    player_id,
-                    total_cost,
-                    target_met_bess,
-                    target_met_ev1,
-                    target_met_ev2,
-                    soc_at_deadline_bess,
-                    soc_at_deadline_ev1,
-                    soc_at_deadline_ev2
+                SELECT *
                 FROM results
                 WHERE player_id = ? AND scenario = ? AND policy = ?
                 ORDER BY rowid DESC
@@ -235,5 +225,5 @@ if __name__ == "__main__":
     # Example usage
     player_id = 12
     measurement = 'base_load'
-    result = load_household_kpi_result(player_id, "default_scenario", "no_control")
+    result = load_household_result(player_id, "default_scenario", "no_control")
     print(result)
