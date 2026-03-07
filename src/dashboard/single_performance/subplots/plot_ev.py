@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from src.simulation.scenarios.scenario import get_scenario_value
 from src.sqlite_connection import load_series
 
-from src.dashboard_2.single_performance.subplots.helpers import shade_ev_location_background
+from src.dashboard.single_performance.subplots.helpers import shade_ev_location_background
 
 
 
