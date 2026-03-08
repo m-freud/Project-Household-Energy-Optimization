@@ -29,3 +29,11 @@ It shows typical consumer behaviour, but without any autmoated energy decisions.
 - uvm
 
 So we get a good model of a customer and can show real optimization
+
+## Quick reset of simulation outputs (SQLite)
+
+To clear only simulation outputs (results + time-series histories) while keeping imported source tables:
+
+```bash
+./reset_sqlite_results.sh
+```
