@@ -17,7 +17,7 @@ from src.simulation.devices.ev import EV
 
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.policies.basic_examples import no_control
-from src.simulation.policies.naive_linear import make_naive_linear_policy
+from src.simulation.policies.linear import even_linear_policy, fast_charge_policy
 from src.simulation.scenarios.scenario import default_scenario
 
 
@@ -180,7 +180,7 @@ class Simulation:
         self.current_timestep = time
         self.update_household_inputs(household)
 
-        controls = policy(household, scenario=scenario)
+        controls = policy(household)
         household.apply_controls(controls, duration_hours=duration_hours)
 
         household.update_history()
@@ -346,11 +346,13 @@ if __name__ == "__main__":
     scenario = default_scenario
 
     policies = [
-        no_control,
+        # no_control,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=1.0),
-        make_naive_linear_policy(urgency=0.5, delay=0.5),
+        # make_linear_policy(urgency=0.5, delay=0.5),
+        even_linear_policy,
+        fast_charge_policy,
     ]
 
     for policy in policies:

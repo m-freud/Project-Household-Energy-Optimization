@@ -75,7 +75,6 @@ def _required_charge_power(current_soc: float,
 
 
 def naive_linear_policy(household: Household,
-                        scenario: Scenario,
                         urgency: float = 0.5,
                         delay: float = 0.5):
     '''
@@ -95,10 +94,12 @@ def naive_linear_policy(household: Household,
         "bess_power": 0.0,
     }
 
+    scenario = household.scenario
+
     if household.ev1 and (household.ev1.at_home or household.ev1.at_charging_station):
         controls["ev1_power"] = _required_charge_power(
             current_soc=household.ev1.soc,
-            target_soc=scenario.ev1.target_soc * household.ev1.capacity,
+            target_soc=scenario.ev1.target_soc * household.ev1.capacity if scenario.ev1.target_soc <= 1.0 else scenario.ev1.target_soc,
             max_charge=household.ev1.max_charge,
             efficiency=household.ev1.efficiency,
             current_timestep=household.current_timestep,
@@ -110,7 +111,7 @@ def naive_linear_policy(household: Household,
     if household.ev2 and (household.ev2.at_home or household.ev2.at_charging_station):
         controls["ev2_power"] = _required_charge_power(
             current_soc=household.ev2.soc,
-            target_soc=scenario.ev2.target_soc * household.ev2.capacity,
+            target_soc=scenario.ev2.target_soc * household.ev2.capacity if scenario.ev2.target_soc <= 1.0 else scenario.ev2.target_soc,
             max_charge=household.ev2.max_charge,
             efficiency=household.ev2.efficiency,
             current_timestep=household.current_timestep,
@@ -121,7 +122,7 @@ def naive_linear_policy(household: Household,
 
     if household.bess:
         current_soc = household.bess.soc
-        target_soc = scenario.bess.target_soc * household.bess.capacity
+        target_soc = scenario.bess.target_soc * household.bess.capacity if scenario.bess.target_soc <= 1.0 else scenario.bess.target_soc
         soc_deficit = target_soc - current_soc
 
         if soc_deficit > 0:
@@ -153,7 +154,7 @@ def naive_linear_policy(household: Household,
     return controls
 
 
-def make_naive_linear_policy(urgency: float = 0.5, delay: float = 0.5):
+def make_linear_policy(urgency: float = 0.5, delay: float = 0.5):
     '''
     Factory that returns a policy callable with fixed urgency and delay.
 
@@ -166,5 +167,28 @@ def make_naive_linear_policy(urgency: float = 0.5, delay: float = 0.5):
     def policy(household: Household, scenario: Scenario):
         return naive_linear_policy(household, scenario, urgency=urgency, delay=delay)
 
-    policy.__name__ = f"naive_linear_u{urgency:.2f}_d{delay:.2f}".replace(".", "_")
+    policy.__name__ = f"linear_u{urgency:.2f}_d{delay:.2f}".replace(".", "_")
+    return policy
+
+
+def latest_possible_charge_policy(household: Household, scenario: Scenario):
+    '''
+    Special case of naive_linear_policy with urgency=1.0 and delay=1.0.
+    '''
+    def policy(household: Household, scenario: Scenario):
+        return naive_linear_policy(household, scenario, urgency=1.0, delay=1.0)
+
+    policy.__name__ = f"latest_possible_charge"
+    return policy
+
+
+def earliest_possible_charge_policy(household: Household, scenario: Scenario):
+    '''
+    Special case of naive_linear_policy with urgency=0.0 and delay=0.0.
+    '''
+
+    def policy(household: Household, scenario: Scenario):
+        return naive_linear_policy(household, scenario, urgency=1.0, delay=0.0)
+
+    policy.__name__ = f"earliest_possible_charge"
     return policy
