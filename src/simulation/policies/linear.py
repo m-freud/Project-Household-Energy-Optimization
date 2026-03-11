@@ -47,7 +47,7 @@ def even_linear_policy(
             remaining_time = max(deadline - current_timestep, 0)
 
             if soc_deficit > 0:
-                controls[f"{ev.name}_power"] = min((soc_deficit / (remaining_time / Config.DURATION_TIMESTEP)) / efficiency, max_charge)
+                controls[f"{ev.name}_power"] = min((soc_deficit / (remaining_time * Config.DURATION_TIMESTEP) )/ efficiency, max_charge)
 
 
     # BESS
@@ -62,7 +62,7 @@ def even_linear_policy(
         remaining_time = max(deadline - current_timestep, 0)
 
         if soc_deficit > 0: # 
-            base_charge_power = min((soc_deficit / (remaining_time / Config.DURATION_TIMESTEP)) / efficiency, max_charge)
+            base_charge_power = min((soc_deficit / (remaining_time * Config.DURATION_TIMESTEP)) / efficiency, max_charge)
             surplus_power = -household.net_load
             charge_power = max(base_charge_power, min(base_charge_power + surplus_power, max_charge))
             controls["bess_power"] = charge_power
