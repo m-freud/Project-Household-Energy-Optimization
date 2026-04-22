@@ -8,7 +8,6 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
-from src.simulation.scenarios.scenario import Scenario
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV

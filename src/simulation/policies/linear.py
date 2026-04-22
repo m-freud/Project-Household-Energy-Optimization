@@ -94,18 +94,18 @@ def fast_charge_policy(
         ev1_target_soc = scenario.ev1.target_soc
         ev1_target_soc = ev1_target_soc * household.ev1.capacity if ev1_target_soc <= 1.0 else ev1_target_soc
         if household.ev1.soc < ev1_target_soc:
-            controls["ev1_power"] = household.ev1.max_charge
+            controls["ev1_power"] = min(household.ev1.max_charge, (ev1_target_soc - household.ev1.soc) / Config.DURATION_TIMESTEP)
 
     if household.ev2 and (household.ev2.at_home or household.ev2.at_charging_station):
         ev2_target_soc = scenario.ev2.target_soc
         ev2_target_soc = ev2_target_soc * household.ev2.capacity if ev2_target_soc <= 1.0 else ev2_target_soc
         if household.ev2.soc < ev2_target_soc:
-            controls["ev2_power"] = household.ev2.max_charge
+            controls["ev2_power"] = min(household.ev2.max_charge, (ev2_target_soc - household.ev2.soc) / Config.DURATION_TIMESTEP)
 
     if household.bess:
         bess_target_soc = scenario.bess.target_soc
         bess_target_soc = bess_target_soc * household.bess.capacity if bess_target_soc <= 1.0 else bess_target_soc
         if household.bess.soc < bess_target_soc:
-            controls["bess_power"] = household.bess.max_charge
+            controls["bess_power"] = min(household.bess.max_charge, (bess_target_soc - household.bess.soc) / Config.DURATION_TIMESTEP)
 
     return controls
