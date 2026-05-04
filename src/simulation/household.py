@@ -109,7 +109,7 @@ class Household:
         '''
         applies a policy function to determine controls and then applies them
         '''
-        controls = policy(self, scenario)
+        controls = policy(self)
         self.apply_controls(controls, duration_hours)
 
 
@@ -175,7 +175,7 @@ class Household:
 
 
     def has_met_target(self, device_name:str)->bool:
-        deadline = getattr(self.scenario, device_name).deadline if self.scenario else None
+        deadline = 96 # dirty fix ##getattr(self.scenario, device_name).deadline if self.scenario else None
         if deadline is None:
             return True  # if no deadline specified, consider target met
         

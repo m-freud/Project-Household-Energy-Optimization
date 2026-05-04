@@ -1,0 +1,195 @@
+@startuml
+' Project Household Energy Optimization - high-level class/module structure
+
+title Household Energy Optimization - Class Diagram
+
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Core Config" {
+  class Config {
+    +ROOT_DIR: Path
+    +EXCEL_FILE_PATH: Path
+    +SQLITE_PATH: Path
+    +DURATION_TIMESTEP: float
+  }
+}
+
+package "Simulation" {
+  class Simulation {
+    -sqlite_conn
+    -sqlite_cursor
+    -num_households: int
+    -num_timesteps: int
+    -env_inputs: list[str]
+    -household_profiles: dict
+    -current_timestep: int
+    +create_household(player_id, scenario, start_time)
+    +step(household, policy, scenario, duration_hours, time)
+    +run_household(player_id, policy, scenario, start_time)
+    +run_all_households(policy, scenario, start_time)
+    +load_history_to_sqlite(...)
+    +load_results_to_sqlite(...)
+  }
+
+  class Household {
+    +player_id: int
+    +current_timestep: int
+    +pv: PV
+    +bess: BESS
+    +ev1: EV
+    +ev2: EV
+    +scenario: Scenario
+    +history: dict
+    +controls: dict
+    +apply_policy(policy, scenario, duration_hours)
+    +apply_controls(controls, duration_hours)
+    +update_history()
+    +has_met_target(device_name): bool
+    +net_load: float
+    +net_cost: float
+    +total_consumption: float
+    +total_cost: float
+  }
+
+  package "Devices" {
+    class PV {
+      +generation: float
+    }
+
+    class BESS {
+      +capacity: float
+      +max_charge: float
+      +max_discharge: float
+      +efficiency: float
+      +soc: float
+      +name: str
+      +charge(power, duration)
+      +discharge(power, duration)
+      +soc_fraction: float
+    }
+
+    class EV {
+      +capacity: float
+      +max_charge: float
+      +max_discharge: float
+      +efficiency: float
+      +soc: float
+      +load: float
+      +at_home: bool
+      +at_charging_station: bool
+      +buy_price: float
+      +name: str
+      +charge(power, duration_hours)
+      +discharge(power, duration_hours)
+      +soc_fraction: float
+    }
+  }
+
+  package "Scenarios" {
+    class DeviceScenario <<dataclass>> {
+      +start_soc: float
+      +soc_allowed_range: tuple[float, float]
+      +soc_targets: dict[int, float]
+    }
+
+    class Scenario <<dataclass>> {
+      +name: str
+      +ev1: DeviceScenario
+      +ev2: DeviceScenario
+      +bess: DeviceScenario
+    }
+  }
+
+  class BasicPolicies <<module>> {
+    +no_control(household)
+    +random_control(household)
+    +example_bess(household)
+    +example_ev(household)
+    +example_ev_bess(household)
+  }
+
+  class LinearPolicies <<module>> {
+    +even_linear_policy(household)
+    +fast_charge_policy(household)
+  }
+
+  class MakeLinearPolicy <<module>> {
+    +naive_linear_policy(household, urgency, delay)
+    +make_linear_policy(urgency, delay)
+    +latest_possible_charge_policy(household, scenario)
+    +earliest_possible_charge_policy(household, scenario)
+  }
+}
+
+package "Persistence" {
+  class SQLiteConnection <<module>> {
+    +fetch_timeseries(cursor, player_id, measurement)
+    +fetch_multiple_timeseries(cursor, player_id, measurements)
+    +load_series(measurement, player_id, scenario_name, policy_name)
+    +load_policies()
+    +load_scenarios()
+    +load_household_ids()
+    +load_household_result(player_id, scenario_name, policy_name)
+  }
+}
+
+package "Dashboard" {
+  class DashboardMain <<module>> {
+    +main()
+    +load_policies()
+    +load_scenarios()
+    +load_household_ids()
+  }
+
+  class SinglePerformance <<module>> {
+    +render_single_performance(policies, scenarios, household_ids)
+  }
+
+  class KpiTable <<module>> {
+    +build_kpi_table(player_id, scenario_name, policy_names)
+    +render_kpi_strip(player_id, scenario_name, policy_names)
+  }
+
+  class DebugTable <<module>> {
+    +build_debug_table(player_id, scenario_name, policy_names)
+    +render_debug_table(player_id, scenario_name, policy_names)
+  }
+}
+
+' Composition / ownership
+Simulation *-- Household : creates/steps
+Household o-- PV
+Household o-- BESS
+Household o-- EV : ev1
+Household o-- EV : ev2
+Household --> Scenario
+Scenario *-- DeviceScenario : ev1
+Scenario *-- DeviceScenario : ev2
+Scenario *-- DeviceScenario : bess
+
+' Policy dependencies
+Household ..> BasicPolicies : policy(household)
+Household ..> LinearPolicies : policy(household)
+Household ..> MakeLinearPolicy : policy factory
+MakeLinearPolicy ..> Config
+LinearPolicies ..> Config
+
+' Persistence dependencies
+Simulation ..> SQLiteConnection : reads/writes
+DashboardMain ..> SQLiteConnection : query filters
+SinglePerformance ..> SQLiteConnection : load result series
+KpiTable ..> SQLiteConnection : load KPI inputs
+DebugTable ..> SQLiteConnection : load debug inputs
+
+' Cross-module dependencies
+Simulation ..> Config
+Simulation ..> PV
+Simulation ..> BESS
+Simulation ..> EV
+Simulation ..> Scenario
+DashboardMain ..> SinglePerformance
+SinglePerformance ..> KpiTable
+SinglePerformance ..> DebugTable
+
+@enduml
