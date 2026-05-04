@@ -59,6 +59,8 @@ class Simulation:
                 has_bess BOOLEAN,
                 total_cost REAL,
                 total_consumption REAL,
+                net_cost REAL,
+                net_load REAL,
                 target_met_bess BOOLEAN,
                 target_met_ev1 BOOLEAN,
                 target_met_ev2 BOOLEAN,
@@ -77,6 +79,8 @@ class Simulation:
         }
 
         required_columns = [
+            ("net_cost", "REAL"),
+            ("net_load", "REAL"),
             ("target_met_bess", "BOOLEAN"),
             ("target_met_ev1", "BOOLEAN"),
             ("target_met_ev2", "BOOLEAN"),
@@ -245,6 +249,8 @@ class Simulation:
     def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario"):
         total_cost = household.total_cost
         total_consumption = household.total_consumption
+        net_cost = sum(household.history["net_cost"].values()) * 0.25
+        net_load = sum(household.history["net_load"].values()) * 0.25
         target_met_bess = household.has_met_target("bess")
         target_met_ev1 = household.has_met_target("ev1")
         target_met_ev2 = household.has_met_target("ev2")
@@ -256,13 +262,15 @@ class Simulation:
             '''
             INSERT INTO results (
             policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
+            net_cost, net_load,
             target_met_bess, target_met_ev1, target_met_ev2,
             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption,
+             net_cost, net_load,
              target_met_bess, target_met_ev1, target_met_ev2,
              soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
         )
