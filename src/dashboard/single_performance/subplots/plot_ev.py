@@ -19,8 +19,8 @@ def plot_ev(ax: plt.Axes,
     ev_at_station_df = load_series(f"ev{ev_number}_at_charging_station", player_id)
     shade_ev_location_background(ax, ev_at_home_df, ev_at_station_df)
 
-    target_soc_ev = get_scenario_value(scenario_name, f"ev{ev_number}", player_id, "target_soc")
-    ev_deadline = get_scenario_value(scenario_name, f"ev{ev_number}", player_id, "deadline")
+    target_soc_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "target_soc")
+    ev_deadline = get_scenario_value(scenario_name, f"ev{ev_number}", "deadline")
 
     if target_soc_ev is not None:
         ax.axhline(

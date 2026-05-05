@@ -14,8 +14,8 @@ def plot_bess(
     ax.set_title("BESS")
     ax.set_ylabel("SOC (kWh)")
 
-    target_soc_bess = get_scenario_value(scenario_name, "bess", player_id, "target_soc")
-    bess_deadline = get_scenario_value(scenario_name, "bess", player_id, "deadline")
+    target_soc_bess = get_scenario_value(scenario_name, "bess", "target_soc")
+    bess_deadline = get_scenario_value(scenario_name, "bess", "deadline")
 
     if target_soc_bess is not None:
         ax.axhline(
