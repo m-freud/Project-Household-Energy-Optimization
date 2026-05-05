@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from src.simulation.scenarios.scenario import get_scenario_value
 from src.sqlite_connection import load_series
 
 def plot_pv(

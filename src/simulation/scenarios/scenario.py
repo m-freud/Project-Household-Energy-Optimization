@@ -40,7 +40,6 @@ default_scenario = Scenario(
 def get_scenario_value(
     scenario_name: str,
     device_name: str,
-    player_id: int,
     value,
 ):
     for scenario in [default_scenario]:
