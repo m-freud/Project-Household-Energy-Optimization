@@ -2,14 +2,13 @@
 
 from pathlib import Path
 import sys
-from uuid import uuid4
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.run_context import RunContext
-from simulation.controllers.base_controller import BasicController
+from src.simulation.controllers.function_controller import FunctionController
 from src.config import Config
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
@@ -18,8 +17,8 @@ from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 
 from src.simulation.scenarios.scenario import Scenario
-from src.simulation.policies.basic_examples import no_control
-from src.simulation.policies.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.policies.basic_examples import no_control
+from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
 from src.simulation.scenarios.scenario import default_scenario
 
 
@@ -101,6 +100,20 @@ class Simulation:
                 )
 
         self.sqlite_conn.commit()
+
+
+    def _get_next_run_id(self) -> str:
+            next_run_id = self.sqlite_cursor.execute(
+                    '''
+                    SELECT COALESCE(MAX(CAST(run_id AS INTEGER)), 0) + 1
+                    FROM results
+                    WHERE run_id IS NOT NULL
+                        AND TRIM(run_id) <> ''
+                        AND run_id NOT GLOB '*[^0-9]*'
+                    '''
+            ).fetchone()[0]
+
+            return str(next_run_id)
 
     
     def create_household(self, player_id:int, run_context: RunContext):
@@ -232,11 +245,12 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
-    def run_household(self, player_id, run_context: RunContext):
+    def run_household(self, player_id, run_context: RunContext, run_id: str | None = None):
         controller = run_context.controller
         scenario = run_context.scenario
+        current_run_id = run_id or run_context.run_id or self._get_next_run_id()
 
-        print(f"running household {player_id} with controller {controller.name}")
+        print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         start_time = run_context.start_time
         if start_time < 1 or start_time > self.num_timesteps:
@@ -252,20 +266,21 @@ class Simulation:
             household,
             policy_name=controller.name,
             scenario_name=scenario.name,
-            run_id=run_context.run_id,
+            run_id=current_run_id,
         )
 
         return household
 
 
     def run_all_households(self, run_context: RunContext):
+        run_id = run_context.run_id or self._get_next_run_id()
         for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, run_context)
+            self.run_household(player_id, run_context, run_id=run_id)
 
 
     def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
         if run_id is None:
-            run_id = str(uuid4())
+            run_id = self._get_next_run_id()
 
         total_cost = household.total_cost
         total_consumption = household.total_consumption
@@ -370,8 +385,8 @@ if __name__ == "__main__":
     # Load the scenario
     scenario = default_scenario
 
-    even_linear_controller = BasicController(name="even_linear", step_function=even_linear_policy)
-    fast_charge_controller = BasicController(name="fast_charge", step_function=fast_charge_policy)
+    even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
+    fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
 
     controllers = [
         even_linear_controller,
