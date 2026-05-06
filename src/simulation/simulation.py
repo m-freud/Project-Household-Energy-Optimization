@@ -233,7 +233,10 @@ class Simulation:
 
 
     def run_household(self, player_id, run_context: RunContext):
-        print(f"running household {player_id} with controller {run_context.controller.name}")
+        controller = run_context.controller
+        scenario = run_context.scenario
+
+        print(f"running household {player_id} with controller {controller.name}")
 
         start_time = run_context.start_time
         if start_time < 1 or start_time > self.num_timesteps:
@@ -244,11 +247,11 @@ class Simulation:
         for t in range(start_time, self.num_timesteps):
             self.step(household, run_context=run_context, duration_hours=0.25, time=t)
 
-        self.load_history_to_sqlite(household, policy_name=run_context.controller.name, scenario_name=run_context.scenario.name)
+        self.load_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
         self.load_results_to_sqlite(
             household,
-            policy_name=run_context.controller.name,
-            scenario_name=run_context.scenario.name,
+            policy_name=controller.name,
+            scenario_name=scenario.name,
             run_id=run_context.run_id,
         )
 
@@ -256,7 +259,6 @@ class Simulation:
 
 
     def run_all_households(self, run_context: RunContext):
-
         for player_id in range(1, self.num_households + 1):
             self.run_household(player_id, run_context)
 
