@@ -2,11 +2,14 @@
 
 from pathlib import Path
 import sys
+from uuid import uuid4
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
+from src.simulation.run_context import RunContext
+from src.simulation.controllers.controller import Controller
 from src.config import Config
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
@@ -52,6 +55,7 @@ class Simulation:
 
         self.sqlite_cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
+                run_id TEXT,
                 policy TEXT,
                 scenario TEXT,
                 player_id INTEGER,
@@ -79,6 +83,7 @@ class Simulation:
         }
 
         required_columns = [
+            ("run_id", "TEXT"),
             ("net_cost", "REAL"),
             ("net_load", "REAL"),
             ("target_met_bess", "BOOLEAN"),
@@ -98,7 +103,9 @@ class Simulation:
         self.sqlite_conn.commit()
 
     
-    def create_household(self, player_id:int, scenario:Scenario, start_time=0):
+    def create_household(self, player_id:int, run_context: RunContext):
+        scenario = run_context.scenario
+        start_time = run_context.start_time
         household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
 
         household.base_cost = self.sqlite_cursor.execute(
@@ -179,13 +186,11 @@ class Simulation:
         return household
     
 
-    def step(self, household: Household, policy=no_control, scenario: Scenario=default_scenario, duration_hours=0.25, time=0):
+    def step(self, household: Household, run_context: RunContext, duration_hours=0.25, time=0):
         self.current_timestep = time
         self.update_household_inputs(household)
-        # instead of apply_policy: controller.apply_controls(household)
-        # controller.set_controls(household)
-        
-        household.set_controls(policy)
+        controls = run_context.controller.set_controls(household)
+        household.apply_controls(controls)
         household.update_history()
 
 
@@ -227,29 +232,39 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
-    def run_household(self, player_id, policy=no_control, scenario: Scenario=default_scenario, start_time=1):
-        print(f"running household {player_id} with policy {policy.__name__}")
+    def run_household(self, player_id, run_context: RunContext):
+        print(f"running household {player_id} with controller {run_context.controller.name}")
 
+        start_time = run_context.start_time
         if start_time < 1 or start_time > self.num_timesteps:
             raise ValueError(f"start_time must be between 1 and {self.num_timesteps}")
 
-        household = self.create_household(player_id, scenario, start_time)
+        household = self.create_household(player_id, run_context)
 
         for t in range(start_time, self.num_timesteps):
-            self.step(household, policy=policy, scenario=scenario, duration_hours=0.25, time=t)
+            self.step(household, run_context=run_context, duration_hours=0.25, time=t)
 
-        self.load_history_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
-        self.load_results_to_sqlite(household, policy_name=policy.__name__, scenario_name=scenario.name)
+        self.load_history_to_sqlite(household, policy_name=run_context.controller.name, scenario_name=run_context.scenario.name)
+        self.load_results_to_sqlite(
+            household,
+            policy_name=run_context.controller.name,
+            scenario_name=run_context.scenario.name,
+            run_id=run_context.run_id,
+        )
 
         return household
 
 
-    def run_all_households(self, policy=no_control, scenario: Scenario=default_scenario, start_time=1):
+    def run_all_households(self, run_context: RunContext):
+
         for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, policy=policy, scenario=scenario, start_time=start_time)
+            self.run_household(player_id, run_context)
 
 
-    def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario"):
+    def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
+        if run_id is None:
+            run_id = str(uuid4())
+
         total_cost = household.total_cost
         total_consumption = household.total_consumption
         net_cost = sum(household.history["net_cost"].values()) * 0.25
@@ -264,14 +279,15 @@ class Simulation:
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
+            run_id,
             policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
             net_cost, net_load,
             target_met_bess, target_met_ev1, target_met_ev2,
             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
-            (policy_name, scenario_name, household.player_id, household.has_pv,
+            (run_id, policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption,
              net_cost, net_load,
              target_met_bess, target_met_ev1, target_met_ev2,
@@ -352,15 +368,33 @@ if __name__ == "__main__":
     # Load the scenario
     scenario = default_scenario
 
-    policies = [
+    even_linear_controller = Controller(name="even_linear", step_function=even_linear_policy)
+    fast_charge_controller = Controller(name="fast_charge", step_function=fast_charge_policy)
+
+    controllers = [
+        even_linear_controller,
+        fast_charge_controller,
         # no_control,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=1.0),
         # make_linear_policy(urgency=0.5, delay=0.5),
-        even_linear_policy,
-        fast_charge_policy,
     ]
 
-    for policy in policies:
-        sim.run_all_households(policy=policy, scenario=scenario, start_time=1)
+    scenarios = [
+        default_scenario,
+        # make_scenario("early_deadline", ev1_deadline=32, ev2_deadline=32),
+        # make_scenario("late_deadline", ev1_deadline=80, ev2_deadline=80),
+        # make_scenario("bess_target", bess_target=0.5),
+    ]
+
+    run_contexts = [
+        RunContext(controller=controller, scenario=scenario)
+        for controller in controllers
+        for scenario in scenarios
+    ]
+
+
+    for run_context in run_contexts:
+        sim.run_all_households(run_context)
+        

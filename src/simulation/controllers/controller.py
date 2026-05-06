@@ -11,10 +11,10 @@ from src.config import Config
 from src.simulation.household import Household
 
 
-class Controller: # parent cclass TBD
-    def __init__(self, name: str):
+class Controller: # parent class TBD
+    def __init__(self, name: str, step_function: callable):
         self.name = name
+        self.step_function = step_function
 
-    def step(self, household: Household):
-        raise NotImplementedError("Controller step method must be implemented by subclasses")
-    
+    def set_controls(self, household: Household, *args, **kwargs):
+        return self.step_function(household, *args, **kwargs)
