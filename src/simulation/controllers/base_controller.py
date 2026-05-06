@@ -11,7 +11,8 @@ from src.config import Config
 from src.simulation.household import Household
 
 
-class Controller: # parent class TBD
+class BasicController:
+    # minimal controlller, instantiated  with step function, stateless
     def __init__(self, name: str, step_function: callable):
         self.name = name
         self.step_function = step_function

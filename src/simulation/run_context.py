@@ -2,12 +2,12 @@ from dataclasses import dataclass, field
 from uuid import uuid4
 
 from src.simulation.scenarios.scenario import Scenario, default_scenario
-from src.simulation.controllers.controller import Controller
+from simulation.controllers.base_controller import BasicController
 
 
 @dataclass
 class RunContext:
-    controller: Controller
+    controller: BasicController
     scenario: Scenario = field(default_factory=lambda: default_scenario)
     run_id: str = field(default_factory=lambda: str(uuid4()))
     start_time: int = 1

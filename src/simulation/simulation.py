@@ -9,7 +9,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.run_context import RunContext
-from src.simulation.controllers.controller import Controller
+from simulation.controllers.base_controller import BasicController
 from src.config import Config
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
@@ -370,8 +370,8 @@ if __name__ == "__main__":
     # Load the scenario
     scenario = default_scenario
 
-    even_linear_controller = Controller(name="even_linear", step_function=even_linear_policy)
-    fast_charge_controller = Controller(name="fast_charge", step_function=fast_charge_policy)
+    even_linear_controller = BasicController(name="even_linear", step_function=even_linear_policy)
+    fast_charge_controller = BasicController(name="fast_charge", step_function=fast_charge_policy)
 
     controllers = [
         even_linear_controller,
