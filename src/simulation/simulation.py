@@ -182,7 +182,9 @@ class Simulation:
     def step(self, household: Household, policy=no_control, scenario: Scenario=default_scenario, duration_hours=0.25, time=0):
         self.current_timestep = time
         self.update_household_inputs(household)
-        household.apply_policy(policy, scenario, duration_hours=duration_hours)
+
+
+        household.set_controls(policy)
         household.update_history()
 
 
