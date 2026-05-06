@@ -1,15 +1,14 @@
 from dataclasses import dataclass, field
-from uuid import uuid4
 
 from src.simulation.scenarios.scenario import Scenario, default_scenario
-from simulation.controllers.base_controller import BasicController
+from src.simulation.controllers.base_controller import BaseController
 
 
 @dataclass
 class RunContext:
-    controller: BasicController
+    controller: BaseController
     scenario: Scenario = field(default_factory=lambda: default_scenario)
-    run_id: str = field(default_factory=lambda: str(uuid4()))
+    run_id: str | None = None
     start_time: int = 1
 
     # ensure read-only after creation

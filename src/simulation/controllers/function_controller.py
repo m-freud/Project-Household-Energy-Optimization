@@ -2,20 +2,19 @@
 
 from pathlib import Path
 import sys
-from abc import ABC, abstractmethod
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
 
 
-class BaseController(ABC):
-    def __init__(self, name: str):
-        self.name = name
+class FunctionController(BaseController):
+    def __init__(self, name: str, step_function: callable):
+        super().__init__(name)
+        self.step_function = step_function
 
-    @abstractmethod
     def set_controls(self, household: Household, *args, **kwargs):
-        raise NotImplementedError("Controller set_controls method must be implemented by subclasses")
+        return self.step_function(household, *args, **kwargs)
