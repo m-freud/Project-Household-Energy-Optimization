@@ -105,12 +105,12 @@ class Household:
                 ev.discharge(ev.load, duration_hours)
 
 
-    def set_controls(self, policy, duration_hours=0.25):
-        '''
-        applies a policy function to determine controls and then applies them
-        '''
-        controls = policy(self)
-        self.apply_controls(controls, duration_hours)
+    # def set_controls(self, policy, duration_hours=0.25):
+    #     '''
+    #     applies a policy function to determine controls and then applies them
+    #     '''
+    #     controls = policy(self)
+    #     self.apply_controls(controls, duration_hours)
 
 
     def update_history(self):
