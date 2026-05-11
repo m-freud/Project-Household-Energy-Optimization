@@ -17,8 +17,8 @@ class Household:
             bess:BESS|None=None,
             ev1:EV|None=None,
             ev2:EV|None=None,
-            base_cost=0.0,
-            scenario:Scenario|None=None):
+            base_cost=0.0
+            ):
         
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
@@ -29,8 +29,6 @@ class Household:
         self.bess = bess
         self.ev1 = ev1
         self.ev2 = ev2
-
-        self.scenario = scenario
 
         # current states
         self.base_load = 0.0  # current base load
@@ -172,27 +170,6 @@ class Household:
         self.history["total_generation"][self.current_timestep] = self.total_generation
         self.history["total_consumption"][self.current_timestep] = self.total_consumption
         self.history["total_cost"][self.current_timestep] = self.total_cost
-
-
-    def has_met_target(self, device_name:str)->bool:
-        deadline = 96 # dirty fix ##getattr(self.scenario, device_name).deadline if self.scenario else None
-        if deadline is None:
-            return True  # if no deadline specified, consider target met
-        
-        if self.current_timestep < deadline:
-            return False  # if before deadline, target not met
-        
-        target_soc = getattr(self.scenario, device_name).target_soc if self.scenario else None
-        if target_soc is None:
-            return True  # if no target SOC specified, consider target met
-        
-        # check if SOC at deadline meets target
-        soc_at_deadline = self.history[f"{device_name}_soc"].get(deadline, None)
-
-        if soc_at_deadline is None:
-            return False  # if no SOC data available at deadline, consider target not met
-
-        return soc_at_deadline >= target_soc
 
 
     @property

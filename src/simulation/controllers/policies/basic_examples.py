@@ -6,7 +6,7 @@ from src.simulation.household import Household
 import random
 
 
-def no_control(household:Household):
+def no_control(household:Household, scenario=None):
     """A policy that does not control anything, all controls are set to zero."""
     controls = {
         "bess_power": 0.0,
@@ -17,7 +17,7 @@ def no_control(household:Household):
     return controls
 
 
-def random_control(household:Household):
+def random_control(household:Household, scenario=None):
     """A policy that sets random controls within the allowed limits."""
 
     controls = {
@@ -29,7 +29,7 @@ def random_control(household:Household):
     return controls
 
 
-def example_bess(household:Household):
+def example_bess(household:Household, scenario=None):
     '''
     if there is excess PV generation, charge the BESS
     if there is a deficit, discharge the BESS
@@ -50,7 +50,7 @@ def example_bess(household:Household):
     return household.controls
 
 
-def example_ev(household:Household):
+def example_ev(household:Household, scenario=None):
     '''
     Simple EV charging policy:
     at charging station: charge if cheaper than at home so far
@@ -83,12 +83,12 @@ def example_ev(household:Household):
     return household.controls
 
 
-def example_ev_bess(household:Household):
+def example_ev_bess(household:Household, scenario=None):
     '''
     Combined policy based on priority:
     charge ev first, then battery
     '''
-    controls = example_ev(household)
+    controls = example_ev(household, scenario)
 
     if not household.bess:
         return controls
