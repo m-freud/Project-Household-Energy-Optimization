@@ -20,9 +20,8 @@ def get_next_target(current_timestep, target_soc_dict):
 
 def even_linear_policy(
         household: Household,
+        scenario: Scenario
 ):
-    scenario = household.scenario
-
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
@@ -88,14 +87,13 @@ def even_linear_policy(
 
 def fast_charge_policy(
         household: Household,
+        scenario: Scenario
 ):
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
-
-    scenario = household.scenario
 
     if household.ev1 and (household.ev1.at_home or household.ev1.at_charging_station):
         ev1_target_soc, _ = get_next_target(household.current_timestep, scenario.ev1.soc_targets)

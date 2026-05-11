@@ -19,6 +19,7 @@ from src.simulation.devices.ev import EV
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.base_controller import BaseController
 from src.simulation.scenarios.scenario import default_scenario
 
 
@@ -49,7 +50,6 @@ class Simulation:
 
         self.household_profiles = {}
 
-
         self.current_timestep = 1  # current timestep in the simulation.
 
         self.sqlite_cursor.execute('''
@@ -63,13 +63,7 @@ class Simulation:
                 total_cost REAL,
                 total_consumption REAL,
                 net_cost REAL,
-                net_load REAL,
-                target_met_bess BOOLEAN,
-                target_met_ev1 BOOLEAN,
-                target_met_ev2 BOOLEAN,
-                soc_at_deadline_bess REAL,
-                soc_at_deadline_ev1 REAL,
-                soc_at_deadline_ev2 REAL
+                net_load REAL
             )''')
 
         self._ensure_results_columns()
@@ -85,12 +79,6 @@ class Simulation:
             ("run_id", "TEXT"),
             ("net_cost", "REAL"),
             ("net_load", "REAL"),
-            ("target_met_bess", "BOOLEAN"),
-            ("target_met_ev1", "BOOLEAN"),
-            ("target_met_ev2", "BOOLEAN"),
-            ("soc_at_deadline_bess", "REAL"),
-            ("soc_at_deadline_ev1", "REAL"),
-            ("soc_at_deadline_ev2", "REAL"),
         ]
 
         for column_name, column_type in required_columns:
@@ -102,24 +90,10 @@ class Simulation:
         self.sqlite_conn.commit()
 
 
-    def _get_next_run_id(self) -> str:
-            next_run_id = self.sqlite_cursor.execute(
-                    '''
-                    SELECT COALESCE(MAX(CAST(run_id AS INTEGER)), 0) + 1
-                    FROM results
-                    WHERE run_id IS NOT NULL
-                        AND TRIM(run_id) <> ''
-                        AND run_id NOT GLOB '*[^0-9]*'
-                    '''
-            ).fetchone()[0]
-
-            return str(next_run_id)
-
-    
     def create_household(self, player_id:int, run_context: RunContext):
         scenario = run_context.scenario
         start_time = run_context.start_time
-        household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
+        household = Household(player_id=player_id, start_time=start_time)
 
         household.base_cost = self.sqlite_cursor.execute(
             "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
@@ -199,10 +173,16 @@ class Simulation:
         return household
     
 
-    def step(self, household: Household, run_context: RunContext, duration_hours=0.25, time=0):
+    def step(
+            self,
+            household: Household,
+            controller: BaseController,
+            scenario: Scenario,
+            duration_hours=0.25,
+            time=0):
         self.current_timestep = time
         self.update_household_inputs(household)
-        controls = run_context.controller.set_controls(household)
+        controls = controller.set_controls(household, scenario)
         household.apply_controls(controls)
         household.update_history()
 
@@ -245,10 +225,10 @@ class Simulation:
         household.sell_price = profiles["sell_price"][timestep]
 
 
-    def run_household(self, player_id, run_context: RunContext, run_id: str | None = None):
+    def run_household(self, player_id, run_context: RunContext):
         controller = run_context.controller
         scenario = run_context.scenario
-        current_run_id = run_id or run_context.run_id or self._get_next_run_id()
+        current_run_id = run_context.run_id
 
         print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
@@ -259,9 +239,10 @@ class Simulation:
         household = self.create_household(player_id, run_context)
 
         for t in range(start_time, self.num_timesteps):
-            self.step(household, run_context=run_context, duration_hours=0.25, time=t)
+            self.step(household, controller, scenario, duration_hours=0.25, time=t)
 
         self.load_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
+        
         self.load_results_to_sqlite(
             household,
             policy_name=controller.name,
@@ -273,42 +254,27 @@ class Simulation:
 
 
     def run_all_households(self, run_context: RunContext):
-        run_id = run_context.run_id or self._get_next_run_id()
         for player_id in range(1, self.num_households + 1):
-            self.run_household(player_id, run_context, run_id=run_id)
+            self.run_household(player_id, run_context)
 
 
     def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
-        if run_id is None:
-            run_id = self._get_next_run_id()
-
         total_cost = household.total_cost
         total_consumption = household.total_consumption
         net_cost = sum(household.history["net_cost"].values()) * 0.25
         net_load = sum(household.history["net_load"].values()) * 0.25
-        target_met_bess = household.has_met_target("bess")
-        target_met_ev1 = household.has_met_target("ev1")
-        target_met_ev2 = household.has_met_target("ev2")
-        soc_at_deadline_bess = household.history["bess_soc"].get(getattr(household.scenario.bess, "deadline", None), None) if household.scenario else None
-        soc_at_deadline_ev1 = household.history["ev1_soc"].get(getattr(household.scenario.ev1, "deadline", None), None) if household.scenario else None
-        soc_at_deadline_ev2 = household.history["ev2_soc"].get(getattr(household.scenario.ev2, "deadline", None), None) if household.scenario else None
-
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
             run_id,
             policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
-            net_cost, net_load,
-            target_met_bess, target_met_ev1, target_met_ev2,
-            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
+            net_cost, net_load
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (run_id, policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption,
-             net_cost, net_load,
-             target_met_bess, target_met_ev1, target_met_ev2,
-             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
+             net_cost, net_load)
         )
         self.sqlite_conn.commit()
 
@@ -385,13 +351,17 @@ if __name__ == "__main__":
     # Load the scenario
     scenario = default_scenario
 
-    even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
-    fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
+
+    no_control_controller = FunctionController(name="no_control", step_function=no_control)
+    # even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
+    # fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
+
+
 
     controllers = [
-        even_linear_controller,
-        fast_charge_controller,
-        # no_control,
+        # even_linear_controller,
+        # fast_charge_controller,
+        no_control_controller,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=1.0),
