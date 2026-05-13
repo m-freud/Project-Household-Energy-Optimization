@@ -13,6 +13,7 @@ class Household:
             self,
             player_id=1,
             start_time=1,
+            scenario: Scenario | None = None,
             pv:PV|None=None,
             bess:BESS|None=None,
             ev1:EV|None=None,
@@ -25,6 +26,7 @@ class Household:
         self.player_id = player_id
 
         # you can create empty or full
+        self.scenario = scenario
         self.pv = pv
         self.bess = bess
         self.ev1 = ev1
@@ -170,6 +172,43 @@ class Household:
         self.history["total_generation"][self.current_timestep] = self.total_generation
         self.history["total_consumption"][self.current_timestep] = self.total_consumption
         self.history["total_cost"][self.current_timestep] = self.total_cost
+
+
+    def _target_at_final_deadline(self, device_name: str) -> tuple[int | None, float | None]:
+        if self.scenario is None:
+            return None, None
+
+        device_scenario = getattr(self.scenario, device_name, None)
+        if device_scenario is None or not device_scenario.soc_targets:
+            return None, None
+
+        deadline = max(device_scenario.soc_targets.keys())
+        target_soc = device_scenario.soc_targets.get(deadline)
+        return deadline, target_soc
+
+
+    def soc_at_deadline(self, device_name: str) -> float | None:
+        deadline, _ = self._target_at_final_deadline(device_name)
+        if deadline is None:
+            return None
+        return self.history.get(f"{device_name}_soc", {}).get(deadline)
+
+
+    def has_met_target(self, device_name: str) -> bool:
+        deadline, target_soc = self._target_at_final_deadline(device_name)
+        if deadline is None or target_soc is None:
+            return True
+
+        device = getattr(self, device_name, None)
+        if device is None:
+            return True
+
+        soc_at_deadline = self.soc_at_deadline(device_name)
+        if soc_at_deadline is None:
+            return False
+
+        target_soc_kwh = target_soc * device.capacity if target_soc <= 1.0 else target_soc
+        return soc_at_deadline >= target_soc_kwh
 
 
     @property

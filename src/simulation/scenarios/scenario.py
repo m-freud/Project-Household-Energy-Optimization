@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
 
-from src.sqlite_connection import load_attribute
-
 
 @dataclass
 class DeviceScenario:
@@ -9,32 +7,135 @@ class DeviceScenario:
     soc_allowed_range: tuple[float, float]
     soc_targets: dict[int, float]
 
+
+def _empty_device_scenario() -> DeviceScenario:
+    return DeviceScenario(start_soc=0.0, soc_allowed_range=(0.0, 1.0), soc_targets={})
+
 @dataclass
 class Scenario:
     name: str
-    ev1: DeviceScenario = field(default_factory=DeviceScenario)
-    ev2: DeviceScenario = field(default_factory=DeviceScenario)
-    bess: DeviceScenario = field(default_factory=DeviceScenario)
+    ev1: DeviceScenario = field(default_factory=_empty_device_scenario)
+    ev2: DeviceScenario = field(default_factory=_empty_device_scenario)
+    bess: DeviceScenario = field(default_factory=_empty_device_scenario)
 
 
-default_ev_scenario = DeviceScenario(
-    start_soc=0.2,
-    soc_allowed_range=(0.1, 0.9),
-    soc_targets={96: 0.8}
-)
+scenarios = [
+    Scenario(
+        name="low_start_wide",
+        ev1=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={36: 0.3, 72: 0.6, 96: 0.8},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={36: 0.3, 72: 0.6, 96: 0.8},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={24: 0.3, 48: 0.5, 72: 0.7, 96: 0.8},
+        ),
+    ),
+    Scenario(
+        name="mid_start_normal",
+        ev1=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.4, 72: 0.65, 96: 0.8},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.4, 72: 0.65, 96: 0.8},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={24: 0.4, 48: 0.6, 72: 0.75, 96: 0.8},
+        ),
+    ),
+    Scenario(
+        name="high_start_narrow",
+        ev1=DeviceScenario(
+            start_soc=0.7,
+            soc_allowed_range=(0.3, 0.7),
+            soc_targets={36: 0.5, 72: 0.65, 96: 0.7},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.7,
+            soc_allowed_range=(0.3, 0.7),
+            soc_targets={36: 0.5, 72: 0.65, 96: 0.7},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.7,
+            soc_allowed_range=(0.3, 0.7),
+            soc_targets={24: 0.5, 48: 0.65, 72: 0.7, 96: 0.7},
+        ),
+    ),
+    Scenario(
+        name="early_urgency",
+        ev1=DeviceScenario(
+            start_soc=0.3,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.65, 72: 0.75, 96: 0.85},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.3,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.65, 72: 0.75, 96: 0.85},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.3,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={24: 0.6, 48: 0.7, 72: 0.8, 96: 0.85},
+        ),
+    ),
+    Scenario(
+        name="late_relaxed",
+        ev1=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={36: 0.35, 72: 0.5, 96: 0.75},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={36: 0.35, 72: 0.5, 96: 0.75},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.5,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={24: 0.3, 48: 0.4, 72: 0.55, 96: 0.75},
+        ),
+    ),
+    Scenario(
+        name="stressed_ev_buffered_bess",
+        ev1=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.5, 72: 0.75, 96: 0.85},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.2, 0.8),
+            soc_targets={36: 0.5, 72: 0.75, 96: 0.85},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.2,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={24: 0.3, 48: 0.45, 72: 0.6, 96: 0.8},
+        ),
+    ),
+]
 
-default_bess_scenario = DeviceScenario(
-    start_soc=0.2,
-    soc_allowed_range=(0.1, 0.9),
-    soc_targets={96: 0.8}
-)
+default_scenario = scenarios[0]
+SCENARIOS_BY_NAME = {scenario.name: scenario for scenario in scenarios}
 
-default_scenario = Scenario(
-    name="default_scenario",
-    ev1=default_ev_scenario,
-    ev2=default_ev_scenario,
-    bess=default_bess_scenario
-)
+
+def get_scenario_names() -> list[str]:
+    return [scenario.name for scenario in scenarios]
 
 
 def get_scenario_value(
@@ -42,10 +143,8 @@ def get_scenario_value(
     device_name: str,
     value,
 ):
-    for scenario in [default_scenario]:
-        if scenario_name == scenario.name:
-            break
-    else:
+    scenario = SCENARIOS_BY_NAME.get(scenario_name)
+    if scenario is None:
         return None
 
     device_scenario = getattr(scenario, device_name, None)
