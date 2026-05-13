@@ -12,8 +12,8 @@ sys.path.insert(0, str(repo_root))
 from src.sqlite_connection import (
 	load_household_ids as db_load_household_ids,
 	load_policies as db_load_policies,
-	load_scenarios as db_load_scenarios,
 )
+from src.simulation.scenarios.scenario import get_scenario_names
 
 from src.dashboard.general_performance.general_performance import render_general_performance
 from src.dashboard.single_performance.single_performance import render_single_performance
@@ -26,7 +26,7 @@ def load_policies() -> list[str]:
 
 @st.cache_data(show_spinner=False)
 def load_scenarios() -> list[str]:
-	return db_load_scenarios()
+	return get_scenario_names()
 
 
 @st.cache_data(show_spinner=False)

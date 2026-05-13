@@ -1,5 +1,6 @@
 # paste this to enable src. imports
 
+import argparse
 from pathlib import Path
 import sys
 
@@ -9,18 +10,16 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
-from src.config import Config
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 
-from src.simulation.scenarios.scenario import Scenario
+from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.base_controller import BaseController
-from src.simulation.scenarios.scenario import default_scenario
 
 
 class Simulation:
@@ -79,6 +78,12 @@ class Simulation:
             ("run_id", "TEXT"),
             ("net_cost", "REAL"),
             ("net_load", "REAL"),
+            ("target_met_bess", "BOOLEAN"),
+            ("target_met_ev1", "BOOLEAN"),
+            ("target_met_ev2", "BOOLEAN"),
+            ("soc_at_deadline_bess", "REAL"),
+            ("soc_at_deadline_ev1", "REAL"),
+            ("soc_at_deadline_ev2", "REAL"),
         ]
 
         for column_name, column_type in required_columns:
@@ -93,7 +98,7 @@ class Simulation:
     def create_household(self, player_id:int, run_context: RunContext):
         scenario = run_context.scenario
         start_time = run_context.start_time
-        household = Household(player_id=player_id, start_time=start_time)
+        household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
 
         household.base_cost = self.sqlite_cursor.execute(
             "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
@@ -253,9 +258,40 @@ class Simulation:
         return household
 
 
-    def run_all_households(self, run_context: RunContext):
-        for player_id in range(1, self.num_households + 1):
+    def run_all_households(
+        self,
+        run_context: RunContext,
+        household_ids: list[int] | None = None,
+        max_households: int | None = None,
+    ):
+        if household_ids is None:
+            selected_households = list(range(1, self.num_households + 1))
+        else:
+            selected_households = [
+                player_id
+                for player_id in household_ids
+                if 1 <= player_id <= self.num_households
+            ]
+
+        if max_households is not None and max_households >= 0:
+            selected_households = selected_households[:max_households]
+
+        for player_id in selected_households:
             self.run_household(player_id, run_context)
+
+
+    def run_batch(
+        self,
+        run_contexts: list[RunContext],
+        household_ids: list[int] | None = None,
+        max_households: int | None = None,
+    ):
+        for run_context in run_contexts:
+            self.run_all_households(
+                run_context,
+                household_ids=household_ids,
+                max_households=max_households,
+            )
 
 
     def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
@@ -263,18 +299,28 @@ class Simulation:
         total_consumption = household.total_consumption
         net_cost = sum(household.history["net_cost"].values()) * 0.25
         net_load = sum(household.history["net_load"].values()) * 0.25
+        target_met_bess = household.has_met_target("bess")
+        target_met_ev1 = household.has_met_target("ev1")
+        target_met_ev2 = household.has_met_target("ev2")
+        soc_at_deadline_bess = household.soc_at_deadline("bess")
+        soc_at_deadline_ev1 = household.soc_at_deadline("ev1")
+        soc_at_deadline_ev2 = household.soc_at_deadline("ev2")
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
             run_id,
             policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
-            net_cost, net_load
+            net_cost, net_load,
+            target_met_bess, target_met_ev1, target_met_ev2,
+            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (run_id, policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption,
-             net_cost, net_load)
+             net_cost, net_load,
+             target_met_bess, target_met_ev1, target_met_ev2,
+             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
         )
         self.sqlite_conn.commit()
 
@@ -345,43 +391,100 @@ class Simulation:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run household energy simulation")
+    parser.add_argument(
+        "--controllers",
+        default="all",
+        help="Comma-separated controller names (default: all)",
+    )
+    parser.add_argument(
+        "--scenarios",
+        default="all",
+        help="Comma-separated scenario names (default: all)",
+    )
+    parser.add_argument(
+        "--households",
+        default="all",
+        help="Comma-separated household ids (default: all)",
+    )
+    parser.add_argument(
+        "--max-households",
+        type=int,
+        default=None,
+        help="Limit number of households after filtering",
+    )
+    parser.add_argument(
+        "--start-time",
+        type=int,
+        default=1,
+        help="Simulation start timestep (1..96)",
+    )
+    args = parser.parse_args()
+
     # Create a simulation instance
     sim = Simulation(sqlite_conn)
 
-    # Load the scenario
-    scenario = default_scenario
-
-
     no_control_controller = FunctionController(name="no_control", step_function=no_control)
-    # even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
-    # fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
+    even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
+    fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
 
 
 
     controllers = [
-        # even_linear_controller,
-        # fast_charge_controller,
         no_control_controller,
+        even_linear_controller,
+        fast_charge_controller,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=1.0),
         # make_linear_policy(urgency=0.5, delay=0.5),
     ]
 
-    scenarios = [
-        default_scenario,
-        # make_scenario("early_deadline", ev1_deadline=32, ev2_deadline=32),
-        # make_scenario("late_deadline", ev1_deadline=80, ev2_deadline=80),
-        # make_scenario("bess_target", bess_target=0.5),
-    ]
+    controllers_by_name = {controller.name: controller for controller in controllers}
+    scenarios_by_name = {scenario.name: scenario for scenario in scenario_catalog}
+
+    if args.controllers == "all":
+        selected_controllers = controllers
+    else:
+        requested_controller_names = [
+            name.strip() for name in args.controllers.split(",") if name.strip()
+        ]
+        unknown_controller_names = [
+            name for name in requested_controller_names if name not in controllers_by_name
+        ]
+        if unknown_controller_names:
+            raise ValueError(f"Unknown controllers: {unknown_controller_names}")
+        selected_controllers = [controllers_by_name[name] for name in requested_controller_names]
+
+    if args.scenarios == "all":
+        selected_scenarios = scenario_catalog
+    else:
+        requested_scenario_names = [
+            name.strip() for name in args.scenarios.split(",") if name.strip()
+        ]
+        unknown_scenario_names = [
+            name for name in requested_scenario_names if name not in scenarios_by_name
+        ]
+        if unknown_scenario_names:
+            raise ValueError(f"Unknown scenarios: {unknown_scenario_names}")
+        selected_scenarios = [scenarios_by_name[name] for name in requested_scenario_names]
+
+    if args.households == "all":
+        selected_household_ids = None
+    else:
+        selected_household_ids = [
+            int(token.strip()) for token in args.households.split(",") if token.strip()
+        ]
 
     run_contexts = [
-        RunContext(controller=controller, scenario=scenario)
-        for controller in controllers
-        for scenario in scenarios
+        RunContext(controller=controller, scenario=scenario, start_time=args.start_time)
+        for controller in selected_controllers
+        for scenario in selected_scenarios
     ]
 
-
-    for run_context in run_contexts:
-        sim.run_all_households(run_context)
+    sim.run_batch(
+        run_contexts,
+        household_ids=selected_household_ids,
+        max_households=args.max_households,
+    )
         
