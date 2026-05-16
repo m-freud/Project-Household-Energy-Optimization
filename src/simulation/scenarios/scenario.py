@@ -21,6 +21,24 @@ class Scenario:
 
 scenarios = [
     Scenario(
+        name="default_scenario",
+        ev1=DeviceScenario(
+            start_soc=0.1,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={96: 0.9},
+        ),
+        ev2=DeviceScenario(
+            start_soc=0.1,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={96: 0.9},
+        ),
+        bess=DeviceScenario(
+            start_soc=0.1,
+            soc_allowed_range=(0.1, 0.9),
+            soc_targets={96: 0.9},
+        ),
+    ),
+    Scenario(
         name="low_start_wide",
         ev1=DeviceScenario(
             start_soc=0.2,
@@ -130,8 +148,8 @@ scenarios = [
     ),
 ]
 
-default_scenario = scenarios[0]
 SCENARIOS_BY_NAME = {scenario.name: scenario for scenario in scenarios}
+default_scenario = SCENARIOS_BY_NAME["default_scenario"]
 
 
 def get_scenario_names() -> list[str]:

@@ -19,6 +19,8 @@ from src.simulation.devices.ev import EV
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.policies.price_aware_linear import price_aware_linear_1
+from src.simulation.controllers.policies.priority_dispatch import priority_dispatch_policy
 from src.simulation.controllers.base_controller import BaseController
 
 
@@ -174,6 +176,8 @@ class Simulation:
         # household gets access to prices over day
         household.buy_price_day_profile = self.household_profiles["buy_price"]
         household.sell_price_day_profile = self.household_profiles["sell_price"]
+        household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"]
+        household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"]
 
         return household
     
@@ -427,6 +431,8 @@ if __name__ == "__main__":
     no_control_controller = FunctionController(name="no_control", step_function=no_control)
     even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
     fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
+    price_aware_linear_1_controller = FunctionController(name="price_aware_linear_1", step_function=price_aware_linear_1)
+    priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
 
 
 
@@ -434,6 +440,8 @@ if __name__ == "__main__":
         no_control_controller,
         even_linear_controller,
         fast_charge_controller,
+        price_aware_linear_1_controller,
+        # priority_dispatch_controller,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=1.0),
