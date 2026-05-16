@@ -1,5 +1,5 @@
 from src.simulation.scenarios.scenario import get_scenario_value
-from src.sqlite_connection import load_series
+from src.sqlite_connection import load_attribute, load_series
 import matplotlib.pyplot as plt
 
 
@@ -15,11 +15,16 @@ def plot_bess(
     ax.set_ylabel("SOC (kWh)")
 
     target_soc_bess = get_scenario_value(scenario_name, "bess", "target_soc")
+    bess_capacity = load_attribute("bess", player_id, "capacity")
     bess_deadline = get_scenario_value(scenario_name, "bess", "deadline")
 
-    if target_soc_bess is not None:
+    target_soc_bess_kwh = None
+    if target_soc_bess is not None and bess_capacity is not None:
+        target_soc_bess_kwh = float(target_soc_bess) * float(bess_capacity)
+
+    if target_soc_bess_kwh is not None:
         ax.axhline(
-        y=target_soc_bess,
+        y=target_soc_bess_kwh,
         color="tab:red",
         linestyle="--",
         linewidth=1.5,
