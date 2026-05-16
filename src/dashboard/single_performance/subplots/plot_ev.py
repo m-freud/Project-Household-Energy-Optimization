@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from src.simulation.scenarios.scenario import get_scenario_value
-from src.sqlite_connection import load_series
+from src.sqlite_connection import load_attribute, load_series
 
 from src.dashboard.single_performance.subplots.helpers import shade_ev_location_background
 
@@ -20,11 +20,16 @@ def plot_ev(ax: plt.Axes,
     shade_ev_location_background(ax, ev_at_home_df, ev_at_station_df)
 
     target_soc_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "target_soc")
+    ev_capacity = load_attribute(f"ev{ev_number}", player_id, "capacity")
     ev_deadline = get_scenario_value(scenario_name, f"ev{ev_number}", "deadline")
 
-    if target_soc_ev is not None:
+    target_soc_ev_kwh = None
+    if target_soc_ev is not None and ev_capacity is not None:
+        target_soc_ev_kwh = float(target_soc_ev) * float(ev_capacity)
+
+    if target_soc_ev_kwh is not None:
         ax.axhline(
-        y=target_soc_ev,
+        y=target_soc_ev_kwh,
         color="tab:red",
         linestyle="--",
         linewidth=1.5,
