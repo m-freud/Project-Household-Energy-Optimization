@@ -19,7 +19,7 @@ from src.simulation.devices.ev import EV
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
-from src.simulation.controllers.policies.price_aware_linear import price_aware_linear_1
+from src.simulation.controllers.policies.price_aware_linear import price_aware_linear_1, price_aware_linear_2
 from src.simulation.controllers.policies.priority_dispatch import priority_dispatch_policy
 from src.simulation.controllers.base_controller import BaseController
 
@@ -432,15 +432,17 @@ if __name__ == "__main__":
     even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
     fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
     price_aware_linear_1_controller = FunctionController(name="price_aware_linear_1", step_function=price_aware_linear_1)
+    price_aware_linear_2_controller = FunctionController(name="price_aware_linear_2", step_function=price_aware_linear_2)
     priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
 
 
 
     controllers = [
         no_control_controller,
-        even_linear_controller,
         fast_charge_controller,
+        even_linear_controller,
         price_aware_linear_1_controller,
+        price_aware_linear_2_controller,
         # priority_dispatch_controller,
         # make_naive_linear_policy(urgency=1.0, delay=0.0),
         # make_naive_linear_policy(urgency=0.0, delay=0.0),
