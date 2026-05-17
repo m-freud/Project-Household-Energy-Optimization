@@ -200,6 +200,7 @@ class Simulation:
         # update time
         timestep = self.current_timestep
         household.current_timestep = self.current_timestep
+        profile_time_index = timestep - 1
 
         profiles = self.household_profiles
         ev1 = household.ev1
@@ -207,31 +208,31 @@ class Simulation:
         pv = household.pv
 
         # update base load
-        household.base_load = profiles["base_load"][timestep]
+        household.base_load = profiles["base_load"][profile_time_index]
 
         # update pv
         if pv:
-            pv.generation = profiles["pv_gen"][timestep]
+            pv.generation = profiles["pv_gen"][profile_time_index]
 
         # update ev1
         if ev1:
-            ev1.load = profiles["ev1_load"][timestep]
-            ev1.at_home = profiles["ev1_at_home"][timestep]
-            ev1.at_charging_station = profiles["ev1_at_charging_station"][timestep]
-            ev1.buy_price = profiles["ev1_buy_price"][timestep]
-            ev1.max_charge = profiles["ev1_max_charge"][timestep]
+            ev1.load = profiles["ev1_load"][profile_time_index]
+            ev1.at_home = profiles["ev1_at_home"][profile_time_index]
+            ev1.at_charging_station = profiles["ev1_at_charging_station"][profile_time_index]
+            ev1.buy_price = profiles["ev1_buy_price"][profile_time_index]
+            ev1.max_charge = profiles["ev1_max_charge"][profile_time_index]
 
         # update ev2
         if ev2:
-            ev2.load = profiles["ev2_load"][timestep]
-            ev2.at_home = profiles["ev2_at_home"][timestep]
-            ev2.at_charging_station = profiles["ev2_at_charging_station"][timestep]
-            ev2.buy_price = profiles["ev2_buy_price"][timestep]
-            ev2.max_charge = profiles["ev2_max_charge"][timestep]
+            ev2.load = profiles["ev2_load"][profile_time_index]
+            ev2.at_home = profiles["ev2_at_home"][profile_time_index]
+            ev2.at_charging_station = profiles["ev2_at_charging_station"][profile_time_index]
+            ev2.buy_price = profiles["ev2_buy_price"][profile_time_index]
+            ev2.max_charge = profiles["ev2_max_charge"][profile_time_index]
 
         # update buy / sell prices
-        household.buy_price = profiles["buy_price"][timestep]
-        household.sell_price = profiles["sell_price"][timestep]
+        household.buy_price = profiles["buy_price"][profile_time_index]
+        household.sell_price = profiles["sell_price"][profile_time_index]
 
 
     def run_household(self, player_id, run_context: RunContext):
@@ -247,7 +248,7 @@ class Simulation:
 
         household = self.create_household(player_id, run_context)
 
-        for t in range(start_time, self.num_timesteps):
+        for t in range(start_time, self.num_timesteps + 1):
             self.step(household, controller, scenario, duration_hours=0.25, time=t)
 
         self.load_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
