@@ -213,6 +213,31 @@ class Household:
         return soc_at_deadline >= target_soc_kwh
 
 
+    def has_met_all_targets(self, device_name: str) -> bool:
+        if self.scenario is None:
+            return True
+
+        device = getattr(self, device_name, None)
+        if device is None:
+            return True
+
+        device_scenario = getattr(self.scenario, device_name, None)
+        if device_scenario is None or not device_scenario.soc_targets:
+            return True
+
+        soc_history = self.history.get(f"{device_name}_soc", {})
+        for deadline, target_soc in device_scenario.soc_targets.items():
+            soc_at_deadline = soc_history.get(deadline)
+            if soc_at_deadline is None:
+                return False
+
+            target_soc_kwh = target_soc * device.capacity if target_soc <= 1.0 else target_soc
+            if soc_at_deadline < target_soc_kwh:
+                return False
+
+        return True
+
+
     @property
     def has_pv(self):
         return self.pv is not None
