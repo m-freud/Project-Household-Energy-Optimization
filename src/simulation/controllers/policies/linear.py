@@ -74,10 +74,13 @@ def even_linear_policy(
             controls["bess_power"] = charge_power
 
         elif household.net_load > 0:
+            # Keep discharge, but never let SOC drop below the active target.
+            soc_surplus = max(current_soc - target_soc, 0.0)
+            max_discharge_by_surplus = (soc_surplus * efficiency) / Config.DURATION_TIMESTEP
             discharge_power = min(
                 household.net_load,
                 household.bess.max_discharge,
-                current_soc * 4 * household.bess.capacity, # max discharge based on current soc
+                max_discharge_by_surplus,
             )
             controls["bess_power"] = -discharge_power
 
