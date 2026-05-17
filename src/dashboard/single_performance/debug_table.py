@@ -17,6 +17,15 @@ def _to_optional_bool(value):
 	return bool(int(value))
 
 
+def _get_target_met_value(result_row, device_name: str):
+	all_key = f"target_met_all_{device_name}"
+	final_key = f"target_met_{device_name}"
+	all_value = result_row.get(all_key)
+	if pd.notna(all_value):
+		return _to_optional_bool(all_value)
+	return _to_optional_bool(result_row.get(final_key))
+
+
 def build_debug_table(
 	player_id: int,
 	scenario_name: str,
@@ -50,9 +59,9 @@ def build_debug_table(
 
 		if not result_df.empty:
 			result_row = result_df.iloc[0]
-			target_met_bess = _to_optional_bool(result_row.get("target_met_bess"))
-			target_met_ev1 = _to_optional_bool(result_row.get("target_met_ev1"))
-			target_met_ev2 = _to_optional_bool(result_row.get("target_met_ev2"))
+			target_met_bess = _get_target_met_value(result_row, "bess")
+			target_met_ev1 = _get_target_met_value(result_row, "ev1")
+			target_met_ev2 = _get_target_met_value(result_row, "ev2")
 			soc_at_deadline_bess = result_row.get("soc_at_deadline_bess")
 			soc_at_deadline_ev1 = result_row.get("soc_at_deadline_ev1")
 			soc_at_deadline_ev2 = result_row.get("soc_at_deadline_ev2")

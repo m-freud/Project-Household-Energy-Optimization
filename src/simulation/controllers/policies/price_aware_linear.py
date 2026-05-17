@@ -97,9 +97,16 @@ def price_aware_linear_2(household: Household, scenario: Scenario) -> dict:
 			if ev2_q25 is not None and household.ev2.buy_price <= ev2_q25:
 				controls["ev2_power"] = fast_controls["ev2_power"]
 
-	# BESS: always price-aware (no urgency override)
-	hh_q25 = _q25_threshold(household.buy_price_day_profile)
-	if hh_q25 is not None and household.buy_price <= hh_q25:
-		controls["bess_power"] = fast_controls["bess_power"]
+	# BESS
+	if household.bess:
+		_, bess_deadline = _next_target(t, scenario.bess.soc_targets)
+		if _is_deadline_urgent(t, bess_deadline):
+			# Deadline urgent: use even_linear to guarantee target
+			controls["bess_power"] = even_controls["bess_power"]
+		else:
+			# Not urgent: apply price logic
+			hh_q25 = _q25_threshold(household.buy_price_day_profile)
+			if hh_q25 is not None and household.buy_price <= hh_q25:
+				controls["bess_power"] = fast_controls["bess_power"]
 
 	return controls

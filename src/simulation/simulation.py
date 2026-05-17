@@ -83,6 +83,9 @@ class Simulation:
             ("target_met_bess", "BOOLEAN"),
             ("target_met_ev1", "BOOLEAN"),
             ("target_met_ev2", "BOOLEAN"),
+            ("target_met_all_bess", "BOOLEAN"),
+            ("target_met_all_ev1", "BOOLEAN"),
+            ("target_met_all_ev2", "BOOLEAN"),
             ("soc_at_deadline_bess", "REAL"),
             ("soc_at_deadline_ev1", "REAL"),
             ("soc_at_deadline_ev2", "REAL"),
@@ -307,6 +310,9 @@ class Simulation:
         target_met_bess = household.has_met_target("bess")
         target_met_ev1 = household.has_met_target("ev1")
         target_met_ev2 = household.has_met_target("ev2")
+        target_met_all_bess = household.has_met_all_targets("bess")
+        target_met_all_ev1 = household.has_met_all_targets("ev1")
+        target_met_all_ev2 = household.has_met_all_targets("ev2")
         soc_at_deadline_bess = household.soc_at_deadline("bess")
         soc_at_deadline_ev1 = household.soc_at_deadline("ev1")
         soc_at_deadline_ev2 = household.soc_at_deadline("ev2")
@@ -317,14 +323,16 @@ class Simulation:
             policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
             net_cost, net_load,
             target_met_bess, target_met_ev1, target_met_ev2,
+              target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (run_id, policy_name, scenario_name, household.player_id, household.has_pv,
              household.has_bess, total_cost, total_consumption,
              net_cost, net_load,
              target_met_bess, target_met_ev1, target_met_ev2,
+               target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
              soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
         )
         self.sqlite_conn.commit()

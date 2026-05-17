@@ -25,7 +25,18 @@ from src.sqlite_connection import load_household_result
 def _to_optional_bool(value):
 	if value is None:
 		return None
+	if value != value:
+		return None
 	return bool(int(value))
+
+
+def _get_target_met_value(result_row, device_name: str):
+	all_key = f"target_met_all_{device_name}"
+	final_key = f"target_met_{device_name}"
+	all_value = result_row.get(all_key)
+	if all_value is not None:
+		return _to_optional_bool(all_value)
+	return _to_optional_bool(result_row.get(final_key))
 
 
 def render_single_performance(
@@ -87,9 +98,9 @@ def render_single_performance(
 			continue
 
 		result_row = result_df.iloc[0]
-		bess_target_met = _to_optional_bool(result_row.get("target_met_bess"))
-		ev1_target_met = _to_optional_bool(result_row.get("target_met_ev1"))
-		ev2_target_met = _to_optional_bool(result_row.get("target_met_ev2"))
+		bess_target_met = _get_target_met_value(result_row, "bess")
+		ev1_target_met = _get_target_met_value(result_row, "ev1")
+		ev2_target_met = _get_target_met_value(result_row, "ev2")
 
 		if bess_target_met is False:
 			missed_by_device["BESS"] = True
