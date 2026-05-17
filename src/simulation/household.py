@@ -3,6 +3,8 @@ from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
 from src.simulation.scenarios.scenario import Scenario
 
+TARGET_TOLERANCE_KWH = 1e-6
+
 
 
 class Household:
@@ -210,7 +212,7 @@ class Household:
             return False
 
         target_soc_kwh = target_soc * device.capacity if target_soc <= 1.0 else target_soc
-        return soc_at_deadline >= target_soc_kwh
+        return soc_at_deadline + TARGET_TOLERANCE_KWH >= target_soc_kwh
 
 
     def has_met_all_targets(self, device_name: str) -> bool:
@@ -232,7 +234,7 @@ class Household:
                 return False
 
             target_soc_kwh = target_soc * device.capacity if target_soc <= 1.0 else target_soc
-            if soc_at_deadline < target_soc_kwh:
+            if soc_at_deadline + TARGET_TOLERANCE_KWH < target_soc_kwh:
                 return False
 
         return True
