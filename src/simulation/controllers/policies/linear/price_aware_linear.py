@@ -7,128 +7,175 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.policies.basic_examples import no_control as no_control_policy
 from src.config import Config
 
 
 def _q25_threshold(profile: list[float]) -> float | None:
-	if not profile:
-		return None
-	sorted_profile = sorted(profile)
-	idx = max(0, int(len(sorted_profile) * 0.25) - 1)
-	return sorted_profile[idx]
+    if not profile:
+        return None
+    sorted_profile = sorted(profile)
+    idx = max(0, int(len(sorted_profile) * 0.25) - 1)
+    return sorted_profile[idx]
 
 
-def _next_target(timestep: int, soc_targets: dict) -> tuple[float, int]:
-	"""Find the next deadline and its SOC target."""
-	deadline = min((t for t in soc_targets if t >= timestep), default=96)
-	return soc_targets.get(deadline, 0.0), deadline
+def _q75_threshold(profile: list[float]) -> float | None:
+    if not profile:
+        return None
+    sorted_profile = sorted(profile)
+    idx = min(int(len(sorted_profile) * 0.75), len(sorted_profile) - 1)
+    return sorted_profile[idx]
+
+
+def _next_target(timestep: int, soc_targets: dict[int, float]) -> tuple[float, int]:
+    deadline = min((t for t in soc_targets if t >= timestep), default=96)
+    return soc_targets.get(deadline, 0.0), deadline
 
 
 def _is_trajectory_urgent(
-	current_soc: float,
-	target_soc: float,
-	current_timestep: int,
-	deadline: int,
-	max_charge: float,
-	efficiency: float,
-	buffer_hours: float = 1.0,
+    current_soc: float,
+    target_soc: float,
+    current_timestep: int,
+    deadline: int,
+    max_power: float,
+    efficiency: float,
+    buffer_hours: float = 1.0,
 ) -> bool:
-	"""Check whether the remaining window is too small for max-charge trajectory with a buffer."""
-	if target_soc <= current_soc:
-		return False
+    if target_soc <= current_soc:
+        return False
 
-	if max_charge <= 0 or efficiency <= 0:
-		return True
+    if max_power <= 0 or efficiency <= 0:
+        return True
 
-	remaining_hours = max(deadline - current_timestep, 0) * Config.DURATION_TIMESTEP
-	required_hours = (target_soc - current_soc) / (max_charge * efficiency)
-	return remaining_hours <= (required_hours + buffer_hours)
+    remaining_hours = max(deadline - current_timestep, 0) * Config.DURATION_TIMESTEP
+    required_hours = (target_soc - current_soc) / (max_power * efficiency)
+    return remaining_hours <= (required_hours + buffer_hours)
 
 
-def price_aware_linear_1(household: Household, scenario: Scenario) -> dict:
-	"""
-	Default behavior: even_linear.
-	Override: if a device price is in the cheapest quartile (<= 25th percentile), use fast_charge for that device.
-	"""
-	controls = even_linear_policy(household, scenario)
-	fast_controls = fast_charge_policy(household, scenario)
+def _even_bess_power_to_target(
+    current_soc: float,
+    target_soc: float,
+    current_timestep: int,
+    deadline: int,
+    max_charge: float,
+    max_discharge: float,
+    efficiency: float,
+) -> float:
+    remaining_steps = max(deadline - current_timestep, 1)
+    horizon_hours = remaining_steps * Config.DURATION_TIMESTEP
 
-	# EV1: compare ev1.buy_price against ev1 day-profile quartile
-	ev1_profile = getattr(household, "ev1_buy_price_day_profile", household.buy_price_day_profile)
-	ev1_q25 = _q25_threshold(ev1_profile)
-	if household.ev1 and ev1_q25 is not None and household.ev1.buy_price <= ev1_q25:
-		controls["ev1_power"] = fast_controls["ev1_power"]
+    if target_soc > current_soc:
+        required_power = (target_soc - current_soc) / (horizon_hours * efficiency)
+        max_power_by_deficit = (target_soc - current_soc) / (Config.DURATION_TIMESTEP * efficiency)
+        return min(required_power, max_charge, max_power_by_deficit)
 
-	# EV2: compare ev2.buy_price against ev2 day-profile quartile
-	ev2_profile = getattr(household, "ev2_buy_price_day_profile", household.buy_price_day_profile)
-	ev2_q25 = _q25_threshold(ev2_profile)
-	if household.ev2 and ev2_q25 is not None and household.ev2.buy_price <= ev2_q25:
-		controls["ev2_power"] = fast_controls["ev2_power"]
+    if current_soc > target_soc:
+        required_power = ((current_soc - target_soc) * efficiency) / horizon_hours
+        max_power_by_surplus = ((current_soc - target_soc) * efficiency) / Config.DURATION_TIMESTEP
+        return -min(required_power, max_discharge, max_power_by_surplus)
 
-	# Keep BESS behavior price-aware against household buy price.
-	hh_q25 = _q25_threshold(household.buy_price_day_profile)
-	if hh_q25 is not None and household.buy_price <= hh_q25:
-		controls["bess_power"] = fast_controls["bess_power"]
+    return 0.0
 
-	return controls
 
-def price_aware_linear_2(household: Household, scenario: Scenario) -> dict:
-	"""
-	Default behavior: no_control.
-	Urgency override: if deadline <= required hours away, use even_linear to guarantee target.
-	Price override: if a device price is in the cheapest quartile (<= 25th percentile), use fast_charge for that device.
-	"""
-	controls = no_control_policy(household, scenario)
-	even_controls = even_linear_policy(household, scenario)
-	fast_controls = fast_charge_policy(household, scenario)
-	
-	t = household.current_timestep
+def price_aware_linear(
+    household: Household,
+    scenario: Scenario,
+    default_behaviour: str = "no_control",
+) -> dict:
+    """
+    Price-aware linear charging for EVs and conservative BESS control.
 
-	# EV1
-	if household.ev1:
-		ev1_target_soc, ev1_deadline = _next_target(t, scenario.ev1.soc_targets)
-		ev1_target_soc = ev1_target_soc * household.ev1.capacity if ev1_target_soc <= 1.0 else ev1_target_soc
-		if _is_trajectory_urgent(household.ev1.soc, ev1_target_soc, t, ev1_deadline, household.ev1.max_charge, household.ev1.efficiency):
-			# Deadline urgent: use even_linear to guarantee target
-			controls["ev1_power"] = even_controls["ev1_power"]
-		else:
-			# Not urgent: apply price logic
-			ev1_profile = getattr(household, "ev1_buy_price_day_profile", household.buy_price_day_profile)
-			ev1_q25 = _q25_threshold(ev1_profile)
-			if ev1_q25 is not None and household.ev1.buy_price <= ev1_q25:
-				controls["ev1_power"] = fast_controls["ev1_power"]
-			elif household.ev1.soc < ev1_target_soc and (household.ev1.at_home or household.ev1.at_charging_station):
-				controls["ev1_power"] = even_controls["ev1_power"]
+    - EVs: if urgent, use even-linear; otherwise charge only when cheap, else even-linear.
+    - BESS: if urgent, move evenly to target; otherwise reverse-price logic:
+      discharge surplus on expensive price, charge deficit on cheap price.
+    """
+    if default_behaviour == "even_linear":
+        controls = even_linear_policy(household, scenario)
+    elif default_behaviour == "no_control":
+        controls = no_control_policy(household, scenario)
+    else:
+        raise ValueError("default_behaviour must be 'no_control' or 'even_linear'")
 
-	# EV2
-	if household.ev2:
-		ev2_target_soc, ev2_deadline = _next_target(t, scenario.ev2.soc_targets)
-		ev2_target_soc = ev2_target_soc * household.ev2.capacity if ev2_target_soc <= 1.0 else ev2_target_soc
-		if _is_trajectory_urgent(household.ev2.soc, ev2_target_soc, t, ev2_deadline, household.ev2.max_charge, household.ev2.efficiency):
-			# Deadline urgent: use even_linear to guarantee target
-			controls["ev2_power"] = even_controls["ev2_power"]
-		else:
-			# Not urgent: apply price logic
-			ev2_profile = getattr(household, "ev2_buy_price_day_profile", household.buy_price_day_profile)
-			ev2_q25 = _q25_threshold(ev2_profile)
-			if ev2_q25 is not None and household.ev2.buy_price <= ev2_q25:
-				controls["ev2_power"] = fast_controls["ev2_power"]
-			elif household.ev2.soc < ev2_target_soc and (household.ev2.at_home or household.ev2.at_charging_station):
-				controls["ev2_power"] = even_controls["ev2_power"]
+    even_controls = even_linear_policy(household, scenario)
+    fast_controls = fast_charge_policy(household, scenario)
+    timestep = household.current_timestep
 
-	# BESS
-	if household.bess:
-		bess_target_soc, bess_deadline = _next_target(t, scenario.bess.soc_targets)
-		bess_target_soc = bess_target_soc * household.bess.capacity if bess_target_soc <= 1.0 else bess_target_soc
-		if _is_trajectory_urgent(household.bess.soc, bess_target_soc, t, bess_deadline, household.bess.max_charge, household.bess.efficiency):
-			# Deadline urgent: use even_linear to guarantee target
-			controls["bess_power"] = even_controls["bess_power"]
-		else:
-			# Not urgent: apply price logic
-			hh_q25 = _q25_threshold(household.buy_price_day_profile)
-			if hh_q25 is not None and household.buy_price <= hh_q25:
-				controls["bess_power"] = fast_controls["bess_power"]
+    for power_key, ev, ev_scenario in [
+        ("ev1_power", household.ev1, scenario.ev1),
+        ("ev2_power", household.ev2, scenario.ev2),
+    ]:
+        if ev is None or not (ev.at_home or ev.at_charging_station):
+            continue
 
-	return controls
+        target_soc, deadline = _next_target(timestep, ev_scenario.soc_targets)
+        target_soc *= ev.capacity
+
+        if ev.soc >= target_soc:
+            continue
+
+        if _is_trajectory_urgent(ev.soc, target_soc, timestep, deadline, ev.max_charge, ev.efficiency):
+            controls[power_key] = even_controls[power_key]
+            continue
+
+        ev_profile = getattr(household, f"{ev.name}_buy_price_day_profile", household.buy_price_day_profile)
+        ev_q25 = _q25_threshold(ev_profile)
+
+        if ev_q25 is not None and ev.buy_price <= ev_q25:
+            controls[power_key] = fast_controls[power_key]
+
+    if household.bess is None:
+        return controls
+
+    bess = household.bess
+    pv_generation = household.pv.generation if household.pv else 0.0
+    net_load = household.base_load + controls["ev1_power"] + controls["ev2_power"] - pv_generation
+    max_discharge_by_load = max(0.0, net_load * bess.efficiency)
+    target_soc, deadline = _next_target(timestep, scenario.bess.soc_targets)
+    target_soc *= bess.capacity
+    soc_deficit = target_soc - bess.soc
+
+    needs_charge_urgently = soc_deficit > 0 and _is_trajectory_urgent(
+        bess.soc,
+        target_soc,
+        timestep,
+        deadline,
+        bess.max_charge,
+        bess.efficiency,
+    )
+    needs_discharge_urgently = soc_deficit < 0 and _is_trajectory_urgent(
+        target_soc,
+        bess.soc,
+        timestep,
+        deadline,
+        bess.max_discharge,
+        bess.efficiency,
+        buffer_hours=0.0,
+    )
+
+    if needs_charge_urgently or needs_discharge_urgently:
+        controls["bess_power"] = _even_bess_power_to_target(
+            current_soc=bess.soc,
+            target_soc=target_soc,
+            current_timestep=timestep,
+            deadline=deadline,
+            max_charge=bess.max_charge,
+            max_discharge=bess.max_discharge,
+            efficiency=bess.efficiency,
+        )
+        return controls
+
+    q25 = _q25_threshold(household.buy_price_day_profile)
+    q75 = _q75_threshold(household.buy_price_day_profile)
+    price_cheap = q25 is not None and household.buy_price <= q25
+    price_expensive = q75 is not None and household.buy_price >= q75
+
+    if soc_deficit < 0 and price_expensive:
+        soc_surplus = -soc_deficit
+        max_discharge_by_surplus = (soc_surplus * bess.efficiency) / Config.DURATION_TIMESTEP
+        controls["bess_power"] = -min(bess.max_discharge, max_discharge_by_surplus, max_discharge_by_load)
+    elif soc_deficit > 0 and price_cheap:
+        max_charge_by_deficit = soc_deficit / (Config.DURATION_TIMESTEP * bess.efficiency)
+        controls["bess_power"] = min(bess.max_charge, max_charge_by_deficit)
+
+    return controls

@@ -53,7 +53,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.2,
             soc_allowed_range=(0.1, 0.9),
-            soc_targets={24: 0.3, 48: 0.5, 64: 0.7, 96: 0.8},
+            soc_targets={96: 0.8},
         ),
     ),
     Scenario(
@@ -71,7 +71,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.5,
             soc_allowed_range=(0.2, 0.8),
-            soc_targets={24: 0.4, 48: 0.6, 64: 0.75, 96: 0.8},
+            soc_targets={96: 0.8},
         ),
     ),
     Scenario(
@@ -89,7 +89,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.7,
             soc_allowed_range=(0.3, 0.7),
-            soc_targets={24: 0.5, 48: 0.65, 64: 0.7, 96: 0.7},
+            soc_targets={96: 0.7},
         ),
     ),
     Scenario(
@@ -107,7 +107,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.3,
             soc_allowed_range=(0.2, 0.8),
-            soc_targets={24: 0.6, 48: 0.7, 64: 0.8, 96: 0.85},
+            soc_targets={96: 0.85},
         ),
     ),
     Scenario(
@@ -125,7 +125,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.5,
             soc_allowed_range=(0.1, 0.9),
-            soc_targets={24: 0.3, 48: 0.4, 64: 0.55, 96: 0.75},
+            soc_targets={96: 0.75},
         ),
     ),
     Scenario(
@@ -143,7 +143,7 @@ scenarios = [
         bess=DeviceScenario(
             start_soc=0.2,
             soc_allowed_range=(0.1, 0.9),
-            soc_targets={24: 0.3, 48: 0.45, 64: 0.6, 96: 0.8},
+            soc_targets={96: 0.8},
         ),
     ),
 ]
