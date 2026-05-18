@@ -12,111 +12,113 @@ from src.simulation.scenarios.scenario import Scenario
 from src.config import Config
 
 
-def get_next_target(current_timestep, target_soc_dict):
-    dl = min((t for t in target_soc_dict.keys() if t >= current_timestep), default=96)
-    target_soc = target_soc_dict.get(dl, 0.0)
-    return target_soc, dl
+def get_next_target(current_timestep: int, target_soc_dict: dict[int, float]) -> tuple[float, int]:
+    deadline = min((t for t in target_soc_dict.keys() if t >= current_timestep), default=96)
+    target_soc = target_soc_dict.get(deadline, 0.0)
+    return target_soc, deadline
 
 
-def even_linear_policy(
-        household: Household,
-        scenario: Scenario
-):
+def even_linear_policy(household: Household, scenario: Scenario) -> dict:
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
-    
-    # EV1, EV2
-    for ev in [household.ev1, household.ev2]:
+    pv_generation = household.pv.generation if household.pv else 0.0
+
+    for ev, ev_scenario in [(household.ev1, scenario.ev1), (household.ev2, scenario.ev2)]:
         if ev and (ev.at_home or ev.at_charging_station):
-            current_soc = ev.soc
-
-            if ev == household.ev1:
-                target_soc, deadline = get_next_target(household.current_timestep, scenario.ev1.soc_targets)
-            else:
-                target_soc, deadline = get_next_target(household.current_timestep, scenario.ev2.soc_targets)
-            
-            target_soc = target_soc * ev.capacity if target_soc <= 1.0 else target_soc
-
-            soc_deficit = target_soc - current_soc
-            max_charge = ev.max_charge
-            efficiency = ev.efficiency
-            current_timestep = household.current_timestep
-            remaining_time = max(deadline - current_timestep, 0)
+            target_soc, deadline = get_next_target(household.current_timestep, ev_scenario.soc_targets)
+            target_soc = target_soc * ev.capacity
+            soc_deficit = target_soc - ev.soc
+            remaining_steps = max(deadline - household.current_timestep, 0)
 
             if soc_deficit > 0:
-                if remaining_time <= 0:
-                    controls[f"{ev.name}_power"] = max_charge
+                if remaining_steps <= 0:
+                    controls[f"{ev.name}_power"] = ev.max_charge
                 else:
-                    controls[f"{ev.name}_power"] = min((soc_deficit / (remaining_time * Config.DURATION_TIMESTEP)) / efficiency, max_charge)
+                    controls[f"{ev.name}_power"] = min(
+                        (soc_deficit / (remaining_steps * Config.DURATION_TIMESTEP)) / ev.efficiency,
+                        ev.max_charge,
+                    )
 
-
-    # BESS
+    # Stupid baseline BESS behavior: move evenly toward end target, then idle.
     if household.bess:
-        current_soc = household.bess.soc
+        bess = household.bess
         target_soc, deadline = get_next_target(household.current_timestep, scenario.bess.soc_targets)
-        target_soc = target_soc * household.bess.capacity if target_soc <= 1.0 else target_soc
-        soc_deficit = target_soc - current_soc
-        max_charge = household.bess.max_charge
-        efficiency = household.bess.efficiency
-        current_timestep = household.current_timestep
-        remaining_time = max(deadline - current_timestep, 0)
+        target_soc = target_soc * bess.capacity
+        soc_delta = target_soc - bess.soc
 
-        if soc_deficit > 0: # 
-            if remaining_time <= 0:
-                base_charge_power = max_charge
+        if soc_delta > 0:
+            remaining_steps = max(deadline - household.current_timestep, 0)
+            max_charge_by_deficit = soc_delta / (Config.DURATION_TIMESTEP * bess.efficiency)
+
+            if remaining_steps <= 0:
+                charge_power = min(bess.max_charge, max_charge_by_deficit)
             else:
-                base_charge_power = min((soc_deficit / (remaining_time * Config.DURATION_TIMESTEP)) / efficiency, max_charge)
-            surplus_power = -household.net_load
-            charge_power = max(base_charge_power, min(base_charge_power + surplus_power, max_charge))
-            controls["bess_power"] = charge_power
+                charge_power = min(
+                    (soc_delta / (remaining_steps * Config.DURATION_TIMESTEP)) / bess.efficiency,
+                    bess.max_charge,
+                    max_charge_by_deficit,
+                )
 
-        elif household.net_load > 0:
-            # Keep discharge, but never let SOC drop below the active target.
-            soc_surplus = max(current_soc - target_soc, 0.0)
-            max_discharge_by_surplus = (soc_surplus * efficiency) / Config.DURATION_TIMESTEP
-            discharge_power = min(
-                household.net_load,
-                household.bess.max_discharge,
-                max_discharge_by_surplus,
-            )
+            controls["bess_power"] = charge_power
+        elif soc_delta < 0:
+            soc_surplus = -soc_delta
+            remaining_steps = max(deadline - household.current_timestep, 0)
+            max_discharge_by_surplus = (soc_surplus * bess.efficiency) / Config.DURATION_TIMESTEP
+
+            if remaining_steps <= 0:
+                discharge_power = min(bess.max_discharge, max_discharge_by_surplus)
+            else:
+                discharge_power = min(
+                    (soc_surplus * bess.efficiency) / (remaining_steps * Config.DURATION_TIMESTEP),
+                    bess.max_discharge,
+                    max_discharge_by_surplus,
+                )
+
             controls["bess_power"] = -discharge_power
 
     return controls
 
 
-
-def fast_charge_policy(
-        household: Household,
-        scenario: Scenario
-):
+def fast_charge_policy(household: Household, scenario: Scenario) -> dict:
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
+    pv_generation = household.pv.generation if household.pv else 0.0
 
     if household.ev1 and (household.ev1.at_home or household.ev1.at_charging_station):
         ev1_target_soc, _ = get_next_target(household.current_timestep, scenario.ev1.soc_targets)
-        ev1_target_soc = ev1_target_soc * household.ev1.capacity if ev1_target_soc <= 1.0 else ev1_target_soc
+        ev1_target_soc = ev1_target_soc * household.ev1.capacity
         if household.ev1.soc < ev1_target_soc:
             required_power = (ev1_target_soc - household.ev1.soc) / (Config.DURATION_TIMESTEP * household.ev1.efficiency)
             controls["ev1_power"] = min(household.ev1.max_charge, required_power)
 
     if household.ev2 and (household.ev2.at_home or household.ev2.at_charging_station):
         ev2_target_soc, _ = get_next_target(household.current_timestep, scenario.ev2.soc_targets)
-        ev2_target_soc = ev2_target_soc * household.ev2.capacity if ev2_target_soc <= 1.0 else ev2_target_soc
+        ev2_target_soc = ev2_target_soc * household.ev2.capacity
         if household.ev2.soc < ev2_target_soc:
             required_power = (ev2_target_soc - household.ev2.soc) / (Config.DURATION_TIMESTEP * household.ev2.efficiency)
             controls["ev2_power"] = min(household.ev2.max_charge, required_power)
 
+    # Stupid baseline BESS behavior: move to end target as fast as possible.
     if household.bess:
         bess_target_soc, _ = get_next_target(household.current_timestep, scenario.bess.soc_targets)
-        bess_target_soc = bess_target_soc * household.bess.capacity if bess_target_soc <= 1.0 else bess_target_soc
-        if household.bess.soc < bess_target_soc:
-            required_power = (bess_target_soc - household.bess.soc) / (Config.DURATION_TIMESTEP * household.bess.efficiency)
-            controls["bess_power"] = min(household.bess.max_charge, required_power)
+        bess_target_soc = bess_target_soc * household.bess.capacity
+
+        soc_delta = bess_target_soc - household.bess.soc
+        if soc_delta > 0:
+            max_charge_by_deficit = soc_delta / (Config.DURATION_TIMESTEP * household.bess.efficiency)
+            controls["bess_power"] = min(household.bess.max_charge, max_charge_by_deficit)
+        elif soc_delta < 0:
+            soc_surplus = -soc_delta
+            max_discharge_by_surplus = (soc_surplus * household.bess.efficiency) / Config.DURATION_TIMESTEP
+            controls["bess_power"] = -min(
+                household.bess.max_discharge,
+                max_discharge_by_surplus,
+            )
 
     return controls

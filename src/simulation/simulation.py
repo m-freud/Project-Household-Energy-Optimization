@@ -1,6 +1,7 @@
 # paste this to enable src. imports
 
 import argparse
+from functools import partial
 from pathlib import Path
 import sys
 
@@ -18,10 +19,11 @@ from src.simulation.devices.ev import EV
 
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.simulation.controllers.policies.basic_examples import no_control
-from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
-from src.simulation.controllers.policies.price_aware_linear import price_aware_linear_1, price_aware_linear_2
+from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
 from src.simulation.controllers.policies.priority_dispatch import priority_dispatch_policy
 from src.simulation.controllers.base_controller import BaseController
+from src.simulation.controllers.policies.rule_based.price_aware_bess import price_aware_bess
 
 
 class Simulation:
@@ -440,11 +442,15 @@ if __name__ == "__main__":
     no_control_controller = FunctionController(name="no_control", step_function=no_control)
     even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
     fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
-    price_aware_linear_1_controller = FunctionController(name="price_aware_linear_1", step_function=price_aware_linear_1)
-    price_aware_linear_2_controller = FunctionController(name="price_aware_linear_2", step_function=price_aware_linear_2)
+    price_aware_linear_1_controller = FunctionController(
+        name="price_aware_linear_1",
+        step_function=price_aware_linear,
+    )
+    price_aware_linear_2_controller = FunctionController(
+        name="price_aware_linear_2",
+        step_function=partial(price_aware_linear, default_behaviour="even_linear"),
+    )
     priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
-
-
 
     controllers = [
         no_control_controller,
@@ -452,11 +458,7 @@ if __name__ == "__main__":
         even_linear_controller,
         price_aware_linear_1_controller,
         price_aware_linear_2_controller,
-        # priority_dispatch_controller,
-        # make_naive_linear_policy(urgency=1.0, delay=0.0),
-        # make_naive_linear_policy(urgency=0.0, delay=0.0),
-        # make_naive_linear_policy(urgency=0.0, delay=1.0),
-        # make_linear_policy(urgency=0.5, delay=0.5),
+        priority_dispatch_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}
@@ -506,4 +508,3 @@ if __name__ == "__main__":
         household_ids=selected_household_ids,
         max_households=args.max_households,
     )
-        
