@@ -251,9 +251,22 @@ class Household:
     @property
     def net_cost(self):
         if self.net_load > 0:
-            return self.net_load * self.buy_price
+            grid_cost = self.net_load * self.buy_price
         else:
-            return self.net_load * -self.sell_price
+            grid_cost = self.net_load * -self.sell_price
+
+        # Charging-station EV charging should affect cost but not household net load.
+        ev1_station_cost = 0.0
+        if self.ev1 and self.ev1.at_charging_station and not self.ev1.at_home:
+            ev1_station_power = max(0.0, self.controls.get("ev1_power", 0.0))
+            ev1_station_cost = ev1_station_power * self.ev1.buy_price
+
+        ev2_station_cost = 0.0
+        if self.ev2 and self.ev2.at_charging_station and not self.ev2.at_home:
+            ev2_station_power = max(0.0, self.controls.get("ev2_power", 0.0))
+            ev2_station_cost = ev2_station_power * self.ev2.buy_price
+
+        return grid_cost + ev1_station_cost + ev2_station_cost
 
     @property
     def net_load(self):
