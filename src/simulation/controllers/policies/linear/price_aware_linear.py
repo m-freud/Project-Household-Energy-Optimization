@@ -7,7 +7,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.simulation.controllers.policies.linear import even_linear_policy, fast_charge_policy
+from simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.policies.basic_examples import no_control as no_control_policy
 from src.config import Config
 
@@ -77,7 +77,7 @@ def price_aware_linear_1(household: Household, scenario: Scenario) -> dict:
 def price_aware_linear_2(household: Household, scenario: Scenario) -> dict:
 	"""
 	Default behavior: no_control.
-	Urgency override: if deadline <= 3 hours away, use even_linear to guarantee target.
+	Urgency override: if deadline <= required hours away, use even_linear to guarantee target.
 	Price override: if a device price is in the cheapest quartile (<= 25th percentile), use fast_charge for that device.
 	"""
 	controls = no_control_policy(household, scenario)
@@ -99,6 +99,8 @@ def price_aware_linear_2(household: Household, scenario: Scenario) -> dict:
 			ev1_q25 = _q25_threshold(ev1_profile)
 			if ev1_q25 is not None and household.ev1.buy_price <= ev1_q25:
 				controls["ev1_power"] = fast_controls["ev1_power"]
+			elif household.ev1.soc < ev1_target_soc and (household.ev1.at_home or household.ev1.at_charging_station):
+				controls["ev1_power"] = even_controls["ev1_power"]
 
 	# EV2
 	if household.ev2:
