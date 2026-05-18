@@ -48,7 +48,7 @@ def plot_bess(
         ax.text(0.5, 0.5, "No BESS SOC data", transform=ax.transAxes, ha="center", va="center")
 
     if bess_deadline is not None:
-        bess_deadline_hour = float(bess_deadline) / 4.0
+        bess_deadline_hour = (float(bess_deadline) - 1.0) / 4.0
         ax.axvline(x=bess_deadline_hour, color="darkblue", linewidth=1.8)
         if missed_deadline:
             ax.axvline(x=bess_deadline_hour + 0.03, color="red", linewidth=1.8)
