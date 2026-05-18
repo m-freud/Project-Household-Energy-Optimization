@@ -94,7 +94,8 @@ def load_series(
         return result
 
     if "period" in result.columns:
-        result["hour"] = result["period"] / 4.0
+        # Use zero-based hour axis so period 1 is shown at 0.0h.
+        result["hour"] = (result["period"] - 1) / 4.0
 
     return result
 
@@ -149,7 +150,7 @@ def load_avg_profile(
         return result
 
     result["policy"] = policy_name
-    result["hour"] = result["period"] / 4.0
+    result["hour"] = (result["period"] - 1) / 4.0
     return result
 
 

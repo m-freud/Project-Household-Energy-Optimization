@@ -53,7 +53,7 @@ def plot_ev(ax: plt.Axes,
         ax.text(0.5, 0.5, f"No EV{ev_number} SOC data", transform=ax.transAxes, ha="center", va="center")
 
     if ev_deadline is not None:
-        ev_deadline_hour = float(ev_deadline) / 4.0
+        ev_deadline_hour = (float(ev_deadline) - 1.0) / 4.0
         ax.axvline(x=ev_deadline_hour, color="darkblue", linewidth=1.8)
         if missed_deadline:
             ax.axvline(x=ev_deadline_hour + 0.03, color="red", linewidth=1.8)
