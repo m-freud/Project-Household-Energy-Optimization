@@ -22,6 +22,7 @@ from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
 from src.simulation.controllers.policies.rule_based.priority_dispatch import priority_dispatch_policy
+from src.simulation.controllers.policies.rule_based.waterfall_v1 import waterfall_v1_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.policies.rule_based.price_aware_bess import price_aware_bess
 
@@ -451,6 +452,7 @@ if __name__ == "__main__":
         step_function=partial(price_aware_linear, default_behaviour="even_linear"),
     )
     priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
+    waterfall_v1_controller = FunctionController(name="waterfall_v1", step_function=waterfall_v1_policy)
 
     controllers = [
         no_control_controller,
@@ -459,6 +461,7 @@ if __name__ == "__main__":
         price_aware_linear_1_controller,
         price_aware_linear_2_controller,
         priority_dispatch_controller,
+        waterfall_v1_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}
