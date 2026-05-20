@@ -21,7 +21,7 @@ from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_ca
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
-from src.simulation.controllers.policies.priority_dispatch import priority_dispatch_policy
+from src.simulation.controllers.policies.rule_based.priority_dispatch import priority_dispatch_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.policies.rule_based.price_aware_bess import price_aware_bess
 
