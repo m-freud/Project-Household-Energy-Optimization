@@ -137,29 +137,31 @@ class Simulation:
         # plug in EV1
         ev1_data = self.sqlite_cursor.execute(
             '''
-            SELECT capacity, charge, discharge, efficiency, initial_soc
+            SELECT capacity, charge, discharge, efficiency, initial_soc, charge_slowest
             FROM ev1
             WHERE player_id = ?
             ''',
             (player_id,)
         ).fetchone()
-        capacity, max_charge, max_discharge, efficiency, initial_soc = ev1_data
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev1_data
 
 
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
+        household.ev1.charge_slowest = charge_slowest
 
         # plug in EV2
         ev2_data = self.sqlite_cursor.execute(
             '''
-            SELECT capacity, charge, discharge, efficiency, initial_soc
+            SELECT capacity, charge, discharge, efficiency, initial_soc, charge_slowest
             FROM ev2
             WHERE player_id = ?
             ''',
             (player_id,)
         ).fetchone()
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev2_data
 
-        capacity, max_charge, max_discharge, efficiency, initial_soc = ev2_data
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
+        household.ev2.charge_slowest = charge_slowest
 
         # set initial SOCs from scenario
         for component in [household.bess, household.ev1, household.ev2]:
@@ -454,6 +456,10 @@ if __name__ == "__main__":
     priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
     waterfall_v1_controller = FunctionController(name="waterfall_v1", step_function=waterfall_v1_policy)
     waterfall_v1_5_controller = FunctionController(name="waterfall_v1.5", step_function=waterfall_v1_policy)
+    waterfall_v1_5_max_charge_fix_controller = FunctionController(
+        name="waterfall_v1.5.max_charge_fix",
+        step_function=waterfall_v1_policy,
+    )
 
     controllers = [
         no_control_controller,
@@ -464,6 +470,7 @@ if __name__ == "__main__":
         priority_dispatch_controller,
         waterfall_v1_controller,
         waterfall_v1_5_controller,
+        waterfall_v1_5_max_charge_fix_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}

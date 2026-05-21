@@ -159,13 +159,17 @@ def waterfall_v1_policy(household: Household, scenario: Scenario) -> dict:
         ev_price_cheap = ev_q25 is not None and ev.buy_price <= ev_q25
         ev_price_expensive = ev_q75 is not None and ev.buy_price >= ev_q75
 
+        planning_max_charge = getattr(ev, "charge_slowest", ev.max_charge)
+        if planning_max_charge is None or planning_max_charge <= 0:
+            planning_max_charge = ev.max_charge
+
         effective_deadline = t + remaining_steps
         urgent = _is_trajectory_urgent(
             ev.soc,
             target_kwh,
             t,
             effective_deadline,
-            ev.max_charge,
+            planning_max_charge,
             ev.efficiency,
             buffer_hours=2.0,
         )

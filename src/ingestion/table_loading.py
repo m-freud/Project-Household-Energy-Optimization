@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import datetime as dt
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
@@ -74,10 +73,88 @@ def load_table_to_db(wb, table_name, config):
     load_to_sqlite(df, table_name, config)
 
 
+def _extract_home_charge_from_limits(wb) -> pd.DataFrame:
+    limits_config = table_config["fixed_costs"]
+    limits_df = extract_df_from_xlsx(
+        wb,
+        limits_config["sheet_name"],
+        limits_config["rectangle"],
+        limits_config["df_column_names"],
+        limits_config.get("transpose", False),
+    )
+    home_charge_df = limits_df[["player_id", "premium_charger_edp_capacity"]].copy()
+    home_charge_df = home_charge_df.rename(
+        columns={"premium_charger_edp_capacity": "charge_home"}
+    )
+    return home_charge_df
+
+
+def enrich_ev_charge_rates(wb):
+    home_charge_df = _extract_home_charge_from_limits(wb)
+    home_charge_rows = []
+    for player_id, charge_home in home_charge_df.itertuples(index=False):
+        if pd.isna(player_id):
+            continue
+        parsed_charge_home = None if pd.isna(charge_home) else float(charge_home)
+        home_charge_rows.append((int(player_id), parsed_charge_home))
+
+    sqlite_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
+    sqlite_conn.execute(
+        "CREATE TEMP TABLE temp_home_charge (player_id INTEGER PRIMARY KEY, charge_home REAL)"
+    )
+    sqlite_conn.executemany(
+        "INSERT OR REPLACE INTO temp_home_charge (player_id, charge_home) VALUES (?, ?)",
+        home_charge_rows,
+    )
+
+    # Add max charge rates for ev tables, for home and station
+    for ev_table in ("ev1", "ev2"):
+        existing_columns = {
+            row[1] for row in sqlite_conn.execute(f"PRAGMA table_info({ev_table})").fetchall()
+        }
+        if "charge_home" not in existing_columns:
+            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_home REAL")
+        if "charge_station" not in existing_columns:
+            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_station REAL")
+        if "charge_slowest" not in existing_columns:
+            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_slowest REAL")
+
+        sqlite_conn.execute(
+            f'''
+            UPDATE {ev_table}
+            SET
+                charge_home = (
+                    SELECT temp.charge_home
+                    FROM temp_home_charge AS temp
+                    WHERE temp.player_id = {ev_table}.player_id
+                ),
+                charge_station = COALESCE(charge, power)
+            '''
+        )
+
+        sqlite_conn.execute(
+            f'''
+            UPDATE {ev_table}
+            SET
+                charge_slowest = CASE
+                    WHEN charge_home IS NULL THEN charge_station
+                    WHEN charge_station IS NULL THEN charge_home
+                    ELSE MIN(charge_home, charge_station)
+                END
+            '''
+        )
+
+    sqlite_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
+    sqlite_conn.commit()
+
+
 def load_all_tables(wb, table_instructions):
     for table_name, config in table_instructions.items():
         print(f"Loading table: {table_name} to sqlite...")
         load_table_to_db(wb, table_name, config)
+
+    print("Enriching EV charge-rate metadata...")
+    enrich_ev_charge_rates(wb)
     
     print("tables loaded successfully!")
 
