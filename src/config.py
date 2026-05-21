@@ -14,3 +14,17 @@ class Config:
     SQLITE_PATH = ROOT_DIR / "sqlite" / "energy.db"
 
     DURATION_TIMESTEP = 0.25 # 4 per hour
+
+    # Expected EV charging unavailability windows (global user-style settings).
+    # Values are hardcoded from research/ev_unavailable_windows.csv and represent
+    # approximate commute periods, not realized household-specific future states.
+    EV_UNAVAILABLE_WINDOWS = {
+        "ev1": [
+            {"window": 1, "earliest_start": 33, "latest_end": 48, "max_unavailable_steps": 5},
+            {"window": 2, "earliest_start": 71, "latest_end": 85, "max_unavailable_steps": 5},
+        ],
+        "ev2": [
+            {"window": 1, "earliest_start": 36, "latest_end": 49, "max_unavailable_steps": 4},
+            {"window": 2, "earliest_start": 76, "latest_end": 87, "max_unavailable_steps": 4},
+        ],
+    }

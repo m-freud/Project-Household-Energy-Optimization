@@ -65,6 +65,31 @@ def _trajectory_power(
     return min(max_charge, max_by_deficit, even_power)
 
 
+def _windows_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:
+    return max(start_a, start_b) < min(end_a, end_b)
+
+
+def _estimated_unavailable_steps(ev_name: str, timestep: int, deadline: int) -> int:
+    windows = Config.EV_UNAVAILABLE_WINDOWS.get(ev_name, [])
+    if not windows:
+        return 0
+
+    horizon_start = timestep
+    horizon_end = max(deadline, timestep + 1)
+    blocked_steps = 0
+
+    for window in windows:
+        start = int(window.get("earliest_start", 0))
+        end = int(window.get("latest_end", 0))
+        max_unavailable = int(window.get("max_unavailable_steps", 0))
+        if max_unavailable <= 0:
+            continue
+        if _windows_overlap(horizon_start, horizon_end, start, end):
+            blocked_steps += max_unavailable
+
+    return blocked_steps
+
+
 def _required_soc_floor(
     target_soc: float,
     timestep: int,
@@ -125,14 +150,25 @@ def waterfall_v1_policy(household: Household, scenario: Scenario) -> dict:
         target_kwh, deadline = _next_target(t, ev_scenario.soc_targets)
         target_kwh = _to_kwh(target_kwh, ev.capacity)
         deficit = target_kwh - ev.soc
-        remaining_steps = max(deadline - t, 1)
+        raw_remaining_steps = max(deadline - t, 1)
+        blocked_steps = _estimated_unavailable_steps(ev.name, t, deadline)
+        remaining_steps = max(1, raw_remaining_steps - blocked_steps)
 
         ev_profile = getattr(household, f"{ev.name}_buy_price_day_profile", household.buy_price_day_profile)
         ev_q25, ev_q75 = _price_quartiles(ev_profile)
         ev_price_cheap = ev_q25 is not None and ev.buy_price <= ev_q25
         ev_price_expensive = ev_q75 is not None and ev.buy_price >= ev_q75
 
-        urgent = _is_trajectory_urgent(ev.soc, target_kwh, t, deadline, ev.max_charge, ev.efficiency)
+        effective_deadline = t + remaining_steps
+        urgent = _is_trajectory_urgent(
+            ev.soc,
+            target_kwh,
+            t,
+            effective_deadline,
+            ev.max_charge,
+            ev.efficiency,
+            buffer_hours=2.0,
+        )
 
         if urgent and deficit > 0:
             controls[power_key] = _trajectory_power(deficit, remaining_steps, ev.max_charge, ev.efficiency)
