@@ -114,7 +114,7 @@ def _is_profitable_discharge(
     return current_buy_price > effective_cost
 
 
-def waterfall_v1_policy(household: Household, scenario: Scenario) -> dict:
+def waterfall_policy(household: Household, scenario: Scenario) -> dict:
     """
     Waterfall V1 policy.
 

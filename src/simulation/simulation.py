@@ -21,10 +21,8 @@ from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_ca
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
-from src.simulation.controllers.policies.rule_based.priority_dispatch import priority_dispatch_policy
-from src.simulation.controllers.policies.rule_based.waterfall_v1 import waterfall_v1_policy
+from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
-from src.simulation.controllers.policies.rule_based.price_aware_bess import price_aware_bess
 
 
 class Simulation:
@@ -445,32 +443,21 @@ if __name__ == "__main__":
     no_control_controller = FunctionController(name="no_control", step_function=no_control)
     even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
     fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
-    price_aware_linear_1_controller = FunctionController(
-        name="price_aware_linear_1",
-        step_function=price_aware_linear,
-    )
-    price_aware_linear_2_controller = FunctionController(
-        name="price_aware_linear_2",
+    price_aware_linear_controller = FunctionController(
+        name="price_aware_linear",
         step_function=partial(price_aware_linear, default_behaviour="even_linear"),
     )
-    priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
-    waterfall_v1_controller = FunctionController(name="waterfall_v1", step_function=waterfall_v1_policy)
-    waterfall_v1_5_controller = FunctionController(name="waterfall_v1.5", step_function=waterfall_v1_policy)
-    waterfall_v1_5_max_charge_fix_controller = FunctionController(
-        name="waterfall_v1.5.max_charge_fix",
-        step_function=waterfall_v1_policy,
+    waterfall_controller = FunctionController(
+        name="waterfall",
+        step_function=waterfall_policy,
     )
 
     controllers = [
         no_control_controller,
         fast_charge_controller,
         even_linear_controller,
-        price_aware_linear_1_controller,
-        price_aware_linear_2_controller,
-        priority_dispatch_controller,
-        waterfall_v1_controller,
-        waterfall_v1_5_controller,
-        waterfall_v1_5_max_charge_fix_controller,
+        price_aware_linear_controller,
+        waterfall_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}
