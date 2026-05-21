@@ -453,6 +453,7 @@ if __name__ == "__main__":
     )
     priority_dispatch_controller = FunctionController(name="priority_dispatch", step_function=priority_dispatch_policy)
     waterfall_v1_controller = FunctionController(name="waterfall_v1", step_function=waterfall_v1_policy)
+    waterfall_v1_5_controller = FunctionController(name="waterfall_v1.5", step_function=waterfall_v1_policy)
 
     controllers = [
         no_control_controller,
@@ -462,6 +463,7 @@ if __name__ == "__main__":
         price_aware_linear_2_controller,
         priority_dispatch_controller,
         waterfall_v1_controller,
+        waterfall_v1_5_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}
