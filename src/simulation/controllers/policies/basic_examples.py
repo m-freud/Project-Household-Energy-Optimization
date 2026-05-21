@@ -116,4 +116,3 @@ def example_ev_bess(household:Household, scenario=None):
         controls["bess_power"] = -discharge_power  # negative for discharging
 
     return controls
-
