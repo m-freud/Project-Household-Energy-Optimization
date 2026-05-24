@@ -1,4 +1,4 @@
-from temperature_profiles import generate_temperature_profile, add_noise
+from _MPC_INTRO.temperature.temperature_profiles import generate_temperature_profile, add_noise
 import numpy as np
 import cvxpy as cp
 import matplotlib.pyplot as plt

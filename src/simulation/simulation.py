@@ -23,6 +23,7 @@ from src.simulation.controllers.policies.linear.linear import even_linear_policy
 from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
 from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
+from src.simulation.controllers.mpc_controller import MPCController
 
 
 class Simulation:
@@ -184,6 +185,7 @@ class Simulation:
         household.sell_price_day_profile = self.household_profiles["sell_price"]
         household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"]
         household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"]
+        household.oracle_profiles = self.household_profiles
 
         return household
     
@@ -451,6 +453,10 @@ if __name__ == "__main__":
         name="waterfall",
         step_function=waterfall_policy,
     )
+    mpc_oracle_controller = MPCController(
+        name="mpc_oracle",
+        horizon=24,
+    )
 
     controllers = [
         no_control_controller,
@@ -458,6 +464,7 @@ if __name__ == "__main__":
         even_linear_controller,
         price_aware_linear_controller,
         waterfall_controller,
+        mpc_oracle_controller,
     ]
 
     controllers_by_name = {controller.name: controller for controller in controllers}

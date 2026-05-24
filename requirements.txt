@@ -3,3 +3,4 @@ openpyxl
 dotenv
 matplotlib
 streamlit
+cvxpy
