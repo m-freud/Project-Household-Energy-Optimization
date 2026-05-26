@@ -27,6 +27,93 @@ constraints = {
     'bess_soc_max' : 1,
 }
 
+# Keep LP behavior while making tie cases deterministic and smooth.
+linearize_actions = True
+cost_opt_tolerance = 1e-8
+
+
+def is_optimal_status(status):
+    return status in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE)
+
+
+def build_total_variation_linearization(action_var, pred_horizon):
+    # Linearized total variation: sum |u_t - u_{t-1}|.
+    delta_var = cp.Variable(pred_horizon - 1, nonneg=True)
+    tv_constraints = []
+
+    for t in range(1, pred_horizon):
+        tv_constraints += [
+            delta_var[t - 1] >= action_var[t] - action_var[t - 1],
+            delta_var[t - 1] >= -(action_var[t] - action_var[t - 1]),
+        ]
+
+    return delta_var, tv_constraints
+
+
+def build_linear_problem(primary_cost_value, action_var, pred_horizon, base_constraints, cost_expr):
+    delta_var, tv_constraints = build_total_variation_linearization(action_var, pred_horizon)
+    linear_constraints = list(base_constraints)
+    linear_constraints += [cost_expr <= primary_cost_value + cost_opt_tolerance]
+    linear_constraints += tv_constraints
+
+    return cp.Problem(cp.Minimize(cp.sum(delta_var)), linear_constraints)
+
+
+def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg, linearize=True):
+    pred_horizon = min(horizon_len, len(full_price_profile) - step_idx)
+    pred_price_profile = full_price_profile[step_idx:step_idx + pred_horizon]
+
+    bess_charge_var = cp.Variable(pred_horizon)
+    bess_soc_var = cp.Variable(pred_horizon + 1)
+
+    mpc_constraints = [bess_soc_var[0] == current_soc]
+
+    for target_state_index, target_soc in cfg['targets']:
+        # Convert global target index to local horizon index at this step.
+        if step_idx <= target_state_index <= step_idx + pred_horizon:
+            local_idx = target_state_index - step_idx
+            mpc_constraints += [bess_soc_var[local_idx] == target_soc]
+
+    for t in range(pred_horizon):
+        mpc_constraints += [
+            bess_soc_var[t + 1] == bess_soc_var[t] + charge_coefficient * bess_charge_var[t],
+            bess_charge_var[t] >= cfg['bess_charge_min'],
+            bess_charge_var[t] <= cfg['bess_charge_max'],
+        ]
+
+    mpc_constraints += [
+        bess_soc_var >= cfg['bess_soc_min'],
+        bess_soc_var <= cfg['bess_soc_max'],
+    ]
+
+    primary_cost_expr = cp.sum(cp.multiply(pred_price_profile, bess_charge_var))
+    problem = cp.Problem(cp.Minimize(primary_cost_expr), mpc_constraints)
+    problem.solve()
+
+    if not is_optimal_status(problem.status) or bess_charge_var.value is None:
+        return 0.0
+
+    if linearize and pred_horizon > 1:
+        primary_value = problem.value
+        if primary_value is None:
+            return float(bess_charge_var.value[0])
+        primary_cost_opt = float(np.asarray(primary_value).item())
+
+        problem_with_linearity_bias = build_linear_problem(
+            primary_cost_value=primary_cost_opt,
+            action_var=bess_charge_var,
+            pred_horizon=pred_horizon,
+            base_constraints=mpc_constraints,
+            cost_expr=primary_cost_expr,
+        )
+        problem_with_linearity_bias.solve()
+
+        if is_optimal_status(problem_with_linearity_bias.status) and bess_charge_var.value is not None:
+            return float(bess_charge_var.value[0])
+    
+    else:
+        return float(bess_charge_var.value[0])
+
 bess_soc = 0.3
 bess_charge_action = 0.0
 charge_coefficient = 0.1
@@ -39,44 +126,22 @@ cumulative_cost_history = []
 
 
 for i in range(len(price_profile_1)):
-    # 1. predict
-    pred_horizon = min(horizon_len, len(price_profile_1) - i)
-    pred_price_profile = price_profile_1[i:i + pred_horizon]
-
-    # 2. update bess soc and cost history with last action
+    # 1. update bess soc and cost history with last action
     bess_charge_action = bess_charge_action if bess_charge_action is not None else 0.0
     bess_charge = charge_coefficient * bess_charge_action
     bess_soc += bess_charge
     bess_soc = np.clip(bess_soc, constraints['bess_soc_min'], constraints['bess_soc_max'])
     cost_history.append(bess_charge * price_profile_1[i])
 
-    # 3. optimize control actions for the horizon and apply only the first action
-    bess_charge_var = cp.Variable(pred_horizon)
-    bess_soc_var = cp.Variable(pred_horizon + 1)
+    # 2. solve next action with lexicographic LP (cost first, smoothness second)
+    bess_charge_action = solve_charge_action_for_step(
+        step_idx=i,
+        current_soc=bess_soc,
+        full_price_profile=price_profile_1,
+        cfg=constraints,
+        linearize=linearize_actions,
+    )
 
-    mpc_constraints = [bess_soc_var[0] == bess_soc]
-    for target_state_index, target_soc in constraints['targets']:
-        # Convert global target index to local horizon index at time step i.
-        if i <= target_state_index <= i + pred_horizon:
-            local_idx = target_state_index - i
-            mpc_constraints += [bess_soc_var[local_idx] == target_soc]
-
-    for t in range(pred_horizon):
-        mpc_constraints += [
-            bess_soc_var[t + 1] == bess_soc_var[t] + charge_coefficient * bess_charge_var[t],
-            bess_charge_var[t] >= constraints['bess_charge_min'],
-            bess_charge_var[t] <= constraints['bess_charge_max'],
-        ]
-    mpc_constraints += [
-        bess_soc_var >= constraints['bess_soc_min'],
-        bess_soc_var <= constraints['bess_soc_max'],
-    ]
-
-    objective = cp.Minimize(cp.sum(cp.multiply(pred_price_profile, bess_charge_var)))
-    problem = cp.Problem(objective, mpc_constraints)
-    problem.solve()
-
-    bess_charge_action = bess_charge_var.value[0] if bess_charge_var.value is not None else 0.0
     action_history.append(bess_charge_action)
     soc_history.append(bess_soc)
     net_cost += cost_history[-1]
