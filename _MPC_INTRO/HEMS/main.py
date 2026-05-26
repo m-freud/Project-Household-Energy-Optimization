@@ -126,6 +126,9 @@ def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg,
 
         if is_optimal_status(problem_with_linearity_bias.status) and bess_charge_var.value is not None:
             return float(bess_charge_var.value[0])
+
+        # Fallback to stage-1 action if stage-2 tie-break is unavailable.
+        return float(bess_charge_var.value[0])
     
     else:
         return float(bess_charge_var.value[0])
