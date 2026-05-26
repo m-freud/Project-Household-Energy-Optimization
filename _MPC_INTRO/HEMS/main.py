@@ -59,6 +59,22 @@ def build_linear_problem(primary_cost_value, action_var, pred_horizon, base_cons
     return cp.Problem(cp.Minimize(cp.sum(delta_var)), linear_constraints)
 
 
+def next_incremented_plot_path(base_path):
+    if not base_path.exists():
+        return base_path
+
+    parent = base_path.parent
+    stem = base_path.stem
+    suffix = base_path.suffix
+    idx = 1
+
+    while True:
+        candidate = parent / f"{stem}_{idx}{suffix}"
+        if not candidate.exists():
+            return candidate
+        idx += 1
+
+
 def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg, linearize=True):
     pred_horizon = min(horizon_len, len(full_price_profile) - step_idx)
     pred_price_profile = full_price_profile[step_idx:step_idx + pred_horizon]
