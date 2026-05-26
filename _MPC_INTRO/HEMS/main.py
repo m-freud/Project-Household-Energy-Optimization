@@ -14,10 +14,9 @@ from pathlib import Path
 # later: add base load (human)
 
 
-
 price_profile_1 = [2] * 33 + [1] * 33 + [3] * 34
 
-horizon_len = 100
+horizon_len = 50
 
 constraints = {
     'targets' : [(len(price_profile_1), 0.8)], # targets are on global SoC state index
@@ -59,6 +58,21 @@ def build_linear_problem(primary_cost_value, action_var, pred_horizon, base_cons
     return cp.Problem(cp.Minimize(cp.sum(delta_var)), linear_constraints)
 
 
+def add_reachability_guard_constraints(mpc_constraints, bess_soc_var, step_idx, pred_horizon, cfg):
+    max_upward_action = max(0.0, float(cfg['bess_charge_max']))
+    max_soc_gain_per_step = charge_coefficient * max_upward_action
+
+    for target_state_index, target_soc in cfg['targets']:
+        for local_idx in range(pred_horizon + 1):
+            global_state_index = step_idx + local_idx
+            if global_state_index <= target_state_index:
+                remaining_steps = target_state_index - global_state_index
+                min_required_soc = target_soc - remaining_steps * max_soc_gain_per_step
+                mpc_constraints += [bess_soc_var[local_idx] >= min_required_soc]
+
+    return mpc_constraints
+
+
 def next_incremented_plot_path(base_path):
     if not base_path.exists():
         return base_path
@@ -96,6 +110,15 @@ def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg,
             bess_charge_var[t] >= cfg['bess_charge_min'],
             bess_charge_var[t] <= cfg['bess_charge_max'],
         ]
+
+    # Keep every predicted state on a trajectory that can still reach terminal target(s), in case targets are beyond the horizon.
+    mpc_constraints = add_reachability_guard_constraints(
+        mpc_constraints=mpc_constraints,
+        bess_soc_var=bess_soc_var,
+        step_idx=step_idx,
+        pred_horizon=pred_horizon,
+        cfg=cfg,
+    )
 
     mpc_constraints += [
         bess_soc_var >= cfg['bess_soc_min'],
@@ -191,7 +214,8 @@ axes[3].set_xlabel('Time Step')
 axes[3].grid(alpha=0.3)
 
 plt.tight_layout()
-plot_path = Path(__file__).with_name('hems_mock_plot.png')
+base_plot_path = Path(__file__).with_name('hems_mock_plot.png')
+plot_path = next_incremented_plot_path(base_plot_path)
 plt.savefig(plot_path, dpi=150)
 
 if 'agg' in plt.get_backend().lower():
