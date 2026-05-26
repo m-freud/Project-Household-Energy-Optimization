@@ -13,8 +13,14 @@ from src.simulation.household import Household
 
 
 class MPCController(BaseController):
-    def __init__(self, name: str):
+    def __init__(self, name: str, horizon: int = 24):
         super().__init__(name)
+        self.horizon = int(horizon)
 
     def set_controls(self, household: Household, scenario: Scenario, *args, **kwargs):
-        pass
+        _ = (household, scenario, args, kwargs)
+        return {
+            "bess_power": 0.0,
+            "ev1_power": 0.0,
+            "ev2_power": 0.0,
+        }

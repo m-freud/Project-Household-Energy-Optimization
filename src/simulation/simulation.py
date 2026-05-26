@@ -1,6 +1,7 @@
 # paste this to enable src. imports
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 import sys
@@ -23,11 +24,73 @@ from src.simulation.controllers.policies.linear.linear import even_linear_policy
 from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
 from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
-from src.simulation.controllers.mpc_controller import MPCController
+from src.simulation.controllers.mpc.mpc_controller import MPCController
+
+
+DEFAULT_HISTORY_MEASUREMENTS = [
+    "net_load",
+    "net_cost",
+    "total_consumption",
+    "total_cost",
+    "bess_soc",
+    "bess_power",
+    "ev1_soc",
+    "ev1_power",
+    "ev2_soc",
+    "ev2_power",
+]
+
+
+def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
+    # Worker processes create isolated DB connections; only the parent writes results.
+    from src.sqlite_connection import create_sqlite_connection
+
+    worker_conn = create_sqlite_connection()
+    try:
+        sim = Simulation(worker_conn, ensure_schema=False)
+        controller = run_context.controller
+        scenario = run_context.scenario
+
+        start_time = run_context.start_time
+        if start_time < 1 or start_time > sim.num_timesteps:
+            raise ValueError(f"start_time must be between 1 and {sim.num_timesteps}")
+
+        household = sim.create_household(player_id, run_context)
+
+        for t in range(start_time, sim.num_timesteps + 1):
+            sim.step(household, controller, scenario, duration_hours=0.25, time=t)
+
+        return {
+            "run_id": run_context.run_id,
+            "policy": controller.name,
+            "scenario": scenario.name,
+            "player_id": household.player_id,
+            "has_pv": household.has_pv,
+            "has_bess": household.has_bess,
+            "total_cost": household.total_cost,
+            "total_consumption": household.total_consumption,
+            "net_cost": sum(household.history["net_cost"].values()) * 0.25,
+            "net_load": sum(household.history["net_load"].values()) * 0.25,
+            "target_met_bess": household.has_met_target("bess"),
+            "target_met_ev1": household.has_met_target("ev1"),
+            "target_met_ev2": household.has_met_target("ev2"),
+            "target_met_all_bess": household.has_met_all_targets("bess"),
+            "target_met_all_ev1": household.has_met_all_targets("ev1"),
+            "target_met_all_ev2": household.has_met_all_targets("ev2"),
+            "soc_at_deadline_bess": household.soc_at_deadline("bess"),
+            "soc_at_deadline_ev1": household.soc_at_deadline("ev1"),
+            "soc_at_deadline_ev2": household.soc_at_deadline("ev2"),
+            "history": {
+                measurement: list(household.history[measurement].items())
+                for measurement in DEFAULT_HISTORY_MEASUREMENTS
+            },
+        }
+    finally:
+        worker_conn.close()
 
 
 class Simulation:
-    def __init__(self, sqlite_conn):
+    def __init__(self, sqlite_conn, ensure_schema: bool = True):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
 
@@ -55,21 +118,22 @@ class Simulation:
 
         self.current_timestep = 1  # current timestep in the simulation.
 
-        self.sqlite_cursor.execute('''
-            CREATE TABLE IF NOT EXISTS results (
-                run_id TEXT,
-                policy TEXT,
-                scenario TEXT,
-                player_id INTEGER,
-                has_pv BOOLEAN,
-                has_bess BOOLEAN,
-                total_cost REAL,
-                total_consumption REAL,
-                net_cost REAL,
-                net_load REAL
-            )''')
+        if ensure_schema:
+            self.sqlite_cursor.execute('''
+                CREATE TABLE IF NOT EXISTS results (
+                    run_id TEXT,
+                    policy TEXT,
+                    scenario TEXT,
+                    player_id INTEGER,
+                    has_pv BOOLEAN,
+                    has_bess BOOLEAN,
+                    total_cost REAL,
+                    total_consumption REAL,
+                    net_cost REAL,
+                    net_load REAL
+                )''')
 
-        self._ensure_results_columns()
+            self._ensure_results_columns()
 
 
     def _ensure_results_columns(self):
@@ -276,6 +340,8 @@ class Simulation:
         run_context: RunContext,
         household_ids: list[int] | None = None,
         max_households: int | None = None,
+        parallel_households: bool = False,
+        parallel_workers: int | None = None,
     ):
         if household_ids is None:
             selected_households = list(range(1, self.num_households + 1))
@@ -289,8 +355,39 @@ class Simulation:
         if max_households is not None and max_households >= 0:
             selected_households = selected_households[:max_households]
 
+        if parallel_households and len(selected_households) > 1:
+            self.run_all_households_parallel(
+                run_context,
+                selected_households,
+                parallel_workers=parallel_workers,
+            )
+            return
+
         for player_id in selected_households:
             self.run_household(player_id, run_context)
+
+
+    def run_all_households_parallel(
+        self,
+        run_context: RunContext,
+        selected_households: list[int],
+        parallel_workers: int | None = None,
+    ):
+        with ProcessPoolExecutor(max_workers=parallel_workers) as executor:
+            future_to_household = {
+                executor.submit(_run_household_worker, player_id, run_context): player_id
+                for player_id in selected_households
+            }
+
+            for future in as_completed(future_to_household):
+                player_id = future_to_household[future]
+                payload = future.result()
+                self.load_history_payload_to_sqlite(payload)
+                self.load_results_payload_to_sqlite(payload)
+                print(
+                    f"completed household {player_id} in scenario {payload['scenario']} "
+                    f"with controller {payload['policy']}, run_id = {payload['run_id']}"
+                )
 
 
     def run_batch(
@@ -298,12 +395,16 @@ class Simulation:
         run_contexts: list[RunContext],
         household_ids: list[int] | None = None,
         max_households: int | None = None,
+        parallel_households: bool = False,
+        parallel_workers: int | None = None,
     ):
         for run_context in run_contexts:
             self.run_all_households(
                 run_context,
                 household_ids=household_ids,
                 max_households=max_households,
+                parallel_households=parallel_households,
+                parallel_workers=parallel_workers,
             )
 
 
@@ -408,6 +509,81 @@ class Simulation:
             self.sqlite_conn.commit()
 
 
+    def load_results_payload_to_sqlite(self, payload: dict):
+        self.sqlite_cursor.execute(
+            '''
+            INSERT INTO results (
+            run_id,
+            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
+            net_cost, net_load,
+            target_met_bess, target_met_ev1, target_met_ev2,
+              target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
+            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
+            )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                payload["run_id"],
+                payload["policy"],
+                payload["scenario"],
+                payload["player_id"],
+                payload["has_pv"],
+                payload["has_bess"],
+                payload["total_cost"],
+                payload["total_consumption"],
+                payload["net_cost"],
+                payload["net_load"],
+                payload["target_met_bess"],
+                payload["target_met_ev1"],
+                payload["target_met_ev2"],
+                payload["target_met_all_bess"],
+                payload["target_met_all_ev1"],
+                payload["target_met_all_ev2"],
+                payload["soc_at_deadline_bess"],
+                payload["soc_at_deadline_ev1"],
+                payload["soc_at_deadline_ev2"],
+            ),
+        )
+        self.sqlite_conn.commit()
+
+
+    def load_history_payload_to_sqlite(self, payload: dict):
+        policy_name = payload["policy"]
+        scenario_name = payload["scenario"]
+        player_id = payload["player_id"]
+        history = payload["history"]
+
+        for measurement in DEFAULT_HISTORY_MEASUREMENTS:
+            self.sqlite_cursor.execute(
+                f'''
+                CREATE TABLE IF NOT EXISTS {measurement} (
+                    player_id INTEGER,
+                    scenario TEXT,
+                    policy TEXT,
+                    period INTEGER,
+                    value REAL
+                )'''
+            )
+
+            rows = history.get(measurement, [])
+            if not rows:
+                continue
+
+            self.sqlite_cursor.executemany(
+                f'''
+                INSERT INTO {measurement} (
+                player_id, scenario, policy, period, value
+                ) VALUES (?, ?, ?, ?, ?)
+                ''',
+                [
+                    (player_id, scenario_name, policy_name, int(period), float(value))
+                    for period, value in rows
+                ],
+            )
+
+        self.sqlite_conn.commit()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run household energy simulation")
     parser.add_argument(
@@ -436,6 +612,17 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help="Simulation start timestep (1..96)",
+    )
+    parser.add_argument(
+        "--parallel-households",
+        action="store_true",
+        help="Run households in parallel using process workers",
+    )
+    parser.add_argument(
+        "--parallel-workers",
+        type=int,
+        default=None,
+        help="Number of worker processes for --parallel-households (default: Python decides)",
     )
     args = parser.parse_args()
 
@@ -513,4 +700,6 @@ if __name__ == "__main__":
         run_contexts,
         household_ids=selected_household_ids,
         max_households=args.max_households,
+        parallel_households=args.parallel_households,
+        parallel_workers=args.parallel_workers,
     )
