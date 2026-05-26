@@ -16,7 +16,7 @@ from pathlib import Path
 
 price_profile_1 = [2] * 33 + [1] * 33 + [3] * 34
 
-horizon_len = 50
+horizon_len = 60
 
 constraints = {
     'targets' : [(len(price_profile_1), 0.8)], # targets are on global SoC state index
@@ -27,7 +27,7 @@ constraints = {
 }
 
 # Keep LP behavior while making tie cases deterministic and smooth.
-linearize_actions = True
+linearize_actions = False
 cost_opt_tolerance = 1e-8
 
 
@@ -127,7 +127,7 @@ def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg,
 
     primary_cost_expr = cp.sum(cp.multiply(pred_price_profile, bess_charge_var))
     problem = cp.Problem(cp.Minimize(primary_cost_expr), mpc_constraints)
-    problem.solve()
+    problem.solve(warm_start=True)
 
     if not is_optimal_status(problem.status) or bess_charge_var.value is None:
         return 0.0
@@ -145,7 +145,7 @@ def solve_charge_action_for_step(step_idx, current_soc, full_price_profile, cfg,
             base_constraints=mpc_constraints,
             cost_expr=primary_cost_expr,
         )
-        problem_with_linearity_bias.solve()
+        problem_with_linearity_bias.solve(warm_start=True)
 
         if is_optimal_status(problem_with_linearity_bias.status) and bess_charge_var.value is not None:
             return float(bess_charge_var.value[0])
