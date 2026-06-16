@@ -23,7 +23,7 @@ This is what we call DECISION VARIABLES
 
 ### EV
 - charge home
-- discharge home
 - charge station
-- discharge station
+
+We do not model V2G, because that would require speculative assumptions about hardware capabilities and export prices for both home and public chargers. The dataset does not provide enough information to support those assumptions, so EVs are treated as charge-only loads.
 
