@@ -36,8 +36,8 @@ class MPCController(BaseController):
         #3. define optimization problem
 
         bess_power = cp.Variable(self.horizon, bounds=(-household.bess.max_discharge, household.bess.max_charge)) if household.bess else None
-        ev1_power = cp.Variable(self.horizon, bounds=(-household.ev1.max_discharge, household.ev1.max_charge)) if household.ev1 else None
-        ev2_power = cp.Variable(self.horizon, bounds=(-household.ev2.max_discharge, household.ev2.max_charge)) if household.ev2 else None
+        ev1_power = cp.Variable(self.horizon, bounds=(0, household.ev1.max_charge)) if household.ev1 else None
+        ev2_power = cp.Variable(self.horizon, bounds=(0, household.ev2.max_charge)) if household.ev2 else None
 
         constraints = []
 
