@@ -22,15 +22,18 @@ class MPCController(BaseController):
     def set_controls(self, household: Household, scenario: Scenario, predictor: str='oracle', *args, **kwargs):
         _ = (household, scenario, args, kwargs)
 
-        # get predictions for the next 24 hours
+        # 1. get current states for the household
+
+        # 2. get predictions for the next 24 hours
         # make optimization problem and solve it
 
         if predictor == 'oracle':
             predictions = household.oracle_profiles.get("predictions", {})
         else:
-            print('EEE EE  EEEEE EE EEEEEEEEEEEEEEE')
+            print('No other predictor available yet, TBD, use oracle instead')
             return
 
+        #3. define optimization problem
 
         bess_power = cp.Variable(self.horizon, bounds=(-household.bess.max_discharge, household.bess.max_charge)) if household.bess else None
         ev1_power = cp.Variable(self.horizon, bounds=(-household.ev1.max_discharge, household.ev1.max_charge)) if household.ev1 else None
@@ -38,14 +41,9 @@ class MPCController(BaseController):
 
         constraints = []
 
+        # 4. solve optimization problem
 
-
-
-
-
-
-
-
+        # 5. return the first control action
 
         return {
             "bess_power": 0.0,
