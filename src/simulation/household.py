@@ -249,6 +249,46 @@ class Household:
     @property
     def has_bess(self):
         return self.bess is not None
+    
+    @property
+    def pv_gen(self):
+        return self.pv.generation if self.pv else 0.0
+
+    @property
+    def bess_soc(self):
+        return self.bess.soc if self.bess else 0.0
+
+    @property
+    def ev1_soc(self):
+        return self.ev1.soc if self.ev1 else 0.0
+
+    @property
+    def ev2_soc(self):
+        return self.ev2.soc if self.ev2 else 0.0
+    
+    @property
+    def ev1_at_home(self):
+        return self.ev1.at_home if self.ev1 else False
+    
+    @property
+    def ev2_at_home(self):
+        return self.ev2.at_home if self.ev2 else False
+    
+    @property
+    def ev1_at_charging_station(self):
+        return self.ev1.at_charging_station if self.ev1 else False
+    
+    @property
+    def ev2_at_charging_station(self):
+        return self.ev2.at_charging_station if self.ev2 else False
+
+    @property
+    def ev1_load(self):
+        return self.controls.get("ev1_power", 0.0) if self.ev1 and self.ev1.at_home else 0.0
+
+    @property
+    def ev2_load(self):
+        return self.controls.get("ev2_power", 0.0) if self.ev2 and self.ev2.at_home else 0.0
 
     @property
     def net_cost(self):
@@ -273,7 +313,7 @@ class Household:
     @property
     def net_load(self):
         base_load = self.base_load if self.base_load else 0.0
-        pv_generation = self.pv.generation if self.pv else 0.0
+        pv_generation = self.pv_gen
         bess_load = self.controls.get("bess_power", 0.0) if self.bess else 0.0
         ev1_load = self.controls.get("ev1_power", 0.0) if self.ev1 and self.ev1.at_home else 0.0
         ev2_load = self.controls.get("ev2_power", 0.0) if self.ev2 and self.ev2.at_home else 0.0
