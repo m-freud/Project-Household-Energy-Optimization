@@ -5,6 +5,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 import sys
+from typing import Callable
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -41,6 +42,41 @@ DEFAULT_HISTORY_MEASUREMENTS = [
 ]
 
 
+def build_function_controller(
+    household: Household,
+    scenario: Scenario,
+    *,
+    name: str,
+    step_function: Callable[..., dict],
+) -> FunctionController:
+    _ = (household, scenario)
+    return FunctionController(name=name, step_function=step_function)
+
+
+def build_mpc_controller(
+    household: Household,
+    scenario: Scenario,
+    *,
+    name: str,
+    horizon: int = 24,
+) -> MPCController:
+    return MPCController(name=name, household=household, scenario=scenario, horizon=horizon)
+
+
+def make_function_controller(
+    name: str,
+    step_function: Callable[..., dict],
+) -> Callable[[Household, Scenario], FunctionController]:
+    return partial(build_function_controller, name=name, step_function=step_function)
+
+
+def make_mpc_controller(
+    name: str,
+    horizon: int = 24,
+) -> Callable[[Household, Scenario], MPCController]:
+    return partial(build_mpc_controller, name=name, horizon=horizon)
+
+
 def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
     # Worker processes create isolated DB connections; only the parent writes results.
     from src.sqlite_connection import create_sqlite_connection
@@ -48,7 +84,6 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
     worker_conn = create_sqlite_connection()
     try:
         sim = Simulation(worker_conn, ensure_schema=False)
-        controller = run_context.controller
         scenario = run_context.scenario
 
         start_time = run_context.start_time
@@ -56,6 +91,7 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
             raise ValueError(f"start_time must be between 1 and {sim.num_timesteps}")
 
         household = sim.create_household(player_id, run_context)
+        controller = sim.create_controller(household, run_context)
 
         for t in range(start_time, sim.num_timesteps + 1):
             sim.step(household, controller, scenario, duration_hours=0.25, time=t)
@@ -254,6 +290,16 @@ class Simulation:
         return household
     
 
+    def create_controller(self, household: Household, run_context: RunContext) -> BaseController:
+        if run_context.controller_factory is None:
+            raise ValueError("RunContext must define a controller_factory")
+
+        controller = run_context.controller_factory(household, run_context.scenario)
+        if not isinstance(controller, BaseController):
+            raise TypeError("Controller factory must return a BaseController instance")
+        return controller
+
+
     def step(
             self,
             household: Household,
@@ -308,17 +354,17 @@ class Simulation:
 
 
     def run_household(self, player_id, run_context: RunContext):
-        controller = run_context.controller
         scenario = run_context.scenario
         current_run_id = run_context.run_id
-
-        print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         start_time = run_context.start_time
         if start_time < 1 or start_time > self.num_timesteps:
             raise ValueError(f"start_time must be between 1 and {self.num_timesteps}")
 
         household = self.create_household(player_id, run_context)
+        controller = self.create_controller(household, run_context)
+
+        print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         for t in range(start_time, self.num_timesteps + 1):
             self.step(household, controller, scenario, duration_hours=0.25, time=t)
@@ -574,48 +620,35 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create a simulation instance
+    # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
-    no_control_controller = FunctionController(name="no_control", step_function=no_control)
-    even_linear_controller = FunctionController(name="even_linear", step_function=even_linear_policy)
-    fast_charge_controller = FunctionController(name="fast_charge", step_function=fast_charge_policy)
-    price_aware_linear_controller = FunctionController(
-        name="price_aware_linear",
-        step_function=partial(price_aware_linear, default_behaviour="even_linear"),
-    )
-    waterfall_controller = FunctionController(
-        name="waterfall",
-        step_function=waterfall_policy,
-    )
-    mpc_oracle_controller = MPCController(
-        name="mpc_oracle",
-        horizon=24,
-    )
+    controller_factories_by_name = {
+        "no_control": make_function_controller("no_control", no_control),
+        "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
+        "even_linear": make_function_controller("even_linear", even_linear_policy),
+        "price_aware_linear": make_function_controller(
+            "price_aware_linear",
+            partial(price_aware_linear, default_behaviour="even_linear"),
+        ),
+        "waterfall": make_function_controller("waterfall", waterfall_policy),
+        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=24),
+    }
 
-    controllers = [
-        no_control_controller,
-        fast_charge_controller,
-        even_linear_controller,
-        price_aware_linear_controller,
-        waterfall_controller,
-        mpc_oracle_controller,
-    ]
-
-    controllers_by_name = {controller.name: controller for controller in controllers}
     scenarios_by_name = {scenario.name: scenario for scenario in scenario_catalog}
 
     if args.controllers == "all":
-        selected_controllers = controllers
+        selected_controller_names = list(controller_factories_by_name.keys())
     else:
         requested_controller_names = [
             name.strip() for name in args.controllers.split(",") if name.strip()
         ]
         unknown_controller_names = [
-            name for name in requested_controller_names if name not in controllers_by_name
+            name for name in requested_controller_names if name not in controller_factories_by_name
         ]
         if unknown_controller_names:
             raise ValueError(f"Unknown controllers: {unknown_controller_names}")
-        selected_controllers = [controllers_by_name[name] for name in requested_controller_names]
+        selected_controller_names = requested_controller_names
 
     if args.scenarios == "all":
         selected_scenarios = scenario_catalog
@@ -638,8 +671,13 @@ if __name__ == "__main__":
         ]
 
     run_contexts = [
-        RunContext(controller=controller, scenario=scenario, start_time=args.start_time)
-        for controller in selected_controllers
+        RunContext(
+            controller_factory=controller_factories_by_name[controller_name],
+            controller_name=controller_name,
+            scenario=scenario,
+            start_time=args.start_time,
+        )
+        for controller_name in selected_controller_names
         for scenario in selected_scenarios
     ]
 

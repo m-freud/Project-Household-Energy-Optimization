@@ -15,9 +15,11 @@ from src.simulation.household import Household
 
 
 class MPCController(BaseController):
-    def __init__(self, name: str, horizon: int = 96):
+    def __init__(self, name: str, household: Household, scenario: Scenario, horizon: int = 96):
         super().__init__(name)
         self.horizon = int(horizon)
+        self.household = household
+        self.scenario = scenario
 
     def set_controls(self, household: Household, scenario: Scenario, predictor: str='oracle', *args, **kwargs):
         _ = (household, scenario, args, kwargs)
@@ -35,6 +37,7 @@ class MPCController(BaseController):
 
         #3. define optimization problem
 
+        # TODO use scenario device constraints here
         bess_power = cp.Variable(self.horizon, bounds=(-household.bess.max_discharge, household.bess.max_charge)) if household.bess else None
         ev1_power = cp.Variable(self.horizon, bounds=(0, household.ev1.max_charge)) if household.ev1 else None
         ev2_power = cp.Variable(self.horizon, bounds=(0, household.ev2.max_charge)) if household.ev2 else None

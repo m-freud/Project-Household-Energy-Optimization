@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
+from typing import Callable
 
+from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario, default_scenario
 from src.simulation.controllers.base_controller import BaseController
 from src.sqlite_connection import sqlite_conn as _default_conn
@@ -24,10 +26,11 @@ def _next_run_id() -> str:
 
 @dataclass
 class RunContext:
-    controller: BaseController
+    controller_factory: Callable[[Household, Scenario], BaseController] | None = None
     scenario: Scenario = field(default_factory=lambda: default_scenario)
     run_id: str = field(default="")
     start_time: int = 1
+    controller_name: str | None = None
 
     # ensure read-only after creation
     def __post_init__(self):
