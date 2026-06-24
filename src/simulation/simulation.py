@@ -26,6 +26,7 @@ from src.simulation.controllers.policies.linear.price_aware_linear import price_
 from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
+from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 
 
 DEFAULT_HISTORY_MEASUREMENTS = [
@@ -60,7 +61,13 @@ def build_mpc_controller(
     name: str,
     horizon: int = 24,
 ) -> MPCController:
-    return MPCController(name=name, household=household, scenario=scenario, horizon=horizon)
+    return MPCController(
+        name=name,
+        household=household,
+        scenario=scenario,
+        horizon=horizon,
+        predictor=OraclePredictor(),
+    )
 
 
 def make_function_controller(

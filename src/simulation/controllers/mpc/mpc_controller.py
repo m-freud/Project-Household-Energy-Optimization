@@ -12,6 +12,7 @@ sys.path.insert(0, str(repo_root))
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
+from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 
 
 class MPCController(BaseController):
@@ -63,20 +64,19 @@ class MPCController(BaseController):
 
 
         # 2. get predictions for the next 24 hours
-        # make optimization problem and solve it
 
-        if predictor == 'oracle':
-            predictions = household.oracle_profiles.get("predictions", {})
+        if self.predictor is not None:
+            predictions = self.predictor.predict(household, scenario, self.horizon)
         else:
-            print('No other predictor available yet, TBD, use oracle instead')
-            return
+            print('No predictor configured for MPC controller; using empty predictions')
+            predictions = {}
 
         #3. define optimization problem
 
         # TODO use scenario device constraints here
-        bess_power = cp.Variable(self.horizon, bounds=(-household.bess.max_discharge, household.bess.max_charge)) if household.bess else None
-        ev1_power = cp.Variable(self.horizon, bounds=(0, household.ev1.max_charge)) if household.ev1 else None
-        ev2_power = cp.Variable(self.horizon, bounds=(0, household.ev2.max_charge)) if household.ev2 else None
+        bess_power = cp.Variable(self.horizon, bounds=self.bess_bounds) if household.bess else None
+        ev1_power = cp.Variable(self.horizon, bounds=self.ev1_bounds) if household.ev1 else None
+        ev2_power = cp.Variable(self.horizon, bounds=self.ev2_bounds) if household.ev2 else None
 
         constraints = []
 
