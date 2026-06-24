@@ -15,16 +15,52 @@ from src.simulation.household import Household
 
 
 class MPCController(BaseController):
-    def __init__(self, name: str, household: Household, scenario: Scenario, horizon: int = 96):
+    def __init__(
+        self,
+        name: str,
+        household: Household,
+        scenario: Scenario,
+        horizon: int = 96,
+        predictor: BasePredictor | None = None,
+    ):
         super().__init__(name)
-        self.horizon = int(horizon)
         self.household = household
         self.scenario = scenario
+        self.horizon = int(horizon)
+        self.predictor = predictor
+
+        self.bess_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else None
+        self.ev1_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else None
+        self.ev2_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else None
+
+        self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess else None
+        self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else None
+        self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else None
+
 
     def set_controls(self, household: Household, scenario: Scenario, predictor: str='oracle', *args, **kwargs):
         _ = (household, scenario, args, kwargs)
 
         # 1. get current states for the household
+        #  a. essentials
+        current_timestep = household.current_timestep
+        bess_soc = household.bess_soc
+        ev1_soc = household.ev1_soc
+        ev2_soc = household.ev2_soc
+        base_load = household.base_load
+        pv_generation = household.pv_gen
+        net_load = household.net_load
+
+        # b. potentially optional
+        buy_price = household.buy_price
+        sell_price = household.sell_price
+        ev1_at_home = household.ev1_at_home
+        ev2_at_home = household.ev2_at_home
+        ev1_at_charging_station = household.ev1_at_charging_station
+        ev2_at_charging_station = household.ev2_at_charging_station
+        ev1_load = household.ev1_load
+        ev2_load = household.ev2_load
+
 
         # 2. get predictions for the next 24 hours
         # make optimization problem and solve it
