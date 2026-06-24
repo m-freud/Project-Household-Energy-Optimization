@@ -323,9 +323,9 @@ class Simulation:
         for t in range(start_time, self.num_timesteps + 1):
             self.step(household, controller, scenario, duration_hours=0.25, time=t)
 
-        self.load_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
+        self.load_household_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
         
-        self.load_results_to_sqlite(
+        self.load_household_results_to_sqlite(
             household,
             policy_name=controller.name,
             scenario_name=scenario.name,
@@ -408,108 +408,54 @@ class Simulation:
             )
 
 
-    def load_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
-        total_cost = household.total_cost
-        total_consumption = household.total_consumption
-        net_cost = sum(household.history["net_cost"].values()) * 0.25
-        net_load = sum(household.history["net_load"].values()) * 0.25
-        target_met_bess = household.has_met_target("bess")
-        target_met_ev1 = household.has_met_target("ev1")
-        target_met_ev2 = household.has_met_target("ev2")
-        target_met_all_bess = household.has_met_all_targets("bess")
-        target_met_all_ev1 = household.has_met_all_targets("ev1")
-        target_met_all_ev2 = household.has_met_all_targets("ev2")
-        soc_at_deadline_bess = household.soc_at_deadline("bess")
-        soc_at_deadline_ev1 = household.soc_at_deadline("ev1")
-        soc_at_deadline_ev2 = household.soc_at_deadline("ev2")
-        self.sqlite_cursor.execute(
-            '''
-            INSERT INTO results (
-            run_id,
-            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
-            net_cost, net_load,
-            target_met_bess, target_met_ev1, target_met_ev2,
-              target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
-            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
-            )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (run_id, policy_name, scenario_name, household.player_id, household.has_pv,
-             household.has_bess, total_cost, total_consumption,
-             net_cost, net_load,
-             target_met_bess, target_met_ev1, target_met_ev2,
-               target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
-             soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2)
-        )
-        self.sqlite_conn.commit()
+    def load_household_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
+        # extract dict from household, load to sqlite
+        
+        payload = {
+            "run_id": run_id,
+            "policy": policy_name,
+            "scenario": scenario_name,
+            "player_id": household.player_id,
+            "has_pv": household.has_pv,
+            "has_bess": household.has_bess,
+            "total_cost": household.total_cost,
+            "total_consumption": household.total_consumption,
+            "net_cost": sum(household.history["net_cost"].values()) * 0.25,
+            "net_load": sum(household.history["net_load"].values()) * 0.25,
+            "target_met_bess": household.has_met_target("bess"),
+            "target_met_ev1": household.has_met_target("ev1"),
+            "target_met_ev2": household.has_met_target("ev2"),
+            "target_met_all_bess": household.has_met_all_targets("bess"),
+            "target_met_all_ev1": household.has_met_all_targets("ev1"),
+            "target_met_all_ev2": household.has_met_all_targets("ev2"),
+            "soc_at_deadline_bess": household.soc_at_deadline("bess"),
+            "soc_at_deadline_ev1": household.soc_at_deadline("ev1"),
+            "soc_at_deadline_ev2": household.soc_at_deadline("ev2"),
+        }
+        self.load_results_payload_to_sqlite(payload)
 
 
-    def load_history_to_sqlite(self,
+    def load_household_history_to_sqlite(self,
                                household, policy_name,
                                scenario_name, measurements=None):
+        # extract dict from household, load to sqlite
         if measurements is None:
-            measurements = [
-                "net_load",
-                "net_cost",
-                "total_consumption",
-                "total_cost",
-                "bess_soc",
-                "bess_power",
-                "ev1_soc",
-                "ev1_power",
-                "ev2_soc",
-                "ev2_power",
-            ]
+            measurements = DEFAULT_HISTORY_MEASUREMENTS
 
-        for measurement in measurements:
-            # create table if not exists
-            self.sqlite_cursor.execute(
-                f'''
-                CREATE TABLE IF NOT EXISTS {measurement} (
-                    player_id INTEGER,
-                    scenario TEXT,
-                    policy TEXT,
-                    period INTEGER,
-                    value REAL
-                )'''
-            )
+        payload = {
+            "policy": policy_name,
+            "scenario": scenario_name,
+            "player_id": household.player_id,
+            "history": {
+                measurement: list(household.history[measurement].items())
+                for measurement in measurements
+            },
+        }
+        self.load_history_payload_to_sqlite(payload)
 
-
-            points = []
-
-            for t, value in household.history[measurement].items():
-                points.append({
-                    "measurement": measurement,
-                    "tags": {
-                        "player_id": household.player_id,
-                        "policy": policy_name,
-                        "scenario": scenario_name,
-                    },
-                    "value": value,
-                    "period": t,
-                })
-
-
-            for point in points:
-                self.sqlite_cursor.execute(
-                    f'''
-                    INSERT INTO {measurement} (
-                    player_id, scenario, policy, period, value
-                    ) VALUES (?, ?, ?, ?, ?)
-                    ''',
-                    (
-                        point["tags"]["player_id"],
-                        point["tags"]["scenario"],
-                        point["tags"]["policy"],
-                        point["period"],
-                        point["value"]
-                    )
-                )
-
-            self.sqlite_conn.commit()
-
-
+    
     def load_results_payload_to_sqlite(self, payload: dict):
+        # load dict to sqlite
         self.sqlite_cursor.execute(
             '''
             INSERT INTO results (
@@ -548,6 +494,7 @@ class Simulation:
 
 
     def load_history_payload_to_sqlite(self, payload: dict):
+        # load dict to sqlite
         policy_name = payload["policy"]
         scenario_name = payload["scenario"]
         player_id = payload["player_id"]
