@@ -31,8 +31,15 @@ class OraclePredictor(BasePredictor):
         }
 
         if horizon is not None:
+            start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep - 1))
             for key, values in list(prediction.items()):
                 if isinstance(values, list):
-                    prediction[key] = values[:horizon]
+                    if not values:
+                        prediction[key] = []
+                        continue
+                    sliced = values[start_index:start_index + horizon]
+                    if len(sliced) < horizon:
+                        sliced = sliced + [sliced[-1]] * (horizon - len(sliced))
+                    prediction[key] = sliced
 
         return prediction

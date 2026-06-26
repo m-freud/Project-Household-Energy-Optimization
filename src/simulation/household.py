@@ -3,7 +3,7 @@ from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
 from src.simulation.scenarios.scenario import Scenario
 
-TARGET_TOLERANCE_KWH = 1e-6
+TARGET_TOLERANCE_KWH = 1e-3
 
 
 
@@ -295,7 +295,7 @@ class Household:
         if self.net_load > 0:
             grid_cost = self.net_load * self.buy_price
         else:
-            grid_cost = self.net_load * -self.sell_price
+            grid_cost = self.net_load * self.sell_price
 
         # Charging-station EV charging should affect cost but not household net load.
         ev1_station_cost = 0.0
