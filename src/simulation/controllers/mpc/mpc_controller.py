@@ -126,11 +126,14 @@ class MPCController(BaseController):
                     + household.bess.efficiency * bess_charge[t] * duration_hours
                     - bess_discharge[t] * duration_hours / household.bess.efficiency
                 )
+                # we do not have to assert that charge/discharge conflict eah other, because the optimization will naturally avoid that due to efficiency losses
+                # (round trip efficiency loss)
+                # feel free to test this but this implicit constraint is better than another explicit boolean constrint like discharge * charge == 0
 
             for deadline, target_soc in sorted((self.bess_soc_targets or {}).items()):
                 target_index = deadline - current_timestep + 1
                 if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.bess.capacity if target_soc <= 1.0 else target_soc
+                    target_soc_kwh = target_soc * household.bess.capacity
                     constraints.append(bess_soc_vars[target_index] >= target_soc_kwh)
         else:
             bess_power = None
@@ -154,7 +157,7 @@ class MPCController(BaseController):
             for deadline, target_soc in sorted((self.ev1_soc_targets or {}).items()):
                 target_index = deadline - current_timestep + 1
                 if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.ev1.capacity if target_soc <= 1.0 else target_soc
+                    target_soc_kwh = target_soc * household.ev1.capacity
                     constraints.append(ev1_soc_vars[target_index] >= target_soc_kwh)
         else:
             ev1_charge = None
@@ -178,7 +181,7 @@ class MPCController(BaseController):
             for deadline, target_soc in sorted((self.ev2_soc_targets or {}).items()):
                 target_index = deadline - current_timestep + 1
                 if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.ev2.capacity if target_soc <= 1.0 else target_soc
+                    target_soc_kwh = target_soc * household.ev2.capacity
                     constraints.append(ev2_soc_vars[target_index] >= target_soc_kwh)
         else:
             ev2_charge = None
@@ -189,8 +192,6 @@ class MPCController(BaseController):
 
             net_load = (
                 base_load_profile[t]
-                + ev1_load_profile[t]
-                + ev2_load_profile[t]
                 - pv_profile[t]
                 + (bess_power[t] if bess_power is not None else 0.0)
                 + ev1_home_load
