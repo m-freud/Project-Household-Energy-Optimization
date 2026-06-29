@@ -40,21 +40,8 @@ class MPCController(BaseController):
 
 
     def _planning_horizon(self, current_timestep: int, scenario: Scenario) -> int:
-        remaining_steps = max(1, 96 - current_timestep + 1)
-        required_deadlines = []
-
-        for device_name in ("bess", "ev1", "ev2"):
-            device_scenario = getattr(scenario, device_name, None)
-            if device_scenario and device_scenario.soc_targets:
-                required_deadlines.extend(
-                    deadline for deadline in device_scenario.soc_targets if deadline >= current_timestep
-                )
-
-        if required_deadlines:
-            required_horizon = max(deadline - current_timestep + 1 for deadline in required_deadlines)
-            return min(remaining_steps, max(self.horizon, required_horizon))
-
-        return min(remaining_steps, self.horizon)
+        _ = (current_timestep, scenario)
+        return max(1, int(self.horizon))
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
@@ -144,10 +131,13 @@ class MPCController(BaseController):
             constraints.append(ev1_soc_vars[0] == ev1_soc)
             for t in range(planning_horizon):
                 availability = 1.0 if (ev1_home_profile[t] > 0 or ev1_station_profile[t] > 0) else 0.0
+                driving_load = ev1_load_profile[t] if availability <= 0.0 else 0.0
                 constraints.append(ev1_charge[t] <= household.ev1.max_charge * availability)
                 constraints.append(
                     ev1_soc_vars[t + 1]
-                    == ev1_soc_vars[t] + household.ev1.efficiency * ev1_charge[t] * duration_hours
+                    == ev1_soc_vars[t]
+                    + ev1_charge[t] * duration_hours * household.ev1.efficiency
+                    - driving_load * duration_hours / household.ev1.efficiency
                 )
                 if ev1_home_profile[t] > 0:
                     pass
@@ -168,10 +158,13 @@ class MPCController(BaseController):
             constraints.append(ev2_soc_vars[0] == ev2_soc)
             for t in range(planning_horizon):
                 availability = 1.0 if (ev2_home_profile[t] > 0 or ev2_station_profile[t] > 0) else 0.0
+                driving_load = ev2_load_profile[t] if availability <= 0.0 else 0.0
                 constraints.append(ev2_charge[t] <= household.ev2.max_charge * availability)
                 constraints.append(
                     ev2_soc_vars[t + 1]
-                    == ev2_soc_vars[t] + household.ev2.efficiency * ev2_charge[t] * duration_hours
+                    == ev2_soc_vars[t]
+                    + ev2_charge[t] * duration_hours * household.ev2.efficiency
+                    - driving_load * duration_hours / household.ev2.efficiency
                 )
                 if ev2_home_profile[t] > 0:
                     pass
@@ -198,7 +191,10 @@ class MPCController(BaseController):
                 + ev2_home_load
             )
             constraints.append(net_load == grid_import[t] - grid_export[t])
-            objective_terms.append(buy_price_profile[t] * grid_import[t] - sell_price_profile[t] * grid_export[t])
+            objective_terms.append(
+                duration_hours * buy_price_profile[t] * grid_import[t]
+                - duration_hours * sell_price_profile[t] * grid_export[t]
+            )
 
         problem = cp.Problem(cp.Minimize(sum(objective_terms)), constraints)
         try:

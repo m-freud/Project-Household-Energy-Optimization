@@ -33,7 +33,7 @@ class EV:
         return energy_added
     
 
-    def discharge(self, power, duration_hours):
+    def take_load(self, power, duration_hours):
         discharge_power = min(power, self.max_discharge)
         energy_removed = discharge_power * duration_hours / self.efficiency
         self.soc = max(0, self.soc - energy_removed)
