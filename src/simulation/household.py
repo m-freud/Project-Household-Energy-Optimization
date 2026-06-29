@@ -108,7 +108,7 @@ class Household:
         for ev in [self.ev1, self.ev2]:
             if ev and not (ev.at_home or ev.at_charging_station):
                 # apply driving load (load = 0 when idle)
-                ev.discharge(ev.load, duration_hours)
+                ev.take_load(ev.load, duration_hours)
 
 
     # def set_controls(self, policy, duration_hours=0.25):

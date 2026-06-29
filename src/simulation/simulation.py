@@ -251,9 +251,9 @@ class Simulation:
         ).fetchone()
         capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev1_data
 
-
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
-        household.ev1.charge_slowest = charge_slowest
+        if charge_slowest is not None:
+            household.ev1.charge_slowest = float(charge_slowest)
 
         # plug in EV2
         ev2_data = self.sqlite_cursor.execute(
@@ -267,7 +267,8 @@ class Simulation:
         capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev2_data
 
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
-        household.ev2.charge_slowest = charge_slowest
+        if charge_slowest is not None:
+            household.ev2.charge_slowest = float(charge_slowest)
 
         # set initial SOCs from scenario
         for component in [household.bess, household.ev1, household.ev2]:
