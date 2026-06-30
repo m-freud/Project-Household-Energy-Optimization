@@ -1,0 +1,6 @@
+policy,avg_total_cost,avg_net_cost,avg_net_load
+fast_charge,11.859257,11.094527,56.351816
+even_linear,12.745788,11.981058,45.782644
+price_aware_linear,11.719566,10.954836,52.763399
+waterfall,11.344846,10.580116,52.06769
+mpc_oracle,9.974331,9.209601,75.301414
