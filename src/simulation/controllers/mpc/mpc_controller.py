@@ -1,4 +1,7 @@
 import cvxpy as cp
+import numpy as np
+from typing import cast
+from cvxpy.constraints.constraint import Constraint
 
 # paste this to enable src. imports
 
@@ -38,6 +41,13 @@ class MPCController(BaseController):
         self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else None
         self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else None
 
+        # Built once and reused every timestep via Parameters (DPP) to avoid
+        # repeated canonicalization overhead.
+        self._compiled_horizon: int | None = None
+        self._problem: cp.Problem | None = None
+        self._params: dict[str, cp.Parameter] = {}
+        self._vars: dict[str, cp.Variable | None] = {}
+
 
     def _planning_horizon(self, current_timestep: int, scenario: Scenario) -> int:
         _ = (current_timestep, scenario)
@@ -53,6 +63,142 @@ class MPCController(BaseController):
             fill_value = series[-1] if series else default
             series.extend([float(fill_value)] * (horizon - len(series)))
         return series
+
+    def _ensure_compiled_problem(self, planning_horizon: int):
+        if self._problem is not None and self._compiled_horizon == planning_horizon:
+            return
+
+        h = int(planning_horizon)
+        duration_hours = 0.25
+
+        params: dict[str, cp.Parameter] = {
+            "base_load": cp.Parameter(h),
+            "pv_gen": cp.Parameter(h),
+            "buy_price": cp.Parameter(h),
+            "sell_price": cp.Parameter(h),
+        }
+        variables: dict[str, cp.Variable | None] = {}
+
+        grid_import = cp.Variable(h, nonneg=True)
+        grid_export = cp.Variable(h, nonneg=True)
+        variables["grid_import"] = grid_import
+        variables["grid_export"] = grid_export
+
+        net_load_expr = params["base_load"] - params["pv_gen"]
+        objective = duration_hours * (
+            params["buy_price"] @ grid_import - params["sell_price"] @ grid_export
+        )
+        constraints: list[Constraint] = [net_load_expr == grid_import - grid_export]
+
+        if self.household.bess:
+            params["bess_soc0"] = cp.Parameter()
+            params["bess_target_lb"] = cp.Parameter(h + 1)
+
+            bess_power = cp.Variable(h)
+            bess_charge = cp.Variable(h, nonneg=True)
+            bess_discharge = cp.Variable(h, nonneg=True)
+            bess_soc = cp.Variable(h + 1, bounds=[0.0, self.household.bess.capacity])
+
+            variables["bess_power"] = bess_power
+            constraints.extend([
+                bess_soc[0] == params["bess_soc0"],
+                bess_charge <= self.household.bess.max_charge,
+                bess_discharge <= self.household.bess.max_discharge,
+                bess_power == bess_charge - bess_discharge,
+                bess_soc[1:]
+                == bess_soc[:-1]
+                + self.household.bess.efficiency * bess_charge * duration_hours
+                - bess_discharge * duration_hours / self.household.bess.efficiency,
+                bess_soc[1:] >= params["bess_target_lb"][1:],
+            ])
+            net_load_expr = net_load_expr + bess_power
+        else:
+            variables["bess_power"] = None
+
+        if self.household.ev1:
+            params["ev1_soc0"] = cp.Parameter()
+            params["ev1_availability"] = cp.Parameter(h)
+            params["ev1_home_mask"] = cp.Parameter(h)
+            params["ev1_drive_load"] = cp.Parameter(h)
+            params["ev1_station_price"] = cp.Parameter(h)
+            params["ev1_target_lb"] = cp.Parameter(h + 1)
+
+            ev1_charge = cp.Variable(h, nonneg=True)
+            ev1_soc = cp.Variable(h + 1, bounds=[0.0, self.household.ev1.capacity])
+            variables["ev1_charge"] = ev1_charge
+
+            constraints.extend([
+                ev1_soc[0] == params["ev1_soc0"],
+                ev1_charge <= self.household.ev1.max_charge * params["ev1_availability"],
+                ev1_soc[1:]
+                == ev1_soc[:-1]
+                + ev1_charge * duration_hours * self.household.ev1.efficiency
+                - params["ev1_drive_load"] * duration_hours / self.household.ev1.efficiency,
+                ev1_soc[1:] >= params["ev1_target_lb"][1:],
+            ])
+
+            net_load_expr = net_load_expr + cp.multiply(params["ev1_home_mask"], ev1_charge)
+            objective = objective + cp.sum(
+                cp.multiply(params["ev1_station_price"], ev1_charge)
+            )
+        else:
+            variables["ev1_charge"] = None
+
+        if self.household.ev2:
+            params["ev2_soc0"] = cp.Parameter()
+            params["ev2_availability"] = cp.Parameter(h)
+            params["ev2_home_mask"] = cp.Parameter(h)
+            params["ev2_drive_load"] = cp.Parameter(h)
+            params["ev2_station_price"] = cp.Parameter(h)
+            params["ev2_target_lb"] = cp.Parameter(h + 1)
+
+            ev2_charge = cp.Variable(h, nonneg=True)
+            ev2_soc = cp.Variable(h + 1, bounds=[0.0, self.household.ev2.capacity])
+            variables["ev2_charge"] = ev2_charge
+
+            constraints.extend([
+                ev2_soc[0] == params["ev2_soc0"],
+                ev2_charge <= self.household.ev2.max_charge * params["ev2_availability"],
+                ev2_soc[1:]
+                == ev2_soc[:-1]
+                + ev2_charge * duration_hours * self.household.ev2.efficiency
+                - params["ev2_drive_load"] * duration_hours / self.household.ev2.efficiency,
+                ev2_soc[1:] >= params["ev2_target_lb"][1:],
+            ])
+
+            net_load_expr = net_load_expr + cp.multiply(params["ev2_home_mask"], ev2_charge)
+            objective = objective + cp.sum(
+                cp.multiply(params["ev2_station_price"], ev2_charge)
+            )
+        else:
+            variables["ev2_charge"] = None
+
+        constraints[0] = net_load_expr == grid_import - grid_export
+
+        self._compiled_horizon = h
+        self._params = params
+        self._vars = variables
+        self._problem = cp.Problem(cp.Minimize(objective), constraints)
+
+    def _target_lb(self, targets: dict | None, capacity: float, current_timestep: int, horizon: int) -> np.ndarray:
+        lb = np.zeros(horizon + 1, dtype=float)
+        if not targets:
+            return lb
+
+        for deadline, target_soc in sorted(targets.items()):
+            target_index = int(deadline) - int(current_timestep) + 1
+            if 0 <= target_index <= horizon:
+                target_soc_kwh = float(target_soc) * float(capacity)
+                lb[target_index] = max(lb[target_index], target_soc_kwh)
+        return lb
+
+    def _first_value(self, variable: cp.Variable | None) -> float:
+        if variable is None:
+            return 0.0
+        value = variable[0].value
+        if value is None:
+            return 0.0
+        return float(np.asarray(value).item())
 
     def set_controls(self, household: Household, scenario: Scenario, predictor: str = 'oracle', *args, **kwargs):
         _ = (household, scenario, args, kwargs)
@@ -76,6 +222,7 @@ class MPCController(BaseController):
             raise NotImplementedError("No predictor configured for MPC controller")
 
         planning_horizon = self._planning_horizon(current_timestep, scenario)
+        self._ensure_compiled_problem(planning_horizon)
         predictions = self.predictor.predict(household, scenario, planning_horizon)
 
         base_load_profile = self._prediction_series(predictions, "base_load", planning_horizon, default=base_load)
@@ -91,116 +238,64 @@ class MPCController(BaseController):
         ev1_buy_price_profile = self._prediction_series(predictions, "ev1_buy_price", planning_horizon, default=buy_price)
         ev2_buy_price_profile = self._prediction_series(predictions, "ev2_buy_price", planning_horizon, default=buy_price)
 
-        duration_hours = 0.25
-        constraints = []
-        objective_terms = []
-        grid_import = cp.Variable(planning_horizon, nonneg=True)
-        grid_export = cp.Variable(planning_horizon, nonneg=True)
+        self._params["base_load"].value = np.asarray(base_load_profile, dtype=float)
+        self._params["pv_gen"].value = np.asarray(pv_profile, dtype=float)
+        self._params["buy_price"].value = np.asarray(buy_price_profile, dtype=float)
+        self._params["sell_price"].value = np.asarray(sell_price_profile, dtype=float)
 
         if household.bess:
-            bess_power = cp.Variable(planning_horizon, bounds=[-household.bess.max_discharge, household.bess.max_charge])
-            bess_charge = cp.Variable(planning_horizon, nonneg=True)
-            bess_discharge = cp.Variable(planning_horizon, nonneg=True)
-            bess_soc_vars = cp.Variable(planning_horizon + 1, bounds=[0.0, household.bess.capacity])
-            constraints.append(bess_soc_vars[0] == bess_soc)
-            for t in range(planning_horizon):
-                constraints.append(bess_charge[t] <= household.bess.max_charge)
-                constraints.append(bess_discharge[t] <= household.bess.max_discharge)
-                constraints.append(bess_power[t] == bess_charge[t] - bess_discharge[t])
-                constraints.append(
-                    bess_soc_vars[t + 1]
-                    == bess_soc_vars[t]
-                    + household.bess.efficiency * bess_charge[t] * duration_hours
-                    - bess_discharge[t] * duration_hours / household.bess.efficiency
-                )
-                # we do not have to assert that charge/discharge conflict eah other, because the optimization will naturally avoid that due to efficiency losses
-                # (round trip efficiency loss)
-                # feel free to test this but this implicit constraint is better than another explicit boolean constrint like discharge * charge == 0
-
-            for deadline, target_soc in sorted((self.bess_soc_targets or {}).items()):
-                target_index = deadline - current_timestep + 1
-                if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.bess.capacity
-                    constraints.append(bess_soc_vars[target_index] >= target_soc_kwh)
-        else:
-            bess_power = None
+            self._params["bess_soc0"].value = float(bess_soc)
+            self._params["bess_target_lb"].value = self._target_lb(
+                self.bess_soc_targets,
+                household.bess.capacity,
+                current_timestep,
+                planning_horizon,
+            )
 
         if household.ev1:
-            ev1_charge = cp.Variable(planning_horizon, bounds=[0.0, household.ev1.max_charge])
-            ev1_soc_vars = cp.Variable(planning_horizon + 1, bounds=[0.0, household.ev1.capacity])
-            constraints.append(ev1_soc_vars[0] == ev1_soc)
-            for t in range(planning_horizon):
-                availability = 1.0 if (ev1_home_profile[t] > 0 or ev1_station_profile[t] > 0) else 0.0
-                driving_load = ev1_load_profile[t] if availability <= 0.0 else 0.0
-                constraints.append(ev1_charge[t] <= household.ev1.max_charge * availability)
-                constraints.append(
-                    ev1_soc_vars[t + 1]
-                    == ev1_soc_vars[t]
-                    + ev1_charge[t] * duration_hours * household.ev1.efficiency
-                    - driving_load * duration_hours / household.ev1.efficiency
-                )
-                if ev1_home_profile[t] > 0:
-                    pass
-                elif ev1_station_profile[t] > 0:
-                    objective_terms.append(ev1_buy_price_profile[t] * ev1_charge[t])
+            ev1_home_mask = np.asarray([1.0 if value > 0 else 0.0 for value in ev1_home_profile], dtype=float)
+            ev1_station_mask = np.asarray([1.0 if value > 0 else 0.0 for value in ev1_station_profile], dtype=float)
+            ev1_availability = np.maximum(ev1_home_mask, ev1_station_mask)
+            ev1_drive_load = np.asarray(ev1_load_profile, dtype=float) * (1.0 - ev1_availability)
+            ev1_station_price = np.asarray(ev1_buy_price_profile, dtype=float) * ev1_station_mask
 
-            for deadline, target_soc in sorted((self.ev1_soc_targets or {}).items()):
-                target_index = deadline - current_timestep + 1
-                if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.ev1.capacity
-                    constraints.append(ev1_soc_vars[target_index] >= target_soc_kwh)
-        else:
-            ev1_charge = None
+            self._params["ev1_soc0"].value = float(ev1_soc)
+            self._params["ev1_home_mask"].value = ev1_home_mask
+            self._params["ev1_availability"].value = ev1_availability
+            self._params["ev1_drive_load"].value = ev1_drive_load
+            self._params["ev1_station_price"].value = ev1_station_price
+            self._params["ev1_target_lb"].value = self._target_lb(
+                self.ev1_soc_targets,
+                household.ev1.capacity,
+                current_timestep,
+                planning_horizon,
+            )
 
         if household.ev2:
-            ev2_charge = cp.Variable(planning_horizon, bounds=[0.0, household.ev2.max_charge])
-            ev2_soc_vars = cp.Variable(planning_horizon + 1, bounds=[0.0, household.ev2.capacity])
-            constraints.append(ev2_soc_vars[0] == ev2_soc)
-            for t in range(planning_horizon):
-                availability = 1.0 if (ev2_home_profile[t] > 0 or ev2_station_profile[t] > 0) else 0.0
-                driving_load = ev2_load_profile[t] if availability <= 0.0 else 0.0
-                constraints.append(ev2_charge[t] <= household.ev2.max_charge * availability)
-                constraints.append(
-                    ev2_soc_vars[t + 1]
-                    == ev2_soc_vars[t]
-                    + ev2_charge[t] * duration_hours * household.ev2.efficiency
-                    - driving_load * duration_hours / household.ev2.efficiency
-                )
-                if ev2_home_profile[t] > 0:
-                    pass
-                elif ev2_station_profile[t] > 0:
-                    objective_terms.append(ev2_buy_price_profile[t] * ev2_charge[t])
+            ev2_home_mask = np.asarray([1.0 if value > 0 else 0.0 for value in ev2_home_profile], dtype=float)
+            ev2_station_mask = np.asarray([1.0 if value > 0 else 0.0 for value in ev2_station_profile], dtype=float)
+            ev2_availability = np.maximum(ev2_home_mask, ev2_station_mask)
+            ev2_drive_load = np.asarray(ev2_load_profile, dtype=float) * (1.0 - ev2_availability)
+            ev2_station_price = np.asarray(ev2_buy_price_profile, dtype=float) * ev2_station_mask
 
-            for deadline, target_soc in sorted((self.ev2_soc_targets or {}).items()):
-                target_index = deadline - current_timestep + 1
-                if 0 <= target_index <= planning_horizon:
-                    target_soc_kwh = target_soc * household.ev2.capacity
-                    constraints.append(ev2_soc_vars[target_index] >= target_soc_kwh)
-        else:
-            ev2_charge = None
-
-        for t in range(planning_horizon):
-            ev1_home_load = ev1_charge[t] if ev1_charge is not None and ev1_home_profile[t] > 0 else 0.0
-            ev2_home_load = ev2_charge[t] if ev2_charge is not None and ev2_home_profile[t] > 0 else 0.0
-
-            net_load = (
-                base_load_profile[t]
-                - pv_profile[t]
-                + (bess_power[t] if bess_power is not None else 0.0)
-                + ev1_home_load
-                + ev2_home_load
-            )
-            constraints.append(net_load == grid_import[t] - grid_export[t])
-            objective_terms.append(
-                duration_hours * buy_price_profile[t] * grid_import[t]
-                - duration_hours * sell_price_profile[t] * grid_export[t]
+            self._params["ev2_soc0"].value = float(ev2_soc)
+            self._params["ev2_home_mask"].value = ev2_home_mask
+            self._params["ev2_availability"].value = ev2_availability
+            self._params["ev2_drive_load"].value = ev2_drive_load
+            self._params["ev2_station_price"].value = ev2_station_price
+            self._params["ev2_target_lb"].value = self._target_lb(
+                self.ev2_soc_targets,
+                household.ev2.capacity,
+                current_timestep,
+                planning_horizon,
             )
 
-        problem = cp.Problem(cp.Minimize(sum(objective_terms)), constraints)
+        problem = cast(cp.Problem, self._problem)
+
         try:
-            problem.solve(solver=cp.SCS, verbose=False)
+            problem.solve(solver=cp.CLARABEL, warm_start=True, verbose=False)
         except Exception:
-            problem.solve(solver=cp.OSQP, verbose=False)
+            problem.solve(solver=cp.SCS, warm_start=True, verbose=False)
 
         if problem.status not in {"optimal", "optimal_inaccurate"}:
             return {
@@ -209,8 +304,12 @@ class MPCController(BaseController):
                 "ev2_power": 0.0,
             }
 
+        bess_power = self._vars.get("bess_power")
+        ev1_charge = self._vars.get("ev1_charge")
+        ev2_charge = self._vars.get("ev2_charge")
+
         return {
-            "bess_power": float(bess_power[0].value if bess_power is not None else 0.0),
-            "ev1_power": float(ev1_charge[0].value if ev1_charge is not None else 0.0),
-            "ev2_power": float(ev2_charge[0].value if ev2_charge is not None else 0.0),
+            "bess_power": self._first_value(bess_power),
+            "ev1_power": self._first_value(ev1_charge),
+            "ev2_power": self._first_value(ev2_charge),
         }
