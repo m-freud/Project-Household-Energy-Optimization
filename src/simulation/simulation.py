@@ -59,7 +59,7 @@ def build_mpc_controller(
     scenario: Scenario,
     *,
     name: str,
-    horizon: int = 24,
+    horizon: int = 96,
 ) -> MPCController:
     return MPCController(
         name=name,
@@ -79,7 +79,7 @@ def make_function_controller(
 
 def make_mpc_controller(
     name: str,
-    horizon: int = 24,
+    horizon: int = 96,
 ) -> Callable[[Household, Scenario], MPCController]:
     return partial(build_mpc_controller, name=name, horizon=horizon)
 
@@ -240,32 +240,34 @@ class Simulation:
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
             household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc, name="bess")
 
-        # plug in EV1
-        ev1_data = self.sqlite_cursor.execute(
-            '''
-            SELECT capacity, charge, discharge, efficiency, initial_soc, charge_slowest
-            FROM ev1
-            WHERE player_id = ?
-            ''',
-            (player_id,)
-        ).fetchone()
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev1_data
+        def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None]:
+            columns = {
+                row[1]
+                for row in self.sqlite_cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
+            }
+            selected_columns = ["capacity", "charge", "discharge", "efficiency", "initial_soc"]
+            if "charge_slowest" in columns:
+                selected_columns.append("charge_slowest")
 
+            row = self.sqlite_cursor.execute(
+                f"SELECT {', '.join(selected_columns)} FROM {table_name} WHERE player_id = ?",
+                (player_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"No row found for player_id {player_id} in {table_name}")
+
+            capacity, max_charge, max_discharge, efficiency, initial_soc = row[:5]
+            charge_slowest = row[5] if len(row) > 5 else None
+            return capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest
+
+        # plug in EV1
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = _load_ev_data("ev1")
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
         if charge_slowest is not None:
             household.ev1.charge_slowest = float(charge_slowest)
 
         # plug in EV2
-        ev2_data = self.sqlite_cursor.execute(
-            '''
-            SELECT capacity, charge, discharge, efficiency, initial_soc, charge_slowest
-            FROM ev2
-            WHERE player_id = ?
-            ''',
-            (player_id,)
-        ).fetchone()
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = ev2_data
-
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = _load_ev_data("ev2")
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
         if charge_slowest is not None:
             household.ev2.charge_slowest = float(charge_slowest)
@@ -640,7 +642,7 @@ if __name__ == "__main__":
             partial(price_aware_linear, default_behaviour="even_linear"),
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
-        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=24),
+        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96),
     }
 
     scenarios_by_name = {scenario.name: scenario for scenario in scenario_catalog}
