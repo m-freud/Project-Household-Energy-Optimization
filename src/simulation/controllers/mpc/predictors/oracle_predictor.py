@@ -8,6 +8,8 @@ from src.simulation.scenarios.scenario import Scenario
 class OraclePredictor(BasePredictor):
     """Predictor that uses the household's existing profile data as future forecasts."""
 
+    allow_tail_padding: bool = False
+
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
         _ = (scenario,)
 
@@ -37,9 +39,6 @@ class OraclePredictor(BasePredictor):
                     if not values:
                         prediction[key] = []
                         continue
-                    sliced = values[start_index:start_index + horizon]
-                    if len(sliced) < horizon:
-                        sliced = sliced + [sliced[-1]] * (horizon - len(sliced))
-                    prediction[key] = sliced
+                    prediction[key] = values[start_index:start_index + horizon]
 
         return prediction

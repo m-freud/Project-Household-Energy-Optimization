@@ -51,7 +51,11 @@ class MPCController(BaseController):
 
     def _planning_horizon(self, current_timestep: int, scenario: Scenario) -> int:
         _ = (current_timestep, scenario)
-        return max(1, int(self.horizon))
+        base_horizon = max(1, int(self.horizon))
+        if self.predictor is not None and not getattr(self.predictor, "allow_tail_padding", True):
+            remaining_steps = max(1, 96 - int(current_timestep) + 1)
+            return min(base_horizon, remaining_steps)
+        return base_horizon
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
@@ -139,7 +143,7 @@ class MPCController(BaseController):
 
             net_load_expr = net_load_expr + cp.multiply(params["ev1_home_mask"], ev1_charge)
             objective = objective + cp.sum(
-                cp.multiply(params["ev1_station_price"], ev1_charge)
+                duration_hours * cp.multiply(params["ev1_station_price"], ev1_charge)
             )
         else:
             variables["ev1_charge"] = None
@@ -168,7 +172,7 @@ class MPCController(BaseController):
 
             net_load_expr = net_load_expr + cp.multiply(params["ev2_home_mask"], ev2_charge)
             objective = objective + cp.sum(
-                cp.multiply(params["ev2_station_price"], ev2_charge)
+                duration_hours * cp.multiply(params["ev2_station_price"], ev2_charge)
             )
         else:
             variables["ev2_charge"] = None

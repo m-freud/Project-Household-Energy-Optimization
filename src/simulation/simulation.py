@@ -26,6 +26,8 @@ from src.simulation.controllers.policies.linear.price_aware_linear import price_
 from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
+from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
+from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 
 
@@ -60,13 +62,14 @@ def build_mpc_controller(
     *,
     name: str,
     horizon: int = 96,
+    predictor=None,
 ) -> MPCController:
     return MPCController(
         name=name,
         household=household,
         scenario=scenario,
         horizon=horizon,
-        predictor=OraclePredictor(),
+        predictor=predictor or OraclePredictor(),
     )
 
 
@@ -80,8 +83,9 @@ def make_function_controller(
 def make_mpc_controller(
     name: str,
     horizon: int = 96,
+    predictor=None,
 ) -> Callable[[Household, Scenario], MPCController]:
-    return partial(build_mpc_controller, name=name, horizon=horizon)
+    return partial(build_mpc_controller, name=name, horizon=horizon, predictor=predictor)
 
 
 def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
@@ -397,7 +401,7 @@ class Simulation:
         household_ids: list[int] | None = None,
         max_households: int | None = None,
         parallel_households: bool = False,
-        parallel_workers: int | None = None,
+        parallel_workers: int | None = 6,
     ):
         if household_ids is None:
             selected_households = list(range(1, self.num_households + 1))
@@ -427,7 +431,7 @@ class Simulation:
         self,
         run_context: RunContext,
         selected_households: list[int],
-        parallel_workers: int | None = None,
+        parallel_workers: int | None = 6,
     ):
         with ProcessPoolExecutor(max_workers=parallel_workers) as executor:
             future_to_household = {
@@ -452,7 +456,7 @@ class Simulation:
         household_ids: list[int] | None = None,
         max_households: int | None = None,
         parallel_households: bool = False,
-        parallel_workers: int | None = None,
+        parallel_workers: int | None = 6,
     ):
         for run_context in run_contexts:
             self.run_all_households(
@@ -643,6 +647,16 @@ if __name__ == "__main__":
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
         "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96),
+        "mpc_moving_average": make_mpc_controller(
+            "mpc_moving_average",
+            horizon=96,
+            predictor=MovingAveragePredictor(window_size=12),
+        ),
+        "mpc_moving_average2": make_mpc_controller(
+            "mpc_moving_average2",
+            horizon=96,
+            predictor=MovingAveragePredictor2(short_window_size=7, long_window_size=48, short_weight=0.7),
+        ),
     }
 
     scenarios_by_name = {scenario.name: scenario for scenario in scenario_catalog}
