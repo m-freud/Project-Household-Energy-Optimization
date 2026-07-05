@@ -9,6 +9,10 @@ from src.simulation.scenarios.scenario import Scenario
 class BasePredictor(ABC):
     """Interface for predictors used by the MPC controller."""
 
+    # Predictors can override this to disable synthetic tail padding near the
+    # end of the day (used by oracle-style predictors).
+    allow_tail_padding: bool = True
+
     @abstractmethod
     def predict(
         self,

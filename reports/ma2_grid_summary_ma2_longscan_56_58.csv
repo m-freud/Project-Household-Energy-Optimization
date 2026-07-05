@@ -1,0 +1,3 @@
+policy,run_id,short_window,long_window,pairs,avg_total_cost,avg_total_delta_vs_waterfall,avg_total_delta_vs_oracle,avg_total_delta_vs_ma1,avg_total_delta_vs_ma2_base,wins_vs_waterfall,wins_vs_oracle,wins_vs_ma1,wins_vs_ma2_base,bess_target_rate,ev1_target_rate,ev2_target_rate
+mpc_ma2_s7_l58_ma2_longscan_56_58,41,7,58,140,11.299269294238522,-0.42137218159485507,1.4024755104956705,-2.2921084235694367,-0.4553353672999038,57,20,130,58,0.9714285714285714,0.8,0.8
+mpc_ma2_s7_l56_ma2_longscan_56_58,40,7,56,140,11.378531413781761,-0.3421100620516152,1.4817376300389105,-2.212846304026197,-0.37607324775666395,57,19,130,59,0.9714285714285714,0.8071428571428572,0.8071428571428572
