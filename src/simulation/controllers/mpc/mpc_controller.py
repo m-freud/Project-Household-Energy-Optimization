@@ -51,13 +51,9 @@ class MPCController(BaseController):
         self._vars: dict[str, cp.Variable | None] = {}
 
 
-    def _planning_horizon(self, current_timestep: int, scenario: Scenario) -> int:
-        _ = (current_timestep, scenario)
-        base_horizon = max(1, int(self.horizon))
-        if self.predictor is not None and not getattr(self.predictor, "allow_tail_padding", True):
-            remaining_steps = max(1, 96 - int(current_timestep) + 1)
-            return min(base_horizon, remaining_steps)
-        return base_horizon
+    def _planning_horizon(self, current_timestep: int) -> int:
+        remaining_timesteps = 96 - int(current_timestep) + 1
+        return max(1, min(int(self.horizon), remaining_timesteps))
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
@@ -72,11 +68,13 @@ class MPCController(BaseController):
 
     def _ensure_compiled_problem(self, planning_horizon: int):
         if self._problem is not None and self._compiled_horizon == planning_horizon:
+            # only if horizon < full day. no need to recompile if horizon stays the same.
             return
 
         h = int(planning_horizon)
-        duration_hours = 0.25
+        duration_hours = self.duration_hours
 
+        # Define optimization params, start with global params and variables
         params: dict[str, cp.Parameter] = {
             "base_load": cp.Parameter(h),
             "pv_gen": cp.Parameter(h),
@@ -90,7 +88,7 @@ class MPCController(BaseController):
         variables["grid_import"] = grid_import
         variables["grid_export"] = grid_export
 
-        net_load_expr = params["base_load"] - params["pv_gen"]
+        net_load_expr = params["base_load"] - params["pv_gen"] # initial net load, we add bess and ev charging load later
         objective = duration_hours * (
             params["buy_price"] @ grid_import - params["sell_price"] @ grid_export
         )
@@ -115,7 +113,7 @@ class MPCController(BaseController):
                 == bess_soc[:-1]
                 + self.household.bess.efficiency * bess_charge * duration_hours
                 - bess_discharge * duration_hours / self.household.bess.efficiency,
-                bess_soc[1:] >= params["bess_target_lb"][1:],
+                bess_soc[1:] >= params["bess_target_lb"][1:], # ensure targets are met with target peak function [0 0 0 target 0 0 ...]
             ])
             net_load_expr = net_load_expr + bess_power
         else:
@@ -124,6 +122,7 @@ class MPCController(BaseController):
         if self.household.ev1:
             params["ev1_soc0"] = cp.Parameter()
             params["ev1_availability"] = cp.Parameter(h)
+            params["ev1_effective_max_charge"] = cp.Parameter(h, nonneg=True)
             params["ev1_home_mask"] = cp.Parameter(h)
             params["ev1_drive_load"] = cp.Parameter(h)
             params["ev1_station_price"] = cp.Parameter(h)
@@ -135,12 +134,15 @@ class MPCController(BaseController):
 
             constraints.extend([
                 ev1_soc[0] == params["ev1_soc0"],
-                ev1_charge <= self.household.ev1.max_charge * params["ev1_availability"],
+                ev1_charge <= cp.multiply(
+                    params["ev1_effective_max_charge"],
+                    params["ev1_availability"],
+                ),
                 ev1_soc[1:]
                 == ev1_soc[:-1]
                 + ev1_charge * duration_hours * self.household.ev1.efficiency
                 - params["ev1_drive_load"] * duration_hours / self.household.ev1.efficiency,
-                ev1_soc[1:] >= params["ev1_target_lb"][1:],
+                ev1_soc[1:] >= params["ev1_target_lb"][1:], # ensure targets are met with target peak function [0 0 0 target 0 0 ...]
             ])
 
             net_load_expr = net_load_expr + cp.multiply(params["ev1_home_mask"], ev1_charge)
@@ -153,6 +155,7 @@ class MPCController(BaseController):
         if self.household.ev2:
             params["ev2_soc0"] = cp.Parameter()
             params["ev2_availability"] = cp.Parameter(h)
+            params["ev2_effective_max_charge"] = cp.Parameter(h, nonneg=True)
             params["ev2_home_mask"] = cp.Parameter(h)
             params["ev2_drive_load"] = cp.Parameter(h)
             params["ev2_station_price"] = cp.Parameter(h)
@@ -164,12 +167,15 @@ class MPCController(BaseController):
 
             constraints.extend([
                 ev2_soc[0] == params["ev2_soc0"],
-                ev2_charge <= self.household.ev2.max_charge * params["ev2_availability"],
+                ev2_charge <= cp.multiply(
+                    params["ev2_effective_max_charge"],
+                    params["ev2_availability"],
+                ),
                 ev2_soc[1:]
                 == ev2_soc[:-1]
                 + ev2_charge * duration_hours * self.household.ev2.efficiency
                 - params["ev2_drive_load"] * duration_hours / self.household.ev2.efficiency,
-                ev2_soc[1:] >= params["ev2_target_lb"][1:],
+                ev2_soc[1:] >= params["ev2_target_lb"][1:], # ensure targets are met with target peak function [0 0 0 target 0 0 ...]
             ])
 
             net_load_expr = net_load_expr + cp.multiply(params["ev2_home_mask"], ev2_charge)
@@ -224,10 +230,7 @@ class MPCController(BaseController):
         ev1_load = household.ev1_load
         ev2_load = household.ev2_load
 
-        if self.predictor is None:
-            raise NotImplementedError("No predictor configured for MPC controller")
-
-        planning_horizon = self._planning_horizon(current_timestep, scenario)
+        planning_horizon = self._planning_horizon(current_timestep)
         self._ensure_compiled_problem(planning_horizon)
         predictions = self.predictor.predict(household, scenario, planning_horizon)
 
@@ -239,16 +242,21 @@ class MPCController(BaseController):
         ev2_home_profile = self._prediction_series(predictions, "ev2_at_home", planning_horizon, default=1.0 if ev2_at_home else 0.0)
         ev1_station_profile = self._prediction_series(predictions, "ev1_at_charging_station", planning_horizon, default=1.0 if ev1_at_charging_station else 0.0)
         ev2_station_profile = self._prediction_series(predictions, "ev2_at_charging_station", planning_horizon, default=1.0 if ev2_at_charging_station else 0.0)
+        ev1_max_charge_profile = self._prediction_series(predictions, "ev1_max_charge", planning_horizon, default=household.ev1.max_charge if household.ev1 else 0.0)
+        ev2_max_charge_profile = self._prediction_series(predictions, "ev2_max_charge", planning_horizon, default=household.ev2.max_charge if household.ev2 else 0.0)
         buy_price_profile = self._prediction_series(predictions, "buy_price", planning_horizon, default=buy_price)
         sell_price_profile = self._prediction_series(predictions, "sell_price", planning_horizon, default=sell_price)
         ev1_buy_price_profile = self._prediction_series(predictions, "ev1_buy_price", planning_horizon, default=buy_price)
         ev2_buy_price_profile = self._prediction_series(predictions, "ev2_buy_price", planning_horizon, default=buy_price)
 
+        # update /fill the compiled problem
+        # global params first
         self._params["base_load"].value = np.asarray(base_load_profile, dtype=float)
         self._params["pv_gen"].value = np.asarray(pv_profile, dtype=float)
         self._params["buy_price"].value = np.asarray(buy_price_profile, dtype=float)
         self._params["sell_price"].value = np.asarray(sell_price_profile, dtype=float)
 
+        # device params next
         if household.bess:
             self._params["bess_soc0"].value = float(bess_soc)
             self._params["bess_target_lb"].value = self._target_lb(
@@ -264,10 +272,14 @@ class MPCController(BaseController):
             ev1_availability = np.maximum(ev1_home_mask, ev1_station_mask)
             ev1_drive_load = np.asarray(ev1_load_profile, dtype=float) * (1.0 - ev1_availability)
             ev1_station_price = np.asarray(ev1_buy_price_profile, dtype=float) * ev1_station_mask
+            ev1_profile_max_charge = np.asarray(ev1_max_charge_profile, dtype=float)
+            ev1_device_max_charge = float(self.ev1_bounds[1])
+            ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge)
 
             self._params["ev1_soc0"].value = float(ev1_soc)
             self._params["ev1_home_mask"].value = ev1_home_mask
             self._params["ev1_availability"].value = ev1_availability
+            self._params["ev1_effective_max_charge"].value = ev1_effective_max_charge
             self._params["ev1_drive_load"].value = ev1_drive_load
             self._params["ev1_station_price"].value = ev1_station_price
             self._params["ev1_target_lb"].value = self._target_lb(
@@ -283,10 +295,14 @@ class MPCController(BaseController):
             ev2_availability = np.maximum(ev2_home_mask, ev2_station_mask)
             ev2_drive_load = np.asarray(ev2_load_profile, dtype=float) * (1.0 - ev2_availability)
             ev2_station_price = np.asarray(ev2_buy_price_profile, dtype=float) * ev2_station_mask
+            ev2_profile_max_charge = np.asarray(ev2_max_charge_profile, dtype=float)
+            ev2_device_max_charge = float(self.ev2_bounds[1])
+            ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge)
 
             self._params["ev2_soc0"].value = float(ev2_soc)
             self._params["ev2_home_mask"].value = ev2_home_mask
             self._params["ev2_availability"].value = ev2_availability
+            self._params["ev2_effective_max_charge"].value = ev2_effective_max_charge
             self._params["ev2_drive_load"].value = ev2_drive_load
             self._params["ev2_station_price"].value = ev2_station_price
             self._params["ev2_target_lb"].value = self._target_lb(
