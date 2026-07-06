@@ -24,22 +24,24 @@ class MPCController(BaseController):
         name: str,
         household: Household,
         scenario: Scenario,
+        predictor: BasePredictor,
         horizon: int = 96,
-        predictor: BasePredictor | None = None,
+        duration_hours: float = 0.25,
     ):
         super().__init__(name)
         self.household = household
         self.scenario = scenario
         self.horizon = int(horizon)
         self.predictor = predictor
+        self.duration_hours = float(duration_hours)
 
-        self.bess_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else None
-        self.ev1_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else None
-        self.ev2_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else None
+        self.bess_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else [0,0]
+        self.ev1_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0]
+        self.ev2_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else [0,0]
 
-        self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess else None
-        self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else None
-        self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else None
+        self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess else {}
+        self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else {}
+        self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else {}
 
         # Built once and reused every timestep via Parameters (DPP) to avoid
         # repeated canonicalization overhead.

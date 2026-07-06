@@ -29,6 +29,7 @@ from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
 from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
+from src.config import Config
 
 
 DEFAULT_HISTORY_MEASUREMENTS = [
@@ -63,6 +64,7 @@ def build_mpc_controller(
     name: str,
     horizon: int = 96,
     predictor=None,
+    duration_hours: float = 0.25,
 ) -> MPCController:
     return MPCController(
         name=name,
@@ -70,6 +72,7 @@ def build_mpc_controller(
         scenario=scenario,
         horizon=horizon,
         predictor=predictor or OraclePredictor(),
+        duration_hours=duration_hours,
     )
 
 
@@ -84,8 +87,15 @@ def make_mpc_controller(
     name: str,
     horizon: int = 96,
     predictor=None,
+    duration_hours: float = 0.25,
 ) -> Callable[[Household, Scenario], MPCController]:
-    return partial(build_mpc_controller, name=name, horizon=horizon, predictor=predictor)
+    return partial(
+        build_mpc_controller,
+        name=name,
+        horizon=horizon,
+        predictor=predictor,
+        duration_hours=duration_hours,
+    )
 
 
 def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
@@ -105,7 +115,7 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
         controller = sim.create_controller(household, run_context)
 
         for t in range(start_time, sim.num_timesteps + 1):
-            sim.step(household, controller, scenario, duration_hours=0.25, time=t)
+            sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
 
         return {
             "run_id": run_context.run_id,
@@ -116,8 +126,8 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
             "has_bess": household.has_bess,
             "total_cost": household.total_cost,
             "total_consumption": household.total_consumption,
-            "net_cost": sum(household.history["net_cost"].values()) * 0.25,
-            "net_load": sum(household.history["net_load"].values()) * 0.25,
+            "net_cost": sum(household.history["net_cost"].values()) * sim.duration_hours,
+            "net_load": sum(household.history["net_load"].values()) * sim.duration_hours,
             "target_met_bess": household.has_met_target("bess"),
             "target_met_ev1": household.has_met_target("ev1"),
             "target_met_ev2": household.has_met_target("ev2"),
@@ -143,6 +153,7 @@ class Simulation:
 
         self.num_households = 250
         self.num_timesteps = 96
+        self.duration_hours = float(Config.DURATION_TIMESTEP)
 
         self.env_inputs = [ # time series table names
             "base_load",
@@ -319,12 +330,12 @@ class Simulation:
             household: Household,
             controller: BaseController,
             scenario: Scenario,
-            duration_hours=0.25,
+            duration_hours: float = 0.25,
             time=0):
         self.current_timestep = time
         self.update_household_inputs(household)
         controls = controller.set_controls(household, scenario)
-        household.apply_controls(controls)
+        household.apply_controls(controls, duration_hours=duration_hours)
         household.update_history()
 
 
@@ -381,7 +392,7 @@ class Simulation:
         print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         for t in range(start_time, self.num_timesteps + 1):
-            self.step(household, controller, scenario, duration_hours=0.25, time=t)
+            self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
         self.load_household_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
         
@@ -646,16 +657,18 @@ if __name__ == "__main__":
             partial(price_aware_linear, default_behaviour="even_linear"),
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
-        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96),
+        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, duration_hours=sim.duration_hours),
         "mpc_moving_average": make_mpc_controller(
             "mpc_moving_average",
             horizon=96,
             predictor=MovingAveragePredictor(window_size=12),
+            duration_hours=sim.duration_hours,
         ),
         "mpc_moving_average2": make_mpc_controller(
             "mpc_moving_average2",
             horizon=96,
             predictor=MovingAveragePredictor2(short_window_size=7, long_window_size=48, short_weight=0.7),
+            duration_hours=sim.duration_hours,
         ),
     }
 
