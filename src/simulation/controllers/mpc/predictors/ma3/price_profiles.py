@@ -3,6 +3,9 @@ from __future__ import annotations
 from src.simulation.household import Household
 
 
+# Predictors for buy_price, sell_price, ev_buy_price, grid_prices, ev_station_prices
+# (mostly oracle pass-through, with some composition logic for ev_buy_price)
+
 def _oracle_slice(household: Household, key: str, horizon: int) -> list[float]:
     start_time = int(household.current_timestep)
     profile = household.oracle_profiles.get(key, [])
