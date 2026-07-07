@@ -202,18 +202,26 @@ class MPCController(BaseController):
         current_timestep: int,
         horizon: int,
         time_buffer_steps: int = 0,
+        energy_buffer_soc_frct: float = 0.0,
     ) -> np.ndarray:
         lb = np.zeros(horizon + 1, dtype=float)
         if not targets:
             return lb
 
         time_buffer_steps = max(0, int(time_buffer_steps))
+        energy_buffer_soc_frct = max(0.0, float(energy_buffer_soc_frct))
         for deadline, target_soc in sorted(targets.items()):
-            effective_deadline = int(deadline) - time_buffer_steps
-            target_index = effective_deadline - int(current_timestep) + 1
-            if 0 <= target_index <= horizon:
-                target_soc_kwh = float(target_soc) * float(capacity)
-                lb[target_index] = max(lb[target_index], target_soc_kwh)
+            buffered_target_soc = min(1.0, float(target_soc) + energy_buffer_soc_frct)
+            target_soc_kwh = buffered_target_soc * float(capacity)
+            deadline_step = int(deadline)
+
+            # Keep the original deadline target and copy it left for each
+            # configured buffer step (e.g., buffer=4 -> d, d-1, d-2, d-3, d-4).
+            for offset in range(0, time_buffer_steps + 1):
+                buffered_step = deadline_step - offset
+                target_index = buffered_step - int(current_timestep) + 1
+                if 0 <= target_index <= horizon:
+                    lb[target_index] = max(lb[target_index], target_soc_kwh)
         return lb
 
     def _first_value(self, variable: cp.Variable | None) -> float:
@@ -277,6 +285,7 @@ class MPCController(BaseController):
                 current_timestep,
                 planning_horizon,
                 time_buffer_steps=self.buffer_config.bess.time_buffer_steps,
+                energy_buffer_soc_frct=self.buffer_config.bess.energy_buffer_soc_frct,
             )
 
         if household.ev1:
@@ -301,6 +310,7 @@ class MPCController(BaseController):
                 current_timestep,
                 planning_horizon,
                 time_buffer_steps=self.buffer_config.ev1.time_buffer_steps,
+                energy_buffer_soc_frct=self.buffer_config.ev1.energy_buffer_soc_frct,
             )
 
         if household.ev2:
@@ -325,6 +335,7 @@ class MPCController(BaseController):
                 current_timestep,
                 planning_horizon,
                 time_buffer_steps=self.buffer_config.ev2.time_buffer_steps,
+                energy_buffer_soc_frct=self.buffer_config.ev2.energy_buffer_soc_frct,
             )
 
         problem = cast(cp.Problem, self._problem)

@@ -11,7 +11,7 @@ class Config:
     EXCEL_FILE_PATH = ROOT_DIR / "data" / "A.xlsx"
 
     # sqlite
-    SQLITE_PATH = ROOT_DIR / "sqlite" / "energy.db"
+    SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy.db")))
 
     DURATION_TIMESTEP = 0.25 # 4 per hour
 
