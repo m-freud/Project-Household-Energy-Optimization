@@ -3,6 +3,8 @@ from __future__ import annotations
 from src.config import Config
 from src.simulation.household import Household
 
+# Predictors for ev status, ev_load, ev_max_charge
+# (messy)
 
 def _oracle_slice(household: Household, key: str, horizon: int) -> list[float]:
     start = int(household.current_timestep)

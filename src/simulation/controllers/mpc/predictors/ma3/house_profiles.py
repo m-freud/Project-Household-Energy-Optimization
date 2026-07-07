@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from src.simulation.household import Household
 
+# Predictors for base_load, pv_gen
+
 
 def _history_values(household: Household, key: str) -> list[float]:
     history = household.history.get(key, {})
