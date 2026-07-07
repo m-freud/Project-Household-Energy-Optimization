@@ -26,6 +26,7 @@ from src.simulation.controllers.policies.linear.price_aware_linear import price_
 from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
+from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
 from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
@@ -65,6 +66,7 @@ def build_mpc_controller(
     horizon: int = 96,
     predictor=None,
     duration_hours: float = 0.25,
+    buffer_config: DeviceBufferConfig | None = None,
 ) -> MPCController:
     return MPCController(
         name=name,
@@ -73,6 +75,7 @@ def build_mpc_controller(
         horizon=horizon,
         predictor=predictor or OraclePredictor(),
         duration_hours=duration_hours,
+        buffer_config=buffer_config,
     )
 
 
@@ -88,6 +91,7 @@ def make_mpc_controller(
     horizon: int = 96,
     predictor=None,
     duration_hours: float = 0.25,
+    buffer_config: DeviceBufferConfig | None = None,
 ) -> Callable[[Household, Scenario], MPCController]:
     return partial(
         build_mpc_controller,
@@ -95,6 +99,7 @@ def make_mpc_controller(
         horizon=horizon,
         predictor=predictor,
         duration_hours=duration_hours,
+        buffer_config=buffer_config,
     )
 
 

@@ -16,6 +16,7 @@ from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
+from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 
 
 class MPCController(BaseController):
@@ -27,6 +28,7 @@ class MPCController(BaseController):
         predictor: BasePredictor,
         horizon: int = 96,
         duration_hours: float = 0.25,
+        buffer_config: DeviceBufferConfig | None = None,
     ):
         super().__init__(name)
         self.household = household
@@ -34,6 +36,7 @@ class MPCController(BaseController):
         self.horizon = int(horizon)
         self.predictor = predictor
         self.duration_hours = float(duration_hours)
+        self.buffer_config = buffer_config or DeviceBufferConfig.disabled()
 
         self.bess_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else [0,0]
         self.ev1_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0]
@@ -192,13 +195,22 @@ class MPCController(BaseController):
         self._vars = variables
         self._problem = cp.Problem(cp.Minimize(objective), constraints)
 
-    def _target_lb(self, targets: dict | None, capacity: float, current_timestep: int, horizon: int) -> np.ndarray:
+    def _target_lb(
+        self,
+        targets: dict | None,
+        capacity: float,
+        current_timestep: int,
+        horizon: int,
+        time_buffer_steps: int = 0,
+    ) -> np.ndarray:
         lb = np.zeros(horizon + 1, dtype=float)
         if not targets:
             return lb
 
+        time_buffer_steps = max(0, int(time_buffer_steps))
         for deadline, target_soc in sorted(targets.items()):
-            target_index = int(deadline) - int(current_timestep) + 1
+            effective_deadline = int(deadline) - time_buffer_steps
+            target_index = effective_deadline - int(current_timestep) + 1
             if 0 <= target_index <= horizon:
                 target_soc_kwh = float(target_soc) * float(capacity)
                 lb[target_index] = max(lb[target_index], target_soc_kwh)
@@ -264,6 +276,7 @@ class MPCController(BaseController):
                 household.bess.capacity,
                 current_timestep,
                 planning_horizon,
+                time_buffer_steps=self.buffer_config.bess.time_buffer_steps,
             )
 
         if household.ev1:
@@ -287,6 +300,7 @@ class MPCController(BaseController):
                 household.ev1.capacity,
                 current_timestep,
                 planning_horizon,
+                time_buffer_steps=self.buffer_config.ev1.time_buffer_steps,
             )
 
         if household.ev2:
@@ -310,6 +324,7 @@ class MPCController(BaseController):
                 household.ev2.capacity,
                 current_timestep,
                 planning_horizon,
+                time_buffer_steps=self.buffer_config.ev2.time_buffer_steps,
             )
 
         problem = cast(cp.Problem, self._problem)
