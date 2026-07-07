@@ -8,10 +8,10 @@ from src.simulation.scenarios.scenario import Scenario
 class OraclePredictor(BasePredictor):
     """Predictor that uses the household's existing profile data as future forecasts."""
 
-    allow_tail_padding: bool = False
+    allow_tail_padding: bool = False # TODO do we need this? i think not
 
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
-        _ = (scenario,)
+        _ = (scenario,) # TODO do we need this? i think not
 
         profiles = household.oracle_profiles or {}
 
