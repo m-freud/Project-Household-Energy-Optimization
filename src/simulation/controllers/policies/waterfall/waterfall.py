@@ -70,7 +70,7 @@ def _windows_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool
 
 
 def _estimated_unavailable_steps(ev_name: str, timestep: int, deadline: int) -> int:
-    windows = Config.EV_UNAVAILABLE_WINDOWS.get(ev_name, [])
+    windows = Config.EV_UNAVAILABLE_WINDOWS_ALLOWED.get(ev_name, [])
     if not windows:
         return 0
 
