@@ -260,7 +260,7 @@ class Simulation:
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
             household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc, name="bess")
 
-        def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None]:
+        def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None, float | None]:
             columns = {
                 row[1]
                 for row in self.sqlite_cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -268,6 +268,8 @@ class Simulation:
             selected_columns = ["capacity", "charge", "discharge", "efficiency", "initial_soc"]
             if "charge_slowest" in columns:
                 selected_columns.append("charge_slowest")
+            if "price_at_public_charge_station_eur" in columns:
+                selected_columns.append("price_at_public_charge_station_eur")
 
             row = self.sqlite_cursor.execute(
                 f"SELECT {', '.join(selected_columns)} FROM {table_name} WHERE player_id = ?",
@@ -276,21 +278,28 @@ class Simulation:
             if row is None:
                 raise ValueError(f"No row found for player_id {player_id} in {table_name}")
 
+            # weird but ok i guess:
             capacity, max_charge, max_discharge, efficiency, initial_soc = row[:5]
-            charge_slowest = row[5] if len(row) > 5 else None
-            return capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest
+            remainder = row[5:]
+            charge_slowest = remainder[0] if "charge_slowest" in columns and len(remainder) >= 1 else None
+            station_buy_price = remainder[-1] if "price_at_public_charge_station_eur" in columns and len(remainder) >= 1 else None
+            return capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price
 
         # plug in EV1
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = _load_ev_data("ev1")
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price = _load_ev_data("ev1")
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
         if charge_slowest is not None:
             household.ev1.charge_slowest = float(charge_slowest)
+        if station_buy_price is not None:
+            household.ev1_station_buy_price = float(station_buy_price)
 
         # plug in EV2
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest = _load_ev_data("ev2")
+        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price = _load_ev_data("ev2")
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
         if charge_slowest is not None:
             household.ev2.charge_slowest = float(charge_slowest)
+        if station_buy_price is not None:
+            household.ev2_station_buy_price = float(station_buy_price)
 
         # set initial SOCs from scenario
         for component in [household.bess, household.ev1, household.ev2]:
@@ -310,7 +319,7 @@ class Simulation:
             measurements=self.env_inputs
         )
 
-        # household gets access to prices over day
+        # household gets access to prices over day # TODO ev prices are using oracle, switch to constant station price
         household.buy_price_day_profile = self.household_profiles["buy_price"]
         household.sell_price_day_profile = self.household_profiles["sell_price"]
         household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"]
