@@ -13,7 +13,7 @@ class EV:
             at_charging_station=False,
             name="ev"):
         self.capacity = capacity  # in kWh
-        self.max_charge = max_charge  # in kW (per hour)
+        self.max_charge = max_charge  # in kW (per hour) # charge limit for device
         self.charge_slowest = max_charge  # conservative planning charge rate (home/station worst case)
         self.max_discharge = max_discharge  # in kW (per hour)
         self.efficiency = efficiency  # as a decimal
@@ -23,6 +23,9 @@ class EV:
         self.at_charging_station = at_charging_station  # boolean
         self.buy_price = 0.0  # current (white) power price for charging
         self.name = name
+        self.default_drive_load = 0.0  # default load when driving (kW), used for prediction when no history is available
+        self.max_home_charge = 0.0  # max charging power at home (kW)
+        self.max_station_charge = 0.0  # max charging power at public station (kW)
 
 
     def charge(self, power, duration_hours):
