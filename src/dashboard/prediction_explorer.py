@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
+from src.config import Config
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
 from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
@@ -287,6 +288,7 @@ def render_prediction_explorer(
 
     show_ma_windows = st.checkbox("Show MA windows", value=True)
     show_source_average = st.checkbox("Show all-household source average", value=True)
+    show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
     source_average_beta = float(
         st.slider(
             "MA3 source-average beta",
@@ -366,6 +368,21 @@ def render_prediction_explorer(
         actual_values = [float(value) for value in actual_ref.get(profile_name, [])]
         x = np.arange(1, len(actual_values) + 1)
         axis.plot(x, actual_values, color="black", linewidth=1.8, label="actual")
+
+        if show_pv_unavailable_shadow and profile_name == "pv_gen":
+            pv_window = getattr(Config, "PV_GENERATION_WINDOW_OBSERVED", None) or getattr(
+                Config,
+                "PV_GENERATION_WINDOW_ALLOWED",
+                None,
+            )
+            if pv_window:
+                pv_start = max(1, min(96, int(pv_window.get("earliest_start", 1))))
+                pv_end = max(1, min(96, int(pv_window.get("latest_end", 96))))
+
+                if pv_start > 1:
+                    axis.axvspan(1.0, float(pv_start), color="gray", alpha=0.10, label="pv unavailable")
+                if pv_end < 96:
+                    axis.axvspan(float(pv_end), 96.0, color="gray", alpha=0.10)
 
         source_avg_values: list[float] = []
         if show_source_average and profile_name in {"base_load", "pv_gen"}:
