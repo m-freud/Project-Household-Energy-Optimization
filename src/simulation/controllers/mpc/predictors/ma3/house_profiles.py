@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.config import Config
 from src.simulation.household import Household
 from .moving_average import forecast_moving_average
 
@@ -18,6 +19,22 @@ def _make_band(series: list[float], width_fraction: float) -> tuple[list[float],
     lower = [max(0.0, value * (1.0 - width_fraction)) for value in series]
     upper = [max(0.0, value * (1.0 + width_fraction)) for value in series]
     return lower, upper
+
+
+def _apply_pv_window_mask(household: Household, series: list[float]) -> list[float]:
+    window = Config.PV_GENERATION_WINDOW_OBSERVED
+    start_period = int(window["earliest_start"])
+    end_period = int(window["latest_end"])
+    current_period = int(household.current_timestep)
+
+    masked: list[float] = []
+    for idx, value in enumerate(series):
+        period = current_period + idx + 1
+        if start_period <= period <= end_period:
+            masked.append(float(value))
+        else:
+            masked.append(0.0)
+    return masked
 
 
 def predict_base_load(
@@ -81,6 +98,7 @@ def predict_pv_gen(
         persistence_horizon=persistence_horizon,
         persistence_constant_alpha=persistence_constant_alpha,
     )
+    pv_series = _apply_pv_window_mask(household, pv_series)
     pv_lb, pv_ub = _make_band(pv_series, interval_width_fraction)
 
     return {
