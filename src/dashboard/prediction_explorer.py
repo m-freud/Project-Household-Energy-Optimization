@@ -14,7 +14,7 @@ from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import 
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
-from src.sqlite_connection import create_sqlite_connection
+from src.sqlite_connection import create_sqlite_connection, load_source_avg_profile
 
 
 PREDICTOR_OPTIONS = {
@@ -148,6 +148,14 @@ def _full_day_prediction_series(
     return full
 
 
+@st.cache_data(show_spinner=False)
+def _load_source_avg_curve(table_name: str) -> list[float]:
+    df = load_source_avg_profile(table_name)
+    if df.empty:
+        return []
+    return [float(value) for value in df["value"].tolist()]
+
+
 def render_prediction_explorer(
     household_ids: list[int],
 ) -> None:
@@ -256,6 +264,17 @@ def render_prediction_explorer(
         horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=24, step=1))
 
     show_ma_windows = st.checkbox("Show MA windows", value=True)
+    show_source_average = st.checkbox("Show all-household source average", value=True)
+    source_average_beta = float(
+        st.slider(
+            "Source average beta",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.2,
+            step=0.05,
+            help="0.0 = original predictor, 1.0 = source average only",
+        )
+    )
 
     timestep = int(st.session_state[t_key])
 
@@ -325,6 +344,20 @@ def render_prediction_explorer(
         x = np.arange(1, len(actual_values) + 1)
         axis.plot(x, actual_values, color="black", linewidth=1.8, label="actual")
 
+        source_avg_values: list[float] = []
+        if show_source_average and profile_name in {"base_load", "pv_gen"}:
+            source_avg_values = _load_source_avg_curve(profile_name)
+            if source_avg_values:
+                source_x = np.arange(1, len(source_avg_values) + 1)
+                axis.plot(
+                    source_x,
+                    source_avg_values,
+                    color="tab:purple",
+                    linewidth=1.6,
+                    linestyle=":",
+                    label="source avg (all households)",
+                )
+
         if show_ma_windows and display_long_window > 0:
             long_start = max(1, timestep - display_long_window + 1)
             axis.axvspan(
@@ -358,6 +391,24 @@ def render_prediction_explorer(
                 linestyle="--",
                 label=f"pred ({predictor_name})",
             )
+
+            if source_avg_values:
+                blended_values = [
+                    (1.0 - source_average_beta) * float(full_day_pred[i])
+                    + source_average_beta * float(source_avg_values[i])
+                    if i < len(source_avg_values) and not math.isnan(float(full_day_pred[i]))
+                    else math.nan
+                    for i in range(len(full_day_pred))
+                ]
+                axis.plot(
+                    x,
+                    blended_values,
+                    color=predictor_colors[predictor_name],
+                    linewidth=1.6,
+                    linestyle="-.",
+                    alpha=0.85,
+                    label=f"pred+avg ({predictor_name}, beta={source_average_beta:.2f})",
+                )
 
             if predictor_name == "ma3" and profile_name in {"base_load", "pv_gen"}:
                 lb_key = f"{profile_name}_lb"

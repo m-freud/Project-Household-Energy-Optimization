@@ -154,6 +154,58 @@ def load_avg_profile(
     return result
 
 
+def load_source_avg_profile(table_name: str) -> pd.DataFrame:
+    """Load mean profile across all source household columns for ingestion tables.
+
+    Expected input shape for source tables is one row per period and one column per
+    household id (e.g. "1", "2", ...), plus optional "period".
+    """
+
+    if not _is_safe_identifier(table_name):
+        raise ValueError(f"Invalid table name: {table_name}")
+
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        try:
+            df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        except (pd.errors.DatabaseError, sqlite3.OperationalError):
+            return pd.DataFrame()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    period_col = "period" if "period" in df.columns else None
+    value_columns: list[str] = []
+    for column in df.columns:
+        if period_col is not None and column == period_col:
+            continue
+        # Restrict to likely household-id columns to avoid accidental metadata.
+        if str(column).isdigit():
+            value_columns.append(column)
+
+    if not value_columns:
+        return pd.DataFrame()
+
+    numeric_values = df[value_columns].apply(pd.to_numeric, errors="coerce")
+    if numeric_values.empty:
+        return pd.DataFrame()
+
+    result = pd.DataFrame()
+    if period_col is not None:
+        result["period"] = pd.to_numeric(df[period_col], errors="coerce")
+    else:
+        result["period"] = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
+
+    result["value"] = numeric_values.mean(axis=1, skipna=True)
+    result = result.dropna(subset=["period", "value"]).copy()
+    if result.empty:
+        return pd.DataFrame()
+
+    result["period"] = result["period"].astype(int)
+    result = result.sort_values("period")
+    result["hour"] = (result["period"] - 1) / 4.0
+    return result
+
+
 def load_policies() -> list[str]:
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
         try:
