@@ -12,11 +12,13 @@ sys.path.insert(0, str(repo_root))
 from src.sqlite_connection import (
 	load_household_ids as db_load_household_ids,
 	load_policies as db_load_policies,
+	load_source_household_ids,
 )
 from src.simulation.scenarios.scenario import get_scenario_names
 
 from src.dashboard.general_performance.general_performance import render_general_performance
 from src.dashboard.single_performance.single_performance import render_single_performance
+from src.dashboard.prediction_explorer import render_prediction_explorer
 
 
 @st.cache_data(show_spinner=False)
@@ -31,7 +33,10 @@ def load_scenarios() -> list[str]:
 
 @st.cache_data(show_spinner=False)
 def load_household_ids() -> list[int]:
-	return db_load_household_ids()
+	result_ids = db_load_household_ids()
+	source_ids = load_source_household_ids()
+	merged = sorted(set(result_ids + source_ids))
+	return merged
 
 
 def main():
@@ -42,23 +47,34 @@ def main():
 	scenarios = load_scenarios()
 	household_ids = load_household_ids()
 
-	if not policies or not scenarios or not household_ids:
-		st.warning("No rows found in total_cost. Run a simulation first.")
+	if not scenarios or not household_ids:
+		st.warning("No household/source data found. Run ingestion first.")
 		return
-	
-	render_general_performance(
-		policies,
-		scenarios
-	) 
 
-	st.divider()
+	if policies:
+		render_general_performance(
+			policies,
+			scenarios
+		)
 
-	render_single_performance(
-		policies=policies,
-		scenarios=scenarios,
+		st.divider()
+
+		render_single_performance(
+			policies=policies,
+			scenarios=scenarios,
+			household_ids=household_ids,
+		)
+
+		st.divider()
+	else:
+		st.info("No simulation results yet. Prediction Explorer is still available below.")
+		st.divider()
+
+	render_prediction_explorer(
 		household_ids=household_ids,
+		scenarios=scenarios,
 	)
-	
+
 	st.divider()
 	
 

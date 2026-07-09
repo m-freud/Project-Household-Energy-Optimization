@@ -7,7 +7,8 @@ from src.simulation.household import Household
 # (mostly oracle pass-through, with some composition logic for ev_buy_price)
 
 def _oracle_slice(household: Household, key: str, horizon: int) -> list[float]:
-    start_time = int(household.current_timestep)
+    # current_timestep is 1-based while Python lists are 0-based.
+    start_time = max(0, int(household.current_timestep) - 1)
     profile = household.oracle_profiles.get(key, [])
     return [float(value) for value in profile[start_time : start_time + horizon]]
 
