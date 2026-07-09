@@ -52,6 +52,8 @@ def _build_predictor(
     ma3_long: int,
     ma3_weight: float,
     ma3_interval_width: float,
+    ma3_persistence_mode: str,
+    ma3_persistence_horizon: int,
 ) -> BasePredictor:
     if predictor_name == "ma1":
         return MovingAveragePredictor(window_size=ma1_window)
@@ -67,6 +69,8 @@ def _build_predictor(
             long_window_size=ma3_long,
             short_weight=ma3_weight,
             interval_width_fraction=ma3_interval_width,
+            persistence_mode=ma3_persistence_mode,
+            persistence_horizon=ma3_persistence_horizon,
         )
     return OraclePredictor()
 
@@ -85,6 +89,8 @@ def _compute_snapshot(
     ma3_long: int,
     ma3_weight: float,
     ma3_interval_width: float,
+    ma3_persistence_mode: str,
+    ma3_persistence_horizon: int,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
@@ -98,6 +104,8 @@ def _compute_snapshot(
         ma3_long=ma3_long,
         ma3_weight=ma3_weight,
         ma3_interval_width=ma3_interval_width,
+        ma3_persistence_mode=ma3_persistence_mode,
+        ma3_persistence_horizon=ma3_persistence_horizon,
     )
 
     connection = create_sqlite_connection()
@@ -192,6 +200,24 @@ def render_prediction_explorer(
         with q3:
             ma3_interval_width = float(st.slider("ma3 interval width", min_value=0.0, max_value=0.5, value=0.1, step=0.01))
 
+        r1, r2 = st.columns(2)
+        with r1:
+            ma3_persistence_mode = st.selectbox(
+                "ma3 persistence",
+                options=["exponential", "linear", "none"],
+                index=0,
+            )
+        with r2:
+            ma3_persistence_horizon = int(
+                st.number_input(
+                    "ma3 persistence horizon",
+                    min_value=1,
+                    max_value=96,
+                    value=8,
+                    step=1,
+                )
+            )
+
     t_key = "pred_timestep"
     if t_key not in st.session_state:
         st.session_state[t_key] = 1
@@ -248,6 +274,8 @@ def render_prediction_explorer(
             ma3_long=ma3_long,
             ma3_weight=ma3_weight,
             ma3_interval_width=ma3_interval_width,
+            ma3_persistence_mode=ma3_persistence_mode,
+            ma3_persistence_horizon=ma3_persistence_horizon,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]
