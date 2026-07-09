@@ -94,6 +94,7 @@ def _compute_snapshot(
     ma3_persistence_mode: str,
     ma3_persistence_horizon: int,
     ma3_persistence_constant_alpha: float,
+    ma3_source_average_beta: float,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
@@ -127,6 +128,27 @@ def _compute_snapshot(
 
         effective_horizon = max(1, min(int(horizon), 96 - current_timestep + 1))
         predicted = predictor.predict(household, scenario, effective_horizon)
+
+        # Optional: blend MA3 predictions with all-household source averages.
+        if predictor_name == "ma3" and float(ma3_source_average_beta) > 0.0:
+            beta = min(1.0, max(0.0, float(ma3_source_average_beta)))
+            start_idx = max(0, int(current_timestep) - 1)
+            for profile_name in ("base_load", "pv_gen"):
+                source_avg = _load_source_avg_curve(profile_name)
+                pred_series = [float(value) for value in predicted.get(profile_name, [])]
+                if not source_avg or not pred_series:
+                    continue
+
+                blended: list[float] = []
+                for i, pred_value in enumerate(pred_series):
+                    source_idx = start_idx + i
+                    if source_idx < len(source_avg):
+                        source_value = float(source_avg[source_idx])
+                        blended.append((1.0 - beta) * float(pred_value) + beta * source_value)
+                    else:
+                        blended.append(float(pred_value))
+                predicted[profile_name] = blended
+
         actual = household.oracle_profiles
         return actual, predicted, effective_horizon
     finally:
@@ -267,12 +289,12 @@ def render_prediction_explorer(
     show_source_average = st.checkbox("Show all-household source average", value=True)
     source_average_beta = float(
         st.slider(
-            "Source average beta",
+            "MA3 source-average beta",
             min_value=0.0,
             max_value=1.0,
-            value=0.2,
+            value=0.0,
             step=0.05,
-            help="0.0 = original predictor, 1.0 = source average only",
+            help="Applied to MA3 prediction only: 0.0 = no source-average blend, 1.0 = source average only",
         )
     )
 
@@ -310,6 +332,7 @@ def render_prediction_explorer(
             ma3_persistence_mode=ma3_persistence_mode,
             ma3_persistence_horizon=ma3_persistence_horizon,
             ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+            ma3_source_average_beta=source_average_beta,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]
@@ -391,24 +414,6 @@ def render_prediction_explorer(
                 linestyle="--",
                 label=f"pred ({predictor_name})",
             )
-
-            if source_avg_values:
-                blended_values = [
-                    (1.0 - source_average_beta) * float(full_day_pred[i])
-                    + source_average_beta * float(source_avg_values[i])
-                    if i < len(source_avg_values) and not math.isnan(float(full_day_pred[i]))
-                    else math.nan
-                    for i in range(len(full_day_pred))
-                ]
-                axis.plot(
-                    x,
-                    blended_values,
-                    color=predictor_colors[predictor_name],
-                    linewidth=1.6,
-                    linestyle="-.",
-                    alpha=0.85,
-                    label=f"pred+avg ({predictor_name}, beta={source_average_beta:.2f})",
-                )
 
             if predictor_name == "ma3" and profile_name in {"base_load", "pv_gen"}:
                 lb_key = f"{profile_name}_lb"
