@@ -19,8 +19,8 @@ EV_COLUMNS = [
     "trip_duration_periods",
     "charger_type",
     "public_charger",
-    "power",
-    "price_at_public_charge_station_eur"
+    "station_max_charge",
+    "station_price"
 ]
 
 
@@ -56,10 +56,19 @@ table_config = {
     },
     "fixed_costs": {
         "sheet_name": "Limits",
-        "rectangle": "B1:IQ10",
+        "rectangle": "B1:IQ10", # we give everything a name in the df and drop them later
         "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
         "transpose": True,
         "process": lambda df: df[["player_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
+    },
+    "max_home_charge": {
+        "sheet_name": "Limits", # same table, different context
+        "rectangle": "B1:IQ10",
+        "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
+        "transpose": True,
+        "process": lambda df: df[["player_id", "premium_charger_edp_capacity"]].rename(
+            columns={"premium_charger_edp_capacity": "max_home_charge"}
+        ),
     },
     "base_load": {
         "sheet_name": "Load",

@@ -260,15 +260,21 @@ class Simulation:
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
             household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc, name="bess")
 
-        def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None, float | None]:
+        def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None, float | None, float | None]:
             columns = {
                 row[1]
                 for row in self.sqlite_cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
             }
             selected_columns = ["capacity", "charge", "discharge", "efficiency", "initial_soc"]
+            if "station_max_charge" in columns:
+                selected_columns.append("station_max_charge")
+            elif "power" in columns:
+                selected_columns.append("power")
             if "charge_slowest" in columns:
                 selected_columns.append("charge_slowest")
-            if "price_at_public_charge_station_eur" in columns:
+            if "station_price" in columns:
+                selected_columns.append("station_price")
+            elif "price_at_public_charge_station_eur" in columns:
                 selected_columns.append("price_at_public_charge_station_eur")
 
             row = self.sqlite_cursor.execute(
@@ -278,24 +284,72 @@ class Simulation:
             if row is None:
                 raise ValueError(f"No row found for player_id {player_id} in {table_name}")
 
-            # weird but ok i guess:
-            capacity, max_charge, max_discharge, efficiency, initial_soc = row[:5]
-            remainder = row[5:]
-            charge_slowest = remainder[0] if "charge_slowest" in columns and len(remainder) >= 1 else None
-            station_buy_price = remainder[-1] if "price_at_public_charge_station_eur" in columns and len(remainder) >= 1 else None
-            return capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price
+            row_map = dict(zip(selected_columns, row))
+            capacity = row_map["capacity"]
+            max_charge = row_map["charge"]
+            max_discharge = row_map["discharge"]
+            efficiency = row_map["efficiency"]
+            initial_soc = row_map["initial_soc"]
+            station_max_charge = row_map.get("station_max_charge", row_map.get("power"))
+            charge_slowest = row_map.get("charge_slowest")
+            station_buy_price = row_map.get("station_price", row_map.get("price_at_public_charge_station_eur"))
+
+            return (
+                capacity,
+                max_charge,
+                max_discharge,
+                efficiency,
+                initial_soc,
+                station_max_charge,
+                charge_slowest,
+                station_buy_price,
+            )
+
+        max_home_charge = None
+        max_home_charge_row = self.sqlite_cursor.execute(
+            "SELECT max_home_charge FROM max_home_charge WHERE player_id = ?",
+            (player_id,),
+        ).fetchone()
+        if max_home_charge_row is not None and max_home_charge_row[0] is not None:
+            max_home_charge = float(max_home_charge_row[0])
 
         # plug in EV1
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price = _load_ev_data("ev1")
+        (
+            capacity,
+            max_charge,
+            max_discharge,
+            efficiency,
+            initial_soc,
+            station_max_charge,
+            charge_slowest,
+            station_buy_price,
+        ) = _load_ev_data("ev1")
         household.ev1 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev1")
+        if max_home_charge is not None:
+            household.ev1.max_home_charge = float(max_home_charge)
+        if station_max_charge is not None:
+            household.ev1.max_station_charge = float(station_max_charge)
         if charge_slowest is not None:
             household.ev1.charge_slowest = float(charge_slowest)
         if station_buy_price is not None:
             household.ev1_station_buy_price = float(station_buy_price)
 
         # plug in EV2
-        capacity, max_charge, max_discharge, efficiency, initial_soc, charge_slowest, station_buy_price = _load_ev_data("ev2")
+        (
+            capacity,
+            max_charge,
+            max_discharge,
+            efficiency,
+            initial_soc,
+            station_max_charge,
+            charge_slowest,
+            station_buy_price,
+        ) = _load_ev_data("ev2")
         household.ev2 = EV(capacity, max_charge, max_discharge, efficiency, initial_soc, name="ev2")
+        if max_home_charge is not None:
+            household.ev2.max_home_charge = float(max_home_charge)
+        if station_max_charge is not None:
+            household.ev2.max_station_charge = float(station_max_charge)
         if charge_slowest is not None:
             household.ev2.charge_slowest = float(charge_slowest)
         if station_buy_price is not None:
@@ -325,6 +379,20 @@ class Simulation:
         household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"]
         household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"]
         household.oracle_profiles = self.household_profiles
+
+        def _first_non_zero_value(values: list[float]) -> float:
+            for value in values:
+                value_f = float(value)
+                if value_f > 0.0:
+                    return value_f
+            return 0.0
+
+        if household.ev1:
+            ev1_load_profile = self.household_profiles.get("ev1_load", [])
+            household.ev1.default_drive_load = _first_non_zero_value(ev1_load_profile)
+        if household.ev2:
+            ev2_load_profile = self.household_profiles.get("ev2_load", [])
+            household.ev2.default_drive_load = _first_non_zero_value(ev2_load_profile)
 
         return household
     

@@ -286,12 +286,48 @@ class Household:
         return self.ev2.at_charging_station if self.ev2 else False
 
     @property
-    def ev1_load(self):
+    def ev1_load(self): # TODO ambiguous. i assume this is the charging load at household, not at station?
         return self.controls.get("ev1_power", 0.0) if self.ev1 and self.ev1.at_home else 0.0
 
     @property
     def ev2_load(self):
         return self.controls.get("ev2_power", 0.0) if self.ev2 and self.ev2.at_home else 0.0
+
+    @property
+    def ev1_default_drive_load(self):
+        if not self.ev1:
+            return 0.0
+        return float(getattr(self.ev1, "default_drive_load", 0.0))
+
+    @property
+    def ev2_default_drive_load(self):
+        if not self.ev2:
+            return 0.0
+        return float(getattr(self.ev2, "default_drive_load", 0.0))
+
+    @property
+    def ev1_max_home_charge(self):
+        if not self.ev1:
+            return 0.0
+        return float(getattr(self.ev1, "max_home_charge", 0.0))
+
+    @property
+    def ev2_max_home_charge(self):
+        if not self.ev2:
+            return 0.0
+        return float(getattr(self.ev2, "max_home_charge", 0.0))
+
+    @property
+    def ev1_max_station_charge(self):
+        if not self.ev1:
+            return 0.0
+        return float(getattr(self.ev1, "max_station_charge", 0.0))
+
+    @property
+    def ev2_max_station_charge(self):
+        if not self.ev2:
+            return 0.0
+        return float(getattr(self.ev2, "max_station_charge", 0.0))
 
     @property
     def net_cost(self):

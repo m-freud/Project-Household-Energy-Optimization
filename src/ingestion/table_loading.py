@@ -128,7 +128,7 @@ def enrich_ev_charge_rates(wb):
                     FROM temp_home_charge AS temp
                     WHERE temp.player_id = {ev_table}.player_id
                 ),
-                charge_station = COALESCE(charge, power)
+                charge_station = COALESCE(charge, station_max_charge)
             '''
         )
 
