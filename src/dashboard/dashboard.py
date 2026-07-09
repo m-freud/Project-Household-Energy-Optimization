@@ -72,7 +72,6 @@ def main():
 
 	render_prediction_explorer(
 		household_ids=household_ids,
-		scenarios=scenarios,
 	)
 
 	st.divider()

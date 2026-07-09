@@ -12,7 +12,7 @@ from src.simulation.controllers.mpc.predictors.moving_average_predictor import M
 from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import MovingAveragePredictor3
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
-from src.simulation.scenarios.scenario import SCENARIOS_BY_NAME
+from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import create_sqlite_connection
 
@@ -74,7 +74,6 @@ def _build_predictor(
 @st.cache_data(show_spinner=False)
 def _compute_snapshot(
     player_id: int,
-    scenario_name: str,
     predictor_name: str,
     timestep: int,
     horizon: int,
@@ -87,7 +86,7 @@ def _compute_snapshot(
     ma3_weight: float,
     ma3_interval_width: float,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
-    scenario = SCENARIOS_BY_NAME[scenario_name]
+    scenario = default_scenario
 
     predictor = _build_predictor(
         predictor_name=predictor_name,
@@ -139,11 +138,10 @@ def _full_day_prediction_series(
 
 def render_prediction_explorer(
     household_ids: list[int],
-    scenarios: list[str],
 ) -> None:
     st.header("Prediction Explorer")
 
-    c1, c2, c3, c4 = st.columns([1, 1, 2, 3], gap="large")
+    c1, c2, c3 = st.columns([1, 2, 3], gap="large")
 
     with c1:
         selected_household_id = st.selectbox(
@@ -153,13 +151,6 @@ def render_prediction_explorer(
             key="pred_household",
         )
     with c2:
-        selected_scenario = st.selectbox(
-            "Scenario",
-            options=scenarios,
-            index=0,
-            key="pred_scenario",
-        )
-    with c3:
         selected_predictors = st.multiselect(
             "Predictors",
             options=list(PREDICTOR_OPTIONS.keys()),
@@ -167,7 +158,7 @@ def render_prediction_explorer(
             key="pred_predictors",
             format_func=lambda value: PREDICTOR_OPTIONS[value],
         )
-    with c4:
+    with c3:
         selected_profiles = st.multiselect(
             "Profiles",
             options=PROFILE_OPTIONS,
@@ -230,7 +221,6 @@ def render_prediction_explorer(
     for predictor_name in selected_predictors:
         snapshots[predictor_name] = _compute_snapshot(
             player_id=int(selected_household_id),
-            scenario_name=str(selected_scenario),
             predictor_name=str(predictor_name),
             timestep=timestep,
             horizon=horizon,
@@ -308,7 +298,7 @@ def render_prediction_explorer(
 
     axes[-1].set_xlabel("Timestep (1-96)")
     fig.suptitle(
-        f"Prediction Explorer | player {selected_household_id} | scenario {selected_scenario}",
+        f"Prediction Explorer | player {selected_household_id}",
         y=0.995,
     )
     fig.tight_layout(rect=[0, 0, 1, 0.985])
