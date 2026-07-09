@@ -215,7 +215,23 @@ def render_prediction_explorer(
     with nav4:
         horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=24, step=1))
 
+    show_ma_windows = st.checkbox("Show MA windows", value=True)
+
     timestep = int(st.session_state[t_key])
+
+    # Display windows using the most advanced selected MA predictor configuration.
+    if "ma3" in selected_predictors:
+        display_short_window = int(ma3_short)
+        display_long_window = int(ma3_long)
+    elif "ma2" in selected_predictors:
+        display_short_window = int(ma2_short)
+        display_long_window = int(ma2_long)
+    elif "ma1" in selected_predictors:
+        display_short_window = int(ma1_window)
+        display_long_window = int(ma1_window)
+    else:
+        display_short_window = 0
+        display_long_window = 0
 
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
@@ -265,6 +281,26 @@ def render_prediction_explorer(
         actual_values = [float(value) for value in actual_ref.get(profile_name, [])]
         x = np.arange(1, len(actual_values) + 1)
         axis.plot(x, actual_values, color="black", linewidth=1.8, label="actual")
+
+        if show_ma_windows and display_long_window > 0:
+            long_start = max(1, timestep - display_long_window + 1)
+            axis.axvspan(
+                float(long_start),
+                float(timestep),
+                color="tab:orange",
+                alpha=0.08,
+                label=f"long window ({display_long_window})",
+            )
+
+        if show_ma_windows and display_short_window > 0:
+            short_start = max(1, timestep - display_short_window + 1)
+            axis.axvspan(
+                float(short_start),
+                float(timestep),
+                color="tab:green",
+                alpha=0.15,
+                label=f"short window ({display_short_window})",
+            )
 
         for predictor_name in selected_predictors:
             predicted = snapshots[predictor_name][1]
