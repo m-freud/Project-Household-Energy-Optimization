@@ -283,7 +283,7 @@ def render_prediction_explorer(
             )
         )
     with nav4:
-        horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=24, step=1))
+        horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=96, step=1))
 
     show_ma_windows = st.checkbox("Show MA windows", value=True)
     show_source_average = st.checkbox("Show all-household source average", value=True)
