@@ -56,6 +56,8 @@ def _build_predictor(
     ma3_persistence_mode: str,
     ma3_persistence_horizon: int,
     ma3_persistence_constant_alpha: float,
+    ma3_trend_weight: float,
+    ma3_trend_window: int,
 ) -> BasePredictor:
     if predictor_name == "ma1":
         return MovingAveragePredictor(window_size=ma1_window)
@@ -74,6 +76,8 @@ def _build_predictor(
             persistence_mode=ma3_persistence_mode,
             persistence_horizon=ma3_persistence_horizon,
             persistence_constant_alpha=ma3_persistence_constant_alpha,
+            trend_weight=ma3_trend_weight,
+            trend_window=ma3_trend_window,
         )
     return OraclePredictor()
 
@@ -96,6 +100,8 @@ def _compute_snapshot(
     ma3_persistence_horizon: int,
     ma3_persistence_constant_alpha: float,
     ma3_source_average_beta: float,
+    ma3_trend_weight: float,
+    ma3_trend_window: int,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
@@ -112,6 +118,8 @@ def _compute_snapshot(
         ma3_persistence_mode=ma3_persistence_mode,
         ma3_persistence_horizon=ma3_persistence_horizon,
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+        ma3_trend_weight=ma3_trend_weight,
+        ma3_trend_window=ma3_trend_window,
     )
 
     connection = create_sqlite_connection()
@@ -263,6 +271,28 @@ def render_prediction_explorer(
             )
         )
 
+        t1, t2 = st.columns(2)
+        with t1:
+            ma3_trend_weight = float(
+                st.slider(
+                    "ma3 trend weight",
+                    min_value=0.0,
+                    max_value=2.0,
+                    value=0.0,
+                    step=0.05,
+                )
+            )
+        with t2:
+            ma3_trend_window = int(
+                st.number_input(
+                    "ma3 trend window",
+                    min_value=2,
+                    max_value=96,
+                    value=4,
+                    step=1,
+                )
+            )
+
     t_key = "pred_timestep"
     if t_key not in st.session_state:
         st.session_state[t_key] = 1
@@ -335,6 +365,8 @@ def render_prediction_explorer(
             ma3_persistence_horizon=ma3_persistence_horizon,
             ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
             ma3_source_average_beta=source_average_beta,
+            ma3_trend_weight=ma3_trend_weight,
+            ma3_trend_window=ma3_trend_window,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]

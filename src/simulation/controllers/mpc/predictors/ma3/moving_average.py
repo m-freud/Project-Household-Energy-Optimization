@@ -14,6 +14,21 @@ def seed_series(values: list[float], long_window: int, default: float) -> list[f
     return [float(default)] * long_window
 
 
+def recent_slope(values: list[float], trend_window: int) -> float:
+    trend_window = max(2, int(trend_window))
+    if len(values) < 2:
+        return 0.0
+
+    tail = [float(value) for value in values[-trend_window:]]
+    if len(tail) < 2:
+        return 0.0
+
+    diffs = [tail[i] - tail[i - 1] for i in range(1, len(tail))]
+    if not diffs:
+        return 0.0
+    return float(sum(diffs) / len(diffs))
+
+
 def persistence_alpha(
     step_index: int,
     mode: str,
@@ -53,6 +68,8 @@ def forecast_moving_average(
     persistence_mode: str = "exponential",
     persistence_horizon: int = 8,
     persistence_constant_alpha: float = 0.5,
+    trend_weight: float = 0.0,
+    trend_window: int = 4,
 ) -> list[float]:
     if horizon <= 0:
         return []
@@ -61,6 +78,7 @@ def forecast_moving_average(
     forecast: list[float] = []
     long_weight = 1.0 - short_weight
     persistence_anchor = float(default)
+    slope = recent_slope(values, trend_window)
 
     for step_index in range(1, horizon + 1):
         short_slice = series[-short_window:]
@@ -76,6 +94,7 @@ def forecast_moving_average(
             constant_alpha=persistence_constant_alpha,
         )
         predicted = (1.0 - alpha) * persistence_anchor + alpha * ma_predicted
+        predicted = predicted + float(trend_weight) * float(step_index) * slope
 
         forecast.append(float(predicted))
         series.append(float(predicted))
