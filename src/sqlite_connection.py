@@ -156,26 +156,62 @@ def load_avg_profile(
 
 def load_policies() -> list[str]:
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT policy FROM results ORDER BY policy"
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT policy FROM results ORDER BY policy"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
     return [row[0] for row in rows]
 
 
 def load_scenarios() -> list[str]:
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT scenario FROM results ORDER BY scenario"
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT scenario FROM results ORDER BY scenario"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
     return [row[0] for row in rows]
 
 
 def load_household_ids() -> list[int]:
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT player_id FROM results ORDER BY player_id"
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT player_id FROM results ORDER BY player_id"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
     return [row[0] for row in rows]
+
+
+def load_source_household_ids() -> list[int]:
+    """Load household ids directly from source ingestion tables.
+
+    This supports dashboard views that don't require simulation result rows.
+    """
+
+    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+        # Prefer fixed_costs as it should have one row per player.
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT player_id FROM fixed_costs ORDER BY player_id"
+            ).fetchall()
+            if rows:
+                return [row[0] for row in rows]
+        except sqlite3.OperationalError:
+            pass
+
+        # Fallback for partially ingested datasets.
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT player_id FROM player_pv_bess ORDER BY player_id"
+            ).fetchall()
+            return [row[0] for row in rows]
+        except sqlite3.OperationalError:
+            return []
 
 
 def load_household_result(
