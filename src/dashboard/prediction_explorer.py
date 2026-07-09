@@ -54,6 +54,7 @@ def _build_predictor(
     ma3_interval_width: float,
     ma3_persistence_mode: str,
     ma3_persistence_horizon: int,
+    ma3_persistence_constant_alpha: float,
 ) -> BasePredictor:
     if predictor_name == "ma1":
         return MovingAveragePredictor(window_size=ma1_window)
@@ -71,6 +72,7 @@ def _build_predictor(
             interval_width_fraction=ma3_interval_width,
             persistence_mode=ma3_persistence_mode,
             persistence_horizon=ma3_persistence_horizon,
+            persistence_constant_alpha=ma3_persistence_constant_alpha,
         )
     return OraclePredictor()
 
@@ -91,6 +93,7 @@ def _compute_snapshot(
     ma3_interval_width: float,
     ma3_persistence_mode: str,
     ma3_persistence_horizon: int,
+    ma3_persistence_constant_alpha: float,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
@@ -106,6 +109,7 @@ def _compute_snapshot(
         ma3_interval_width=ma3_interval_width,
         ma3_persistence_mode=ma3_persistence_mode,
         ma3_persistence_horizon=ma3_persistence_horizon,
+        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
     )
 
     connection = create_sqlite_connection()
@@ -204,7 +208,7 @@ def render_prediction_explorer(
         with r1:
             ma3_persistence_mode = st.selectbox(
                 "ma3 persistence",
-                options=["exponential", "linear", "none"],
+                options=["exponential", "linear", "constant", "none"],
                 index=0,
             )
         with r2:
@@ -217,6 +221,16 @@ def render_prediction_explorer(
                     step=1,
                 )
             )
+
+        ma3_persistence_constant_alpha = float(
+            st.slider(
+                "ma3 constant alpha",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.5,
+                step=0.05,
+            )
+        )
 
     t_key = "pred_timestep"
     if t_key not in st.session_state:
@@ -276,6 +290,7 @@ def render_prediction_explorer(
             ma3_interval_width=ma3_interval_width,
             ma3_persistence_mode=ma3_persistence_mode,
             ma3_persistence_horizon=ma3_persistence_horizon,
+            ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]

@@ -32,6 +32,7 @@ class MovingAveragePredictor3(BasePredictor):
         interval_width_fraction: float = 0.1,
         persistence_mode: str = "exponential",
         persistence_horizon: int = 8,
+        persistence_constant_alpha: float = 0.5,
     ):
         self.short_window_size = max(1, int(short_window_size))
         self.long_window_size = max(self.short_window_size, int(long_window_size))
@@ -39,6 +40,7 @@ class MovingAveragePredictor3(BasePredictor):
         self.interval_width_fraction = max(0.0, float(interval_width_fraction))
         self.persistence_mode = str(persistence_mode)
         self.persistence_horizon = max(1, int(persistence_horizon))
+        self.persistence_constant_alpha = min(1.0, max(0.0, float(persistence_constant_alpha)))
 
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
         _ = (scenario,)
@@ -53,6 +55,7 @@ class MovingAveragePredictor3(BasePredictor):
             interval_width_fraction=self.interval_width_fraction,
             persistence_mode=self.persistence_mode,
             persistence_horizon=self.persistence_horizon,
+            persistence_constant_alpha=self.persistence_constant_alpha,
         )
         pv_gen = predict_pv_gen(
             household,
@@ -63,6 +66,7 @@ class MovingAveragePredictor3(BasePredictor):
             interval_width_fraction=self.interval_width_fraction,
             persistence_mode=self.persistence_mode,
             persistence_horizon=self.persistence_horizon,
+            persistence_constant_alpha=self.persistence_constant_alpha,
         )
         ev_status = predict_ev_status(household, horizon)
         ev_load = predict_ev_load(
