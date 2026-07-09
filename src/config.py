@@ -39,3 +39,10 @@ class Config:
             {"window": 2, "earliest_start": 70, "latest_end": 88, "max_unavailable_steps": 5},
         ],
     }   
+
+    # PV generation availability window (quarter-hour periods, 1..96).
+    # Derived from the current dataset's all-household average PV curve.
+    PV_GENERATION_WINDOW_OBSERVED = {
+        "earliest_start": 32,
+        "latest_end": 71,
+    }
