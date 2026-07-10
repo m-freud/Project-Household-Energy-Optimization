@@ -58,6 +58,7 @@ def _build_predictor(
     ma3_persistence_constant_alpha: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
+    ma3_trend_range: int,
 ) -> BasePredictor:
     if predictor_name == "ma1":
         return MovingAveragePredictor(window_size=ma1_window)
@@ -78,6 +79,7 @@ def _build_predictor(
             persistence_constant_alpha=ma3_persistence_constant_alpha,
             trend_weight=ma3_trend_weight,
             trend_window=ma3_trend_window,
+            trend_range=ma3_trend_range,
         )
     return OraclePredictor()
 
@@ -102,6 +104,7 @@ def _compute_snapshot(
     ma3_source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
+    ma3_trend_range: int,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
@@ -120,6 +123,7 @@ def _compute_snapshot(
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
         ma3_trend_weight=ma3_trend_weight,
         ma3_trend_window=ma3_trend_window,
+        ma3_trend_range=ma3_trend_range,
     )
 
     connection = create_sqlite_connection()
@@ -277,7 +281,7 @@ def render_prediction_explorer(
                 st.slider(
                     "ma3 trend weight",
                     min_value=0.0,
-                    max_value=2.0,
+                    max_value=1.0,
                     value=0.0,
                     step=0.05,
                 )
@@ -292,10 +296,19 @@ def render_prediction_explorer(
                     step=1,
                 )
             )
+        ma3_trend_range = int(
+            st.number_input(
+                "ma3 trend range",
+                min_value=1,
+                max_value=96,
+                value=4,
+                step=1,
+            )
+        )
 
     t_key = "pred_timestep"
     if t_key not in st.session_state:
-        st.session_state[t_key] = 1
+        st.session_state[t_key] = 42
 
     nav1, nav2, nav3, nav4 = st.columns([1, 1, 5, 2])
     with nav1:
@@ -367,6 +380,7 @@ def render_prediction_explorer(
             ma3_source_average_beta=source_average_beta,
             ma3_trend_weight=ma3_trend_weight,
             ma3_trend_window=ma3_trend_window,
+            ma3_trend_range=ma3_trend_range,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]

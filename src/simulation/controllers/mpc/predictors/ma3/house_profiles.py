@@ -49,6 +49,7 @@ def predict_base_load(
     persistence_constant_alpha: float = 0.5,
     trend_weight: float = 0.0,
     trend_window: int = 4,
+    trend_range: int = 4,
 ) -> dict[str, list[float]]:
     short_window = max(1, int(short_window))
     long_window = max(short_window, int(long_window))
@@ -66,6 +67,7 @@ def predict_base_load(
         persistence_constant_alpha=persistence_constant_alpha,
         trend_weight=trend_weight,
         trend_window=trend_window,
+        trend_range=trend_range,
     )
     base_lb, base_ub = _make_band(base_series, interval_width_fraction)
 
@@ -88,6 +90,7 @@ def predict_pv_gen(
     persistence_constant_alpha: float = 0.5,
     trend_weight: float = 0.0,
     trend_window: int = 4,
+    trend_range: int = 4,
 ) -> dict[str, list[float]]:
     short_window = max(1, int(short_window))
     long_window = max(short_window, int(long_window))
@@ -105,6 +108,7 @@ def predict_pv_gen(
         persistence_constant_alpha=persistence_constant_alpha,
         trend_weight=trend_weight,
         trend_window=trend_window,
+        trend_range=trend_range,
     )
     pv_series = _apply_pv_window_mask(household, pv_series)
     pv_lb, pv_ub = _make_band(pv_series, interval_width_fraction)
@@ -128,6 +132,7 @@ def predict_house_profiles(
     persistence_constant_alpha: float = 0.5,
     trend_weight: float = 0.0,
     trend_window: int = 4,
+    trend_range: int = 4,
 ) -> dict[str, list[float]]:
     """Predict household-level continuous profiles.
 
@@ -150,6 +155,7 @@ def predict_house_profiles(
             persistence_constant_alpha=persistence_constant_alpha,
             trend_weight=trend_weight,
             trend_window=trend_window,
+            trend_range=trend_range,
         )
     )
     payload.update(
@@ -165,6 +171,7 @@ def predict_house_profiles(
             persistence_constant_alpha=persistence_constant_alpha,
             trend_weight=trend_weight,
             trend_window=trend_window,
+            trend_range=trend_range,
         )
     )
     return payload
