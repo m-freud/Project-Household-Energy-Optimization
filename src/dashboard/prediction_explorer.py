@@ -355,10 +355,9 @@ def render_prediction_explorer(
             )
 
         with b2:
-            show_source_average = st.checkbox("Show all-household source average", value=True)
             source_average_beta = float(
                 st.slider(
-                    "MA3 source-average beta",
+                    "source-average beta",
                     min_value=0.0,
                     max_value=1.0,
                     value=0.0,
@@ -366,6 +365,7 @@ def render_prediction_explorer(
                     help="Applied to MA3 prediction only: 0.0 = no source-average blend, 1.0 = source average only",
                 )
             )
+            show_source_average = st.checkbox("Show all-household source average", value=True)
 
         with bd2:
             st.markdown(
