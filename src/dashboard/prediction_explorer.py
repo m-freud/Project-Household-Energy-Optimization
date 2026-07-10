@@ -57,7 +57,7 @@ def _build_predictor(
             short_window_size=ma3_short,
             long_window_size=ma3_long,
             short_weight=ma3_weight,
-            interval_width_fraction=ma3_interval_width,
+            conf_interval_frct=ma3_interval_width,
             persistence_mode=ma3_persistence_mode,
             persistence_range=ma3_persistence_range,
             persistence_constant_alpha=ma3_persistence_constant_alpha,
@@ -209,8 +209,30 @@ def render_prediction_explorer(
 
         with s1:
             st.markdown("**Moving average**")
-            ma3_short = int(st.number_input("short window", min_value=1, max_value=96, value=7, step=1))
-            ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=48, step=1))
+            short_row = st.columns([5, 1], gap="small")
+            with short_row[0]:
+                ma3_short = int(st.number_input("short window", min_value=1, max_value=96, value=7, step=1))
+            with short_row[1]:
+                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
+                show_short_window = st.checkbox(
+                    "show short window",
+                    value=True,
+                    key="show_short_window",
+                    label_visibility="collapsed",
+                )
+
+            long_row = st.columns([5, 1], gap="small")
+            with long_row[0]:
+                ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=48, step=1))
+            with long_row[1]:
+                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
+                show_long_window = st.checkbox(
+                    "show long window",
+                    value=True,
+                    key="show_long_window",
+                    label_visibility="collapsed",
+                )
+
             ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
             ma3_interval_width = float(
                 st.slider("confidence interval", min_value=0.0, max_value=0.5, value=0.1, step=0.01)
@@ -229,16 +251,28 @@ def render_prediction_explorer(
                 options=["exponential", "linear", "constant", "none"],
                 index=0,
             )
-            ma3_persistence_range = int(
-                st.number_input(
-                    "persistence range",
-                    min_value=1,
-                    max_value=96,
-                    value=8,
-                    step=1,
-                    disabled=ma3_persistence_mode == "none",
+            persistence_row = st.columns([5, 1], gap="small")
+            with persistence_row[0]:
+                ma3_persistence_range = int(
+                    st.number_input(
+                        "persistence range",
+                        min_value=1,
+                        max_value=96,
+                        value=8,
+                        step=1,
+                        disabled=ma3_persistence_mode == "none",
+                    )
                 )
-            )
+            with persistence_row[1]:
+                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
+                show_persistence_range = st.checkbox(
+                    "show persistence range",
+                    value=True,
+                    key="show_persistence_range",
+                    disabled=ma3_persistence_mode == "none",
+                    label_visibility="collapsed",
+                )
+
             ma3_persistence_constant_alpha = float(
                 st.slider(
                     "constant alpha",
@@ -258,24 +292,46 @@ def render_prediction_explorer(
 
         with s3:
             st.markdown("**Trend persistence**")
-            ma3_trend_window = int(
-                st.number_input(
-                    "trend window",
-                    min_value=2,
-                    max_value=96,
-                    value=4,
-                    step=1,
+            trend_window_row = st.columns([5, 1], gap="small")
+            with trend_window_row[0]:
+                ma3_trend_window = int(
+                    st.number_input(
+                        "trend window",
+                        min_value=2,
+                        max_value=96,
+                        value=4,
+                        step=1,
+                    )
                 )
-            )
-            ma3_trend_range = int(
-                st.number_input(
-                    "trend persistence range",
-                    min_value=1,
-                    max_value=96,
-                    value=4,
-                    step=1,
+            with trend_window_row[1]:
+                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
+                show_trend_window = st.checkbox(
+                    "show trend window",
+                    value=True,
+                    key="show_trend_window",
+                    label_visibility="collapsed",
                 )
-            )
+
+            trend_range_row = st.columns([5, 1], gap="small")
+            with trend_range_row[0]:
+                ma3_trend_range = int(
+                    st.number_input(
+                        "trend persistence range",
+                        min_value=1,
+                        max_value=96,
+                        value=4,
+                        step=1,
+                    )
+                )
+            with trend_range_row[1]:
+                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
+                show_trend_range = st.checkbox(
+                    "show trend range",
+                    value=True,
+                    key="show_trend_range",
+                    label_visibility="collapsed",
+                )
+
             ma3_trend_weight = float(
                 st.slider(
                     "trend weight",
@@ -309,7 +365,6 @@ def render_prediction_explorer(
     with nav4:
         horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=96, step=1))
 
-    show_ma_windows = st.checkbox("Show MA windows", value=True)
     show_source_average = st.checkbox("Show all-household source average", value=True)
     show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
     source_average_beta = float(
@@ -325,13 +380,19 @@ def render_prediction_explorer(
 
     timestep = int(st.session_state[t_key])
 
-    # Display windows using the MA3 configuration.
+    # Display window/range overlays using the MA3 configuration.
     if "ma3" in selected_predictors:
         display_short_window = int(ma3_short)
         display_long_window = int(ma3_long)
+        display_persistence_range = int(ma3_persistence_range)
+        display_trend_window = int(ma3_trend_window)
+        display_trend_range = int(ma3_trend_range)
     else:
         display_short_window = 0
         display_long_window = 0
+        display_persistence_range = 0
+        display_trend_window = 0
+        display_trend_range = 0
 
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
@@ -414,7 +475,7 @@ def render_prediction_explorer(
                     label="source avg (all households)",
                 )
 
-        if show_ma_windows and display_long_window > 0:
+        if show_long_window and display_long_window > 0:
             long_start = max(1, timestep - display_long_window + 1)
             axis.axvspan(
                 float(long_start),
@@ -424,7 +485,7 @@ def render_prediction_explorer(
                 label=f"long window ({display_long_window})",
             )
 
-        if show_ma_windows and display_short_window > 0:
+        if show_short_window and display_short_window > 0:
             short_start = max(1, timestep - display_short_window + 1)
             axis.axvspan(
                 float(short_start),
@@ -432,6 +493,38 @@ def render_prediction_explorer(
                 color="tab:green",
                 alpha=0.15,
                 label=f"short window ({display_short_window})",
+            )
+
+        if show_trend_window and display_trend_window > 0:
+            trend_window_start = max(1, timestep - display_trend_window + 1)
+            axis.axvspan(
+                float(trend_window_start),
+                float(timestep),
+                color="tab:blue",
+                alpha=0.08,
+                label=f"trend window ({display_trend_window})",
+            )
+
+        if show_persistence_range and display_persistence_range > 0:
+            persistence_end = min(96, timestep + display_persistence_range - 1)
+            axis.axvspan(
+                float(timestep),
+                float(persistence_end),
+                color="tab:brown",
+                alpha=0.08,
+                label=f"persistence range ({display_persistence_range})",
+            )
+
+        if show_trend_range and display_trend_range > 0:
+            # Trend target uses min(step_index - 1, trend_range), so the change
+            # reaches its final step one period later than persistence range.
+            trend_range_end = min(96, timestep + display_trend_range)
+            axis.axvspan(
+                float(timestep),
+                float(trend_range_end),
+                color="tab:cyan",
+                alpha=0.08,
+                label=f"trend range ({display_trend_range})",
             )
 
         for predictor_name in selected_predictors:
