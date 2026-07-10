@@ -205,73 +205,85 @@ def render_prediction_explorer(
         return
 
     with st.expander("Predictor hyperparameters", expanded=False):
-        q1, q2, q3 = st.columns(3)
-        with q1:
-            ma3_short = int(st.number_input("ma3 short", min_value=1, max_value=96, value=7, step=1))
-        with q2:
-            ma3_long = int(st.number_input("ma3 long", min_value=1, max_value=96, value=48, step=1))
-            ma3_weight = float(st.slider("ma3 short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
-        with q3:
-            ma3_interval_width = float(st.slider("ma3 interval width", min_value=0.0, max_value=0.5, value=0.1, step=0.01))
+        s1, d1, s2, d2, s3 = st.columns([1, 0.05, 1, 0.05, 1], gap="medium")
 
-        r1, r2 = st.columns(2)
-        with r1:
+        with s1:
+            st.markdown("**Moving average**")
+            ma3_short = int(st.number_input("short window", min_value=1, max_value=96, value=7, step=1))
+            ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=48, step=1))
+            ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
+            ma3_interval_width = float(
+                st.slider("confidence interval", min_value=0.0, max_value=0.5, value=0.1, step=0.01)
+            )
+
+        with d1:
+            st.markdown(
+                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 18rem; margin: 0 auto;'></div>",
+                unsafe_allow_html=True,
+            )
+
+        with s2:
+            st.markdown("**Value persistence**")
             ma3_persistence_mode = st.selectbox(
-                "ma3 persistence",
+                "persistence mode",
                 options=["exponential", "linear", "constant", "none"],
                 index=0,
             )
-        with r2:
             ma3_persistence_horizon = int(
                 st.number_input(
-                    "ma3 persistence horizon",
+                    "persistence range",
                     min_value=1,
                     max_value=96,
                     value=8,
                     step=1,
                 )
             )
-
-        ma3_persistence_constant_alpha = float(
-            st.slider(
-                "ma3 constant alpha",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.5,
-                step=0.05,
-            )
-        )
-
-        t1, t2 = st.columns(2)
-        with t1:
-            ma3_trend_weight = float(
+            ma3_persistence_constant_alpha = float(
                 st.slider(
-                    "ma3 trend weight",
+                    "constant alpha",
                     min_value=0.0,
                     max_value=1.0,
-                    value=0.0,
+                    value=0.5,
                     step=0.05,
+                    disabled=ma3_persistence_mode != "constant",
                 )
             )
-        with t2:
+
+        with d2:
+            st.markdown(
+                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 18rem; margin: 0 auto;'></div>",
+                unsafe_allow_html=True,
+            )
+
+        with s3:
+            st.markdown("**Trend persistence**")
             ma3_trend_window = int(
                 st.number_input(
-                    "ma3 trend window",
+                    "trend window",
                     min_value=2,
                     max_value=96,
                     value=4,
                     step=1,
                 )
             )
-        ma3_trend_range = int(
-            st.number_input(
-                "ma3 trend range",
-                min_value=1,
-                max_value=96,
-                value=4,
-                step=1,
+            ma3_trend_range = int(
+                st.number_input(
+                    "trend range",
+                    min_value=1,
+                    max_value=96,
+                    value=4,
+                    step=1,
+                )
             )
-        )
+            ma3_trend_weight = float(
+                st.slider(
+                    "trend weight",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.0,
+                    step=0.05,
+                )
+            )
 
     t_key = "pred_timestep"
     if t_key not in st.session_state:
@@ -312,7 +324,7 @@ def render_prediction_explorer(
 
     timestep = int(st.session_state[t_key])
 
-    # Display windows using the most advanced selected MA predictor configuration.
+    # Display windows using the MA3 configuration.
     if "ma3" in selected_predictors:
         display_short_window = int(ma3_short)
         display_long_window = int(ma3_long)
