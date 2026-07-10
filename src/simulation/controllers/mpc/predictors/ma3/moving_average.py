@@ -14,7 +14,7 @@ def seed_series(values: list[float], long_window: int, default: float) -> list[f
     return [float(default)] * long_window
 
 
-def recent_slope(values: list[float], trend_window: int) -> float:
+def recent_trend(values: list[float], trend_window: int) -> float:
     trend_window = max(2, int(trend_window))
     if len(values) < 2:
         return 0.0
@@ -64,12 +64,13 @@ def forecast_moving_average(
     short_window: int,
     long_window: int,
     short_weight: float,
-    default: float,
+    default: float = 0,
     persistence_mode: str = "exponential",
     persistence_horizon: int = 8,
     persistence_constant_alpha: float = 0.5,
     trend_weight: float = 0.0,
     trend_window: int = 4,
+    trend_range: int = 4,
 ) -> list[float]:
     if horizon <= 0:
         return []
@@ -77,8 +78,10 @@ def forecast_moving_average(
     series = seed_series(values, long_window, default)
     forecast: list[float] = []
     long_weight = 1.0 - short_weight
-    persistence_anchor = float(default)
-    slope = recent_slope(values, trend_window)
+    current_value = float(values[-1]) if values else float(default)
+    trend = recent_trend(values, trend_window)
+    trend_range = max(1, int(trend_range))
+    trend_blend = min(1.0, max(0.0, float(trend_weight)))
 
     for step_index in range(1, horizon + 1):
         short_slice = series[-short_window:]
@@ -93,8 +96,10 @@ def forecast_moving_average(
             persistence_horizon,
             constant_alpha=persistence_constant_alpha,
         )
-        predicted = (1.0 - alpha) * persistence_anchor + alpha * ma_predicted
-        predicted = predicted + float(trend_weight) * float(step_index) * slope
+        trend_steps = min(max(0, step_index - 1), trend_range)
+        trend_target = current_value + float(trend_steps) * trend
+        persistence_target = (1.0 - trend_blend) * current_value + trend_blend * trend_target
+        predicted = (1.0 - alpha) * persistence_target + alpha * ma_predicted
 
         forecast.append(float(predicted))
         series.append(float(predicted))

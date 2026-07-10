@@ -35,6 +35,7 @@ class MovingAveragePredictor3(BasePredictor):
         persistence_constant_alpha: float = 0.5,
         trend_weight: float = 0.0,
         trend_window: int = 4,
+        trend_range: int = 4,
     ):
         self.short_window_size = max(1, int(short_window_size))
         self.long_window_size = max(self.short_window_size, int(long_window_size))
@@ -43,8 +44,9 @@ class MovingAveragePredictor3(BasePredictor):
         self.persistence_mode = str(persistence_mode)
         self.persistence_horizon = max(1, int(persistence_horizon))
         self.persistence_constant_alpha = min(1.0, max(0.0, float(persistence_constant_alpha)))
-        self.trend_weight = float(trend_weight)
+        self.trend_weight = min(1.0, max(0.0, float(trend_weight)))
         self.trend_window = max(2, int(trend_window))
+        self.trend_range = max(1, int(trend_range))
 
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
         _ = (scenario,)
@@ -62,6 +64,7 @@ class MovingAveragePredictor3(BasePredictor):
             persistence_constant_alpha=self.persistence_constant_alpha,
             trend_weight=self.trend_weight,
             trend_window=self.trend_window,
+            trend_range=self.trend_range,
         )
         pv_gen = predict_pv_gen(
             household,
@@ -75,6 +78,7 @@ class MovingAveragePredictor3(BasePredictor):
             persistence_constant_alpha=self.persistence_constant_alpha,
             trend_weight=self.trend_weight,
             trend_window=self.trend_window,
+            trend_range=self.trend_range,
         )
         ev_status = predict_ev_status(household, horizon)
         ev_load = predict_ev_load(
