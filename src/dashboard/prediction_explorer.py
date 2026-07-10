@@ -9,8 +9,6 @@ import streamlit as st
 
 from src.config import Config
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
-from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import MovingAveragePredictor3
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.scenarios.scenario import default_scenario
@@ -20,8 +18,6 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
-    "ma1": "ma1",
-    "ma2": "ma2",
     "ma3": "ma3",
 }
 
@@ -45,10 +41,6 @@ PROFILE_OPTIONS = [
 
 def _build_predictor(
     predictor_name: str,
-    ma1_window: int,
-    ma2_short: int,
-    ma2_long: int,
-    ma2_weight: float,
     ma3_short: int,
     ma3_long: int,
     ma3_weight: float,
@@ -60,14 +52,6 @@ def _build_predictor(
     ma3_trend_window: int,
     ma3_trend_range: int,
 ) -> BasePredictor:
-    if predictor_name == "ma1":
-        return MovingAveragePredictor(window_size=ma1_window)
-    if predictor_name == "ma2":
-        return MovingAveragePredictor2(
-            short_window_size=ma2_short,
-            long_window_size=ma2_long,
-            short_weight=ma2_weight,
-        )
     if predictor_name == "ma3":
         return MovingAveragePredictor3(
             short_window_size=ma3_short,
@@ -90,10 +74,6 @@ def _compute_snapshot(
     predictor_name: str,
     timestep: int,
     horizon: int,
-    ma1_window: int,
-    ma2_short: int,
-    ma2_long: int,
-    ma2_weight: float,
     ma3_short: int,
     ma3_long: int,
     ma3_weight: float,
@@ -110,10 +90,6 @@ def _compute_snapshot(
 
     predictor = _build_predictor(
         predictor_name=predictor_name,
-        ma1_window=ma1_window,
-        ma2_short=ma2_short,
-        ma2_long=ma2_long,
-        ma2_weight=ma2_weight,
         ma3_short=ma3_short,
         ma3_long=ma3_long,
         ma3_weight=ma3_weight,
@@ -229,15 +205,6 @@ def render_prediction_explorer(
         return
 
     with st.expander("Predictor hyperparameters", expanded=False):
-        p1, p2, p3 = st.columns(3)
-        with p1:
-            ma1_window = int(st.number_input("ma1 window", min_value=1, max_value=96, value=12, step=1))
-        with p2:
-            ma2_short = int(st.number_input("ma2 short", min_value=1, max_value=96, value=7, step=1))
-            ma2_weight = float(st.slider("ma2 short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
-        with p3:
-            ma2_long = int(st.number_input("ma2 long", min_value=1, max_value=96, value=48, step=1))
-
         q1, q2, q3 = st.columns(3)
         with q1:
             ma3_short = int(st.number_input("ma3 short", min_value=1, max_value=96, value=7, step=1))
@@ -349,12 +316,6 @@ def render_prediction_explorer(
     if "ma3" in selected_predictors:
         display_short_window = int(ma3_short)
         display_long_window = int(ma3_long)
-    elif "ma2" in selected_predictors:
-        display_short_window = int(ma2_short)
-        display_long_window = int(ma2_long)
-    elif "ma1" in selected_predictors:
-        display_short_window = int(ma1_window)
-        display_long_window = int(ma1_window)
     else:
         display_short_window = 0
         display_long_window = 0
@@ -366,10 +327,6 @@ def render_prediction_explorer(
             predictor_name=str(predictor_name),
             timestep=timestep,
             horizon=horizon,
-            ma1_window=ma1_window,
-            ma2_short=ma2_short,
-            ma2_long=ma2_long,
-            ma2_weight=ma2_weight,
             ma3_short=ma3_short,
             ma3_long=ma3_long,
             ma3_weight=ma3_weight,
