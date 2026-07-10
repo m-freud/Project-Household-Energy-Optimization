@@ -46,7 +46,7 @@ def _build_predictor(
     ma3_weight: float,
     ma3_interval_width: float,
     ma3_persistence_mode: str,
-    ma3_persistence_horizon: int,
+    ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
@@ -59,7 +59,7 @@ def _build_predictor(
             short_weight=ma3_weight,
             interval_width_fraction=ma3_interval_width,
             persistence_mode=ma3_persistence_mode,
-            persistence_horizon=ma3_persistence_horizon,
+            persistence_range=ma3_persistence_range,
             persistence_constant_alpha=ma3_persistence_constant_alpha,
             trend_weight=ma3_trend_weight,
             trend_window=ma3_trend_window,
@@ -79,7 +79,7 @@ def _compute_snapshot(
     ma3_weight: float,
     ma3_interval_width: float,
     ma3_persistence_mode: str,
-    ma3_persistence_horizon: int,
+    ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
     ma3_source_average_beta: float,
     ma3_trend_weight: float,
@@ -95,7 +95,7 @@ def _compute_snapshot(
         ma3_weight=ma3_weight,
         ma3_interval_width=ma3_interval_width,
         ma3_persistence_mode=ma3_persistence_mode,
-        ma3_persistence_horizon=ma3_persistence_horizon,
+        ma3_persistence_range=ma3_persistence_range,
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
         ma3_trend_weight=ma3_trend_weight,
         ma3_trend_window=ma3_trend_window,
@@ -229,7 +229,7 @@ def render_prediction_explorer(
                 options=["exponential", "linear", "constant", "none"],
                 index=0,
             )
-            ma3_persistence_horizon = int(
+            ma3_persistence_range = int(
                 st.number_input(
                     "persistence range",
                     min_value=1,
@@ -269,7 +269,7 @@ def render_prediction_explorer(
             )
             ma3_trend_range = int(
                 st.number_input(
-                    "trend range",
+                    "trend persistence range",
                     min_value=1,
                     max_value=96,
                     value=4,
@@ -345,7 +345,7 @@ def render_prediction_explorer(
             ma3_weight=ma3_weight,
             ma3_interval_width=ma3_interval_width,
             ma3_persistence_mode=ma3_persistence_mode,
-            ma3_persistence_horizon=ma3_persistence_horizon,
+            ma3_persistence_range=ma3_persistence_range,
             ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
             ma3_source_average_beta=source_average_beta,
             ma3_trend_weight=ma3_trend_weight,

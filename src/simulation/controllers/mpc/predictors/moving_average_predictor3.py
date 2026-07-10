@@ -31,7 +31,7 @@ class MovingAveragePredictor3(BasePredictor):
         short_weight: float = 0.7,
         interval_width_fraction: float = 0.1,
         persistence_mode: str = "exponential",
-        persistence_horizon: int = 8,
+        persistence_range: int = 8,
         persistence_constant_alpha: float = 0.5,
         trend_weight: float = 0.0,
         trend_window: int = 4,
@@ -42,7 +42,7 @@ class MovingAveragePredictor3(BasePredictor):
         self.short_weight = min(1.0, max(0.0, float(short_weight)))
         self.interval_width_fraction = max(0.0, float(interval_width_fraction))
         self.persistence_mode = str(persistence_mode)
-        self.persistence_horizon = max(1, int(persistence_horizon))
+        self.persistence_range = max(1, int(persistence_range))
         self.persistence_constant_alpha = min(1.0, max(0.0, float(persistence_constant_alpha)))
         self.trend_weight = min(1.0, max(0.0, float(trend_weight)))
         self.trend_window = max(2, int(trend_window))
@@ -60,7 +60,7 @@ class MovingAveragePredictor3(BasePredictor):
             short_weight=self.short_weight,
             interval_width_fraction=self.interval_width_fraction,
             persistence_mode=self.persistence_mode,
-            persistence_horizon=self.persistence_horizon,
+            persistence_range=self.persistence_range,
             persistence_constant_alpha=self.persistence_constant_alpha,
             trend_weight=self.trend_weight,
             trend_window=self.trend_window,
@@ -74,7 +74,7 @@ class MovingAveragePredictor3(BasePredictor):
             short_weight=self.short_weight,
             interval_width_fraction=self.interval_width_fraction,
             persistence_mode=self.persistence_mode,
-            persistence_horizon=self.persistence_horizon,
+            persistence_range=self.persistence_range,
             persistence_constant_alpha=self.persistence_constant_alpha,
             trend_weight=self.trend_weight,
             trend_window=self.trend_window,
