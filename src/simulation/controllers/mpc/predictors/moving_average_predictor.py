@@ -78,8 +78,8 @@ class MovingAveragePredictor(BasePredictor):
 		forecast: list[float] = []
 
 		for _ in range(horizon):
-			window = series[-self.window_size :]
-			predicted = sum(window) / len(window) if window else float(default)
+			window_values = series[-self.window_size :]
+			predicted = sum(window_values) / len(window_values) if window_values else float(default)
 			forecast.append(float(predicted))
 			series.append(float(predicted))
 
