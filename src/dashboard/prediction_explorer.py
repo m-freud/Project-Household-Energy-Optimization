@@ -234,9 +234,6 @@ def render_prediction_explorer(
                 )
 
             ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
-            ma3_interval_width = float(
-                st.slider("confidence interval", min_value=0.0, max_value=0.5, value=0.1, step=0.01)
-            )
 
         with d1:
             st.markdown(
@@ -342,6 +339,43 @@ def render_prediction_explorer(
                 )
             )
 
+        st.markdown("---")
+
+        b1, bd1, b2, bd2, b3 = st.columns([1, 0.05, 1, 0.05, 1], gap="medium")
+
+        with b1:
+            ma3_interval_width = float(
+                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.1, step=0.01)
+            )
+
+        with bd1:
+            st.markdown(
+                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 6rem; margin: 0 auto;'></div>",
+                unsafe_allow_html=True,
+            )
+
+        with b2:
+            show_source_average = st.checkbox("Show all-household source average", value=True)
+            source_average_beta = float(
+                st.slider(
+                    "MA3 source-average beta",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.0,
+                    step=0.05,
+                    help="Applied to MA3 prediction only: 0.0 = no source-average blend, 1.0 = source average only",
+                )
+            )
+
+        with bd2:
+            st.markdown(
+                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 6rem; margin: 0 auto;'></div>",
+                unsafe_allow_html=True,
+            )
+
+        with b3:
+            show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
+
     t_key = "pred_timestep"
     if t_key not in st.session_state:
         st.session_state[t_key] = 42
@@ -364,19 +398,6 @@ def render_prediction_explorer(
         )
     with nav4:
         horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=96, step=1))
-
-    show_source_average = st.checkbox("Show all-household source average", value=True)
-    show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
-    source_average_beta = float(
-        st.slider(
-            "MA3 source-average beta",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.0,
-            step=0.05,
-            help="Applied to MA3 prediction only: 0.0 = no source-average blend, 1.0 = source average only",
-        )
-    )
 
     timestep = int(st.session_state[t_key])
 
