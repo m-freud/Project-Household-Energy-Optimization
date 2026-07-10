@@ -43,6 +43,8 @@ def persistence_alpha(
         return 1.0
 
     if mode == "constant":
+        if step_index > persistence_horizon:
+            return 1.0
         return constant_alpha
 
     if step_index == 1:
