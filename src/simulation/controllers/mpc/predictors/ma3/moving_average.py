@@ -90,12 +90,14 @@ def forecast_moving_average(
         short_avg = sum(short_slice) / len(short_slice) if short_slice else float(default)
         long_avg = sum(long_slice) / len(long_slice) if long_slice else float(default)
         ma_predicted = short_weight * short_avg + long_weight * long_avg
+        
         alpha = persistence_alpha(
             step_index,
             persistence_mode,
             persistence_horizon,
             constant_alpha=persistence_constant_alpha,
         )
+
         trend_steps = min(max(0, step_index - 1), trend_range)
         trend_target = current_value + float(trend_steps) * trend
         persistence_target = (1.0 - trend_blend) * current_value + trend_blend * trend_target
