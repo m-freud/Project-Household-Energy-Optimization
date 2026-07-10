@@ -37,3 +37,9 @@ To clear only simulation outputs (results + time-series histories) while keeping
 ```bash
 ./reset_sqlite_results.sh
 ```
+
+## MA3 Calculation Reference
+
+Detailed equations for the current MA3 moving-average forecast are documented in:
+
+- [doc/moving_average_calculation.md](doc/moving_average_calculation.md)
