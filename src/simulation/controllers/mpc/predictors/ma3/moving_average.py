@@ -32,31 +32,31 @@ def recent_trend(values: list[float], trend_window: int) -> float:
 def persistence_alpha(
     step_index: int,
     mode: str,
-    persistence_horizon: int,
+    persistence_range: int,
     constant_alpha: float = 0.5,
 ) -> float:
     step_index = max(1, int(step_index))
-    persistence_horizon = max(1, int(persistence_horizon))
+    persistence_range = max(1, int(persistence_range))
     constant_alpha = min(1.0, max(0.0, float(constant_alpha)))
 
     if mode == "none":
         return 1.0
 
     if mode == "constant":
-        if step_index > persistence_horizon:
+        if step_index > persistence_range:
             return 1.0
         return constant_alpha
 
     if step_index == 1:
         return 0.0
 
-    if persistence_horizon == 1:
+    if persistence_range == 1:
         return 1.0
 
     if mode == "linear":
-        return min(1.0, float(step_index - 1) / float(persistence_horizon - 1))
+        return min(1.0, float(step_index - 1) / float(persistence_range - 1))
 
-    tau = float(persistence_horizon - 1) / math.log(10.0)
+    tau = float(persistence_range - 1) / math.log(10.0)
     return min(1.0, 1.0 - math.exp(-float(step_index - 1) / tau))
 
 
@@ -68,7 +68,7 @@ def forecast_moving_average(
     short_weight: float,
     default: float = 0,
     persistence_mode: str = "exponential",
-    persistence_horizon: int = 8,
+    persistence_range: int = 8,
     persistence_constant_alpha: float = 0.5,
     trend_weight: float = 0.0,
     trend_window: int = 4,
@@ -96,7 +96,7 @@ def forecast_moving_average(
         alpha = persistence_alpha(
             step_index,
             persistence_mode,
-            persistence_horizon,
+            persistence_range,
             constant_alpha=persistence_constant_alpha,
         )
 
