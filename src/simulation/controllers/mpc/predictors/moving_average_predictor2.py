@@ -85,11 +85,11 @@ class MovingAveragePredictor2(BasePredictor):
 		forecast: list[float] = []
 
 		for _ in range(horizon):
-			short_window = series[-self.short_window_size :]
-			long_window = series[-self.long_window_size :]
+			short_window_values = series[-self.short_window_size :]
+			long_window_values = series[-self.long_window_size :]
 
-			short_average = sum(short_window) / len(short_window) if short_window else float(default)
-			long_average = sum(long_window) / len(long_window) if long_window else float(default)
+			short_average = sum(short_window_values) / len(short_window_values) if short_window_values else float(default)
+			long_average = sum(long_window_values) / len(long_window_values) if long_window_values else float(default)
 			predicted = self.short_weight * short_average + self.long_weight * long_average
 
 			forecast.append(float(predicted))
