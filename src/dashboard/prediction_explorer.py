@@ -236,6 +236,7 @@ def render_prediction_explorer(
                     max_value=96,
                     value=8,
                     step=1,
+                    disabled=ma3_persistence_mode == "none",
                 )
             )
             ma3_persistence_constant_alpha = float(
