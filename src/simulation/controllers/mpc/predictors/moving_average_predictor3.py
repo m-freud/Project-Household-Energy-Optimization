@@ -29,7 +29,7 @@ class MovingAveragePredictor3(BasePredictor):
         short_window_size: int = 7,
         long_window_size: int = 48,
         short_weight: float = 0.7,
-        interval_width_fraction: float = 0.1,
+        conf_interval_frct: float = 0.1,
         persistence_mode: str = "exponential",
         persistence_range: int = 8,
         persistence_constant_alpha: float = 0.5,
@@ -40,7 +40,7 @@ class MovingAveragePredictor3(BasePredictor):
         self.short_window_size = max(1, int(short_window_size))
         self.long_window_size = max(self.short_window_size, int(long_window_size))
         self.short_weight = min(1.0, max(0.0, float(short_weight)))
-        self.interval_width_fraction = max(0.0, float(interval_width_fraction))
+        self.interval_width_fraction = max(0.0, float(conf_interval_frct))
         self.persistence_mode = str(persistence_mode)
         self.persistence_range = max(1, int(persistence_range))
         self.persistence_constant_alpha = min(1.0, max(0.0, float(persistence_constant_alpha)))
