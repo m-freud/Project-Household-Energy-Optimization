@@ -11,6 +11,21 @@ Yes, Markdown supports math in common tooling used here:
 
 Math is written with inline `$...$` and display `$$...$$` blocks.
 
+## Terminology
+
+This document uses the following distinction consistently:
+
+- horizon: how far the forecast looks ahead
+- range: how far a forward-applied effect remains active
+- window: how far the predictor looks back into history
+
+Applied here:
+
+- forecast horizon: total number of future steps predicted
+- trend window: backward lookback used to estimate recent trend
+- trend range: number of future steps over which the trend effect is applied
+- persistence range: number of future steps over which persistence remains active, or for exponential mode, the approximate handoff range
+
 ## Symbols
 
 - $k \in \{1,\dots,H\}$: forecast step index
@@ -23,7 +38,7 @@ Math is written with inline `$...$` and display `$$...$$` blocks.
 - $w_\ell = 1 - w_s$: long-window weight
 - $\beta \in [0,1]$: trend blend (`trend_weight` after clamping)
 - $R$: trend range (`trend_range`)
-- $h$: persistence horizon (`persistence_horizon`)
+- $h$: persistence range (`persistence_horizon` in code)
 - $c \in [0,1]$: constant persistence alpha (`persistence_constant_alpha`)
 
 ## 1. Seeded Recursive Series
@@ -105,7 +120,11 @@ $$
 ### Mode: `constant`
 
 $$
-\alpha_k = c.
+\alpha_k =
+\begin{cases}
+c, & k \le h \\
+1, & k > h
+\end{cases}
 $$
 
 ### Mode: `linear`
@@ -133,6 +152,14 @@ $$
 \min\left(1, 1 - e^{-(k-1)/\tau}\right), & \text{otherwise}
 \end{cases}
 $$
+
+Here $\tau$ is the exponential time constant. In this implementation it is not tuned independently; it is derived from $h$ so that the MA weight reaches about $90\%$ at step $h$:
+
+$$
+1 - e^{-(h-1)/\tau} = 1 - e^{-\ln 10} = 0.9.
+$$
+
+So `persistence_horizon` in code, interpreted as persistence range in the UI/documentation, means "roughly the 90% handoff point" rather than a hard cutoff.
 
 ## 6. Final Forecast Equation
 
