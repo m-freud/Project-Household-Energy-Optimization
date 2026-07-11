@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.ma3 import (
     predict_base_load,
@@ -13,6 +15,15 @@ from src.simulation.controllers.mpc.predictors.ma3 import (
 )
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
+from src.sqlite_connection import load_source_avg_profile
+
+
+@lru_cache(maxsize=8)
+def _load_source_avg_curve(table_name: str) -> list[float]:
+    df = load_source_avg_profile(table_name)
+    if df.empty:
+        return []
+    return [float(value) for value in df["value"].tolist()]
 
 
 class MovingAveragePredictor3(BasePredictor):
@@ -36,6 +47,7 @@ class MovingAveragePredictor3(BasePredictor):
         trend_weight: float = 0.0,
         trend_window: int = 4,
         trend_range: int = 4,
+        source_average_beta: float = 0.0,
     ):
         self.short_window_size = max(1, int(short_window_size))
         self.long_window_size = max(self.short_window_size, int(long_window_size))
@@ -47,6 +59,7 @@ class MovingAveragePredictor3(BasePredictor):
         self.trend_weight = min(1.0, max(0.0, float(trend_weight)))
         self.trend_window = max(2, int(trend_window))
         self.trend_range = max(1, int(trend_range))
+        self.source_average_beta = min(1.0, max(0.0, float(source_average_beta)))
 
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
         _ = (scenario,)
@@ -104,5 +117,24 @@ class MovingAveragePredictor3(BasePredictor):
         prediction.update(sell_price)
         prediction.update(ev_buy_price)
         prediction.update(ev_max_charge)
+
+        if self.source_average_beta > 0.0:
+            timestep = max(1, int(getattr(household, "current_timestep", 1)))
+            start_idx = timestep - 1
+            for profile_name in ("base_load", "pv_gen"):
+                source_avg = _load_source_avg_curve(profile_name)
+                pred_series = [float(value) for value in prediction.get(profile_name, [])]
+                if not source_avg or not pred_series:
+                    continue
+
+                blended: list[float] = []
+                for idx, pred_value in enumerate(pred_series):
+                    source_idx = start_idx + idx
+                    if source_idx < len(source_avg):
+                        source_value = float(source_avg[source_idx])
+                        blended.append((1.0 - self.source_average_beta) * pred_value + self.source_average_beta * source_value)
+                    else:
+                        blended.append(pred_value)
+                prediction[profile_name] = blended
 
         return prediction

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
 import math
+import re
 from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
@@ -8,9 +10,11 @@ import numpy as np
 import streamlit as st
 
 from src.config import Config
-from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import MovingAveragePredictor3
+from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
+from src.simulation.run_context import RunContext
+from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import create_sqlite_connection, load_source_avg_profile
@@ -48,10 +52,11 @@ def _build_predictor(
     ma3_persistence_mode: str,
     ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
+    ma3_source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
     ma3_trend_range: int,
-) -> BasePredictor:
+):
     if predictor_name == "ma3":
         return MovingAveragePredictor3(
             short_window_size=ma3_short,
@@ -61,6 +66,7 @@ def _build_predictor(
             persistence_mode=ma3_persistence_mode,
             persistence_range=ma3_persistence_range,
             persistence_constant_alpha=ma3_persistence_constant_alpha,
+            source_average_beta=ma3_source_average_beta,
             trend_weight=ma3_trend_weight,
             trend_window=ma3_trend_window,
             trend_range=ma3_trend_range,
@@ -97,6 +103,7 @@ def _compute_snapshot(
         ma3_persistence_mode=ma3_persistence_mode,
         ma3_persistence_range=ma3_persistence_range,
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+        ma3_source_average_beta=ma3_source_average_beta,
         ma3_trend_weight=ma3_trend_weight,
         ma3_trend_window=ma3_trend_window,
         ma3_trend_range=ma3_trend_range,
@@ -117,26 +124,6 @@ def _compute_snapshot(
 
         effective_horizon = max(1, min(int(horizon), 96 - current_timestep + 1))
         predicted = predictor.predict(household, scenario, effective_horizon)
-
-        # Optional: blend MA3 predictions with all-household source averages.
-        if predictor_name == "ma3" and float(ma3_source_average_beta) > 0.0:
-            beta = min(1.0, max(0.0, float(ma3_source_average_beta)))
-            start_idx = max(0, int(current_timestep) - 1)
-            for profile_name in ("base_load", "pv_gen"):
-                source_avg = _load_source_avg_curve(profile_name)
-                pred_series = [float(value) for value in predicted.get(profile_name, [])]
-                if not source_avg or not pred_series:
-                    continue
-
-                blended: list[float] = []
-                for i, pred_value in enumerate(pred_series):
-                    source_idx = start_idx + i
-                    if source_idx < len(source_avg):
-                        source_value = float(source_avg[source_idx])
-                        blended.append((1.0 - beta) * float(pred_value) + beta * source_value)
-                    else:
-                        blended.append(float(pred_value))
-                predicted[profile_name] = blended
 
         actual = household.oracle_profiles
         return actual, predicted, effective_horizon
@@ -165,6 +152,91 @@ def _load_source_avg_curve(table_name: str) -> list[float]:
     if df.empty:
         return []
     return [float(value) for value in df["value"].tolist()]
+
+def _slugify_name(value: str) -> str:
+    compact = re.sub(r"\s+", "_", value.strip().lower())
+    compact = re.sub(r"[^a-z0-9_\-]", "", compact)
+    return compact.strip("_-")
+
+
+def _format_float_token(value: float, digits: int = 2) -> str:
+    return f"{float(value):.{digits}f}".replace(".", "p")
+
+
+def _build_default_policy_name(
+    predictor_name: str,
+    ma3_short: int,
+    ma3_long: int,
+    ma3_weight: float,
+    ma3_interval_width: float,
+    ma3_persistence_mode: str,
+    ma3_persistence_range: int,
+    ma3_persistence_constant_alpha: float,
+    ma3_source_average_beta: float,
+    ma3_trend_weight: float,
+    ma3_trend_window: int,
+    ma3_trend_range: int,
+) -> str:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if predictor_name == "ma3":
+        return (
+            f"mpc_ma3_sw{int(ma3_short)}_lw{int(ma3_long)}"
+            f"_w{_format_float_token(ma3_weight)}"
+            f"_ci{_format_float_token(ma3_interval_width)}"
+            f"_pm{_slugify_name(ma3_persistence_mode) or 'exp'}"
+            f"_pr{int(ma3_persistence_range)}"
+            f"_pa{_format_float_token(ma3_persistence_constant_alpha)}"
+            f"_tw{_format_float_token(ma3_trend_weight)}"
+            f"_twin{int(ma3_trend_window)}"
+            f"_tr{int(ma3_trend_range)}"
+            f"_sa{_format_float_token(ma3_source_average_beta)}"
+            f"_{timestamp}"
+        )
+    return f"mpc_oracle_{timestamp}"
+
+
+def _build_mpc_controller_factory(
+    policy_name: str,
+    horizon: int,
+    predictor_name: str,
+    ma3_short: int,
+    ma3_long: int,
+    ma3_weight: float,
+    ma3_interval_width: float,
+    ma3_persistence_mode: str,
+    ma3_persistence_range: int,
+    ma3_persistence_constant_alpha: float,
+    ma3_source_average_beta: float,
+    ma3_trend_weight: float,
+    ma3_trend_window: int,
+    ma3_trend_range: int,
+):
+    def _factory(household, scenario):
+        base_predictor = _build_predictor(
+            predictor_name=predictor_name,
+            ma3_short=ma3_short,
+            ma3_long=ma3_long,
+            ma3_weight=ma3_weight,
+            ma3_interval_width=ma3_interval_width,
+            ma3_persistence_mode=ma3_persistence_mode,
+            ma3_persistence_range=ma3_persistence_range,
+            ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+            ma3_source_average_beta=ma3_source_average_beta,
+            ma3_trend_weight=ma3_trend_weight,
+            ma3_trend_window=ma3_trend_window,
+            ma3_trend_range=ma3_trend_range,
+        )
+
+        return MPCController(
+            name=policy_name,
+            household=household,
+            scenario=scenario,
+            horizon=int(horizon),
+            predictor=base_predictor,
+            duration_hours=float(Config.DURATION_TIMESTEP),
+        )
+
+    return _factory
 
 
 def render_prediction_explorer(
@@ -603,6 +675,111 @@ def render_prediction_explorer(
             st.metric("First-step error", f"{first_error:.4f}")
         else:
             st.metric("First-step error", "n/a")
+
+    st.markdown("---")
+    st.subheader("Run MPC With This Predictor")
+
+    if len(selected_predictors) != 1:
+        st.info("Select exactly one predictor to run MPC and save results.")
+        return
+
+    selected_run_predictor = str(selected_predictors[0])
+    generated_policy_name = _build_default_policy_name(
+        predictor_name=selected_run_predictor,
+        ma3_short=ma3_short,
+        ma3_long=ma3_long,
+        ma3_weight=ma3_weight,
+        ma3_interval_width=ma3_interval_width,
+        ma3_persistence_mode=ma3_persistence_mode,
+        ma3_persistence_range=ma3_persistence_range,
+        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+        ma3_source_average_beta=source_average_beta,
+        ma3_trend_weight=ma3_trend_weight,
+        ma3_trend_window=ma3_trend_window,
+        ma3_trend_range=ma3_trend_range,
+    )
+
+    name_help = (
+        "Leave empty to auto-generate a policy name that includes predictor settings and a timestamp."
+    )
+    run_name_input = st.text_input(
+        "Policy name",
+        value="",
+        placeholder=generated_policy_name,
+        help=name_help,
+        key="pred_run_policy_name",
+    )
+    effective_policy_name = _slugify_name(run_name_input) or generated_policy_name
+
+    st.caption(f"Will run policy: {effective_policy_name}")
+    st.caption(f"Scenarios: {len(scenario_catalog)} | Households: {len(household_ids)}")
+
+    run_button_label = "Run MPC With This Predictor"
+    if st.button(run_button_label, type="primary", width="stretch"):
+        total_jobs = len(scenario_catalog) * len(household_ids)
+        if total_jobs <= 0:
+            st.warning("No household/scenario combinations available to run.")
+            return
+
+        progress = st.progress(0.0, text="Preparing MPC runs...")
+        status = st.empty()
+        created_run_ids: list[str] = []
+        completed = 0
+
+        connection = create_sqlite_connection()
+        try:
+            # Fresh databases may not have results schema yet.
+            sim = Simulation(connection, ensure_schema=True)
+            controller_factory = _build_mpc_controller_factory(
+                policy_name=effective_policy_name,
+                horizon=96,
+                predictor_name=selected_run_predictor,
+                ma3_short=ma3_short,
+                ma3_long=ma3_long,
+                ma3_weight=ma3_weight,
+                ma3_interval_width=ma3_interval_width,
+                ma3_persistence_mode=ma3_persistence_mode,
+                ma3_persistence_range=ma3_persistence_range,
+                ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+                ma3_source_average_beta=source_average_beta,
+                ma3_trend_weight=ma3_trend_weight,
+                ma3_trend_window=ma3_trend_window,
+                ma3_trend_range=ma3_trend_range,
+            )
+
+            for scenario in scenario_catalog:
+                run_context = RunContext(
+                    controller_factory=controller_factory,
+                    controller_name=effective_policy_name,
+                    scenario=scenario,
+                    start_time=1,
+                )
+                created_run_ids.append(run_context.run_id)
+
+                status.info(f"Running scenario: {scenario.name}")
+                for player_id in household_ids:
+                    sim.run_household(int(player_id), run_context)
+                    completed += 1
+                    progress.progress(
+                        float(completed) / float(total_jobs),
+                        text=f"Running {effective_policy_name}: {completed}/{total_jobs}",
+                    )
+
+        except Exception as exc:
+            progress.empty()
+            status.error(f"MPC run failed: {exc}")
+            return
+        finally:
+            connection.close()
+
+        progress.progress(1.0, text="Finished. Results were saved to SQLite.")
+        status.success(
+            "Saved run for all scenarios. "
+            f"Policy={effective_policy_name}, run_ids={', '.join(sorted(set(created_run_ids)))}"
+        )
+
+        # Ensure dashboard-level cached queries see the newly stored run.
+        st.cache_data.clear()
 
     with st.expander("Prediction preview table", expanded=False):
         rows = []
