@@ -52,7 +52,7 @@ def _build_predictor(
     ma3_persistence_mode: str,
     ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
-    ma3_source_average_beta: float,
+    source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
     ma3_trend_range: int,
@@ -66,7 +66,7 @@ def _build_predictor(
             persistence_mode=ma3_persistence_mode,
             persistence_range=ma3_persistence_range,
             persistence_constant_alpha=ma3_persistence_constant_alpha,
-            source_average_beta=ma3_source_average_beta,
+            source_average_beta=source_average_beta,
             trend_weight=ma3_trend_weight,
             trend_window=ma3_trend_window,
             trend_range=ma3_trend_range,
@@ -87,7 +87,7 @@ def _compute_snapshot(
     ma3_persistence_mode: str,
     ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
-    ma3_source_average_beta: float,
+    source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
     ma3_trend_range: int,
@@ -103,7 +103,7 @@ def _compute_snapshot(
         ma3_persistence_mode=ma3_persistence_mode,
         ma3_persistence_range=ma3_persistence_range,
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        ma3_source_average_beta=ma3_source_average_beta,
+        source_average_beta=source_average_beta,
         ma3_trend_weight=ma3_trend_weight,
         ma3_trend_window=ma3_trend_window,
         ma3_trend_range=ma3_trend_range,
@@ -172,7 +172,7 @@ def _build_default_policy_name(
     ma3_persistence_mode: str,
     ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
-    ma3_source_average_beta: float,
+    source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
     ma3_trend_range: int,
@@ -189,7 +189,7 @@ def _build_default_policy_name(
             f"_tw{_format_float_token(ma3_trend_weight)}"
             f"_twin{int(ma3_trend_window)}"
             f"_tr{int(ma3_trend_range)}"
-            f"_sa{_format_float_token(ma3_source_average_beta)}"
+            f"_sa{_format_float_token(source_average_beta)}"
             f"_{timestamp}"
         )
     return f"mpc_oracle_{timestamp}"
@@ -206,7 +206,7 @@ def _build_mpc_controller_factory(
     ma3_persistence_mode: str,
     ma3_persistence_range: int,
     ma3_persistence_constant_alpha: float,
-    ma3_source_average_beta: float,
+    source_average_beta: float,
     ma3_trend_weight: float,
     ma3_trend_window: int,
     ma3_trend_range: int,
@@ -221,7 +221,7 @@ def _build_mpc_controller_factory(
             ma3_persistence_mode=ma3_persistence_mode,
             ma3_persistence_range=ma3_persistence_range,
             ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-            ma3_source_average_beta=ma3_source_average_beta,
+            source_average_beta=source_average_beta,
             ma3_trend_weight=ma3_trend_weight,
             ma3_trend_window=ma3_trend_window,
             ma3_trend_range=ma3_trend_range,
@@ -501,7 +501,7 @@ def render_prediction_explorer(
             ma3_persistence_mode=ma3_persistence_mode,
             ma3_persistence_range=ma3_persistence_range,
             ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-            ma3_source_average_beta=source_average_beta,
+            source_average_beta=source_average_beta,
             ma3_trend_weight=ma3_trend_weight,
             ma3_trend_window=ma3_trend_window,
             ma3_trend_range=ma3_trend_range,
@@ -693,7 +693,7 @@ def render_prediction_explorer(
         ma3_persistence_mode=ma3_persistence_mode,
         ma3_persistence_range=ma3_persistence_range,
         ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        ma3_source_average_beta=source_average_beta,
+        source_average_beta=source_average_beta,
         ma3_trend_weight=ma3_trend_weight,
         ma3_trend_window=ma3_trend_window,
         ma3_trend_range=ma3_trend_range,
@@ -741,7 +741,7 @@ def render_prediction_explorer(
                 ma3_persistence_mode=ma3_persistence_mode,
                 ma3_persistence_range=ma3_persistence_range,
                 ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-                ma3_source_average_beta=source_average_beta,
+                source_average_beta=source_average_beta,
                 ma3_trend_weight=ma3_trend_weight,
                 ma3_trend_window=ma3_trend_window,
                 ma3_trend_range=ma3_trend_range,
