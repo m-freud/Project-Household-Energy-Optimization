@@ -6,22 +6,27 @@ from src.simulation.household import Household
 # Predictors for buy_price, sell_price, ev_buy_price, grid_prices, ev_station_prices
 # (mostly oracle pass-through, with some composition logic for ev_buy_price)
 
-def _oracle_slice(household: Household, key: str, horizon: int) -> list[float]:
+def _lookup_slice(household: Household, key: str, horizon: int) -> list[float]:
     # current_timestep is 1-based while Python lists are 0-based.
     start_time = max(0, int(household.current_timestep) - 1)
     profile = household.oracle_profiles.get(key, [])
-    return [float(value) for value in profile[start_time : start_time + horizon]]
+    raw = [float(value) for value in profile[start_time : start_time + horizon]]
+    # Pad to the requested horizon so callers always get exactly `horizon` values.
+    if len(raw) < horizon:
+        fill = raw[-1] if raw else 0.0
+        raw.extend([fill] * (horizon - len(raw)))
+    return raw
 
 
 def predict_buy_price(household: Household, horizon: int) -> dict[str, list[float]]:
     return {
-        "buy_price": _oracle_slice(household, "buy_price", horizon),
+        "buy_price": _lookup_slice(household, "buy_price", horizon),
     }
 
 
 def predict_sell_price(household: Household, horizon: int) -> dict[str, list[float]]:
     return {
-        "sell_price": _oracle_slice(household, "sell_price", horizon),
+        "sell_price": _lookup_slice(household, "sell_price", horizon),
     }
 
 
@@ -37,20 +42,20 @@ def predict_grid_prices(household: Household, horizon: int) -> dict[str, list[fl
 def predict_ev_station_prices(household: Household, horizon: int) -> dict[str, list[float]]:
     """Known-ahead EV station tariffs: oracle pass-through."""
 
-    ev1_station = _oracle_slice(
+    ev1_station_buy_price = _lookup_slice(
         household,
         "ev1_buy_price",
         horizon,
     )
-    ev2_station = _oracle_slice(
+    ev2_station_buy_price = _lookup_slice(
         household,
         "ev2_buy_price",
         horizon,
     )
 
     return {
-        "ev1_station_buy_price": ev1_station,
-        "ev2_station_buy_price": ev2_station,
+        "ev1_station_buy_price": ev1_station_buy_price,
+        "ev2_station_buy_price": ev2_station_buy_price,
     }
 
 
