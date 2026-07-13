@@ -14,7 +14,7 @@ from src.sqlite_connection import (
 	load_policies as db_load_policies,
 	load_source_household_ids,
 )
-from src.simulation.scenarios.scenario import get_scenario_names
+from src.simulation.scenarios.scenario import get_scenario_names, get_scenario_summary_rows
 
 from src.dashboard.general_performance.general_performance import render_general_performance
 from src.dashboard.single_performance.single_performance import render_single_performance
@@ -32,6 +32,11 @@ def load_scenarios() -> list[str]:
 
 
 @st.cache_data(show_spinner=False)
+def load_scenario_summary() -> pd.DataFrame:
+	return pd.DataFrame(get_scenario_summary_rows())
+
+
+@st.cache_data(show_spinner=False)
 def load_household_ids() -> list[int]:
 	result_ids = db_load_household_ids()
 	source_ids = load_source_household_ids()
@@ -45,7 +50,12 @@ def main():
 	
 	policies = load_policies()
 	scenarios = load_scenarios()
+	scenario_summary = load_scenario_summary()
 	household_ids = load_household_ids()
+
+	with st.expander("Scenario Grid", expanded=False):
+		st.caption("Active benchmark scenarios (3x2 grid)")
+		st.dataframe(scenario_summary, width="stretch")
 
 	if not scenarios or not household_ids:
 		st.warning("No household/source data found. Run ingestion first.")
