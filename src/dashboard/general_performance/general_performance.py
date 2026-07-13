@@ -24,7 +24,7 @@ def load_avg_profile(policy_name: str, scenario_name: str, metric: str) -> pd.Da
 
 
 def render_general_performance(policies: list[str], scenarios: list[str]) -> None:
-    st.header("Generate Performances")
+    st.header("General Performance")
 
     general_c1, general_c2, general_c3 = st.columns([1, 1, 2], gap="large")
 
