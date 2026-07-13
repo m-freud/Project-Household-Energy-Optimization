@@ -11,7 +11,7 @@ import numpy as np
 import streamlit as st
 
 from src.config import Config
-from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import MovingAveragePredictor3
+from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -23,7 +23,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
-    "ma3": "ma3",
+    "hybrid_ma": "hybrid_ma_controller",
 }
 
 PROFILE_OPTIONS = [
@@ -58,8 +58,8 @@ def _build_predictor(
     ma3_trend_window: int,
     ma3_trend_range: int,
 ):
-    if predictor_name == "ma3":
-        return MovingAveragePredictor3(
+    if predictor_name == "hybrid_ma":
+        return HybridMAController(
             short_window_size=ma3_short,
             long_window_size=ma3_long,
             short_weight=ma3_weight,
@@ -179,9 +179,9 @@ def _build_default_policy_name(
     ma3_trend_range: int,
 ) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if predictor_name == "ma3":
+    if predictor_name == "hybrid_ma":
         return (
-            f"mpc_ma3_sw{int(ma3_short)}_lw{int(ma3_long)}"
+            f"mpc_hybrid_ma_sw{int(ma3_short)}_lw{int(ma3_long)}"
             f"_w{_format_float_token(ma3_weight)}"
             f"_ci{_format_float_token(ma3_interval_width)}"
             f"_pm{_slugify_name(ma3_persistence_mode) or 'exp'}"
@@ -293,7 +293,7 @@ def render_prediction_explorer(
         selected_predictors = st.multiselect(
             "Predictors",
             options=list(PREDICTOR_OPTIONS.keys()),
-            default=["ma3"],
+            default=["hybrid_ma"],
             key="pred_predictors",
             format_func=lambda value: PREDICTOR_OPTIONS[value],
         )
@@ -509,8 +509,8 @@ def render_prediction_explorer(
 
     timestep = int(st.session_state[t_key])
 
-    # Display window/range overlays using the MA3 configuration.
-    if "ma3" in selected_predictors:
+    # Display window/range overlays using the Hybrid MA configuration.
+    if "hybrid_ma" in selected_predictors:
         display_short_window = int(ma3_short)
         display_long_window = int(ma3_long)
         display_persistence_range = int(ma3_persistence_range)
@@ -670,7 +670,7 @@ def render_prediction_explorer(
                 label=f"pred ({predictor_name})",
             )
 
-            if predictor_name == "ma3" and profile_name in {"base_load", "pv_gen"}:
+            if predictor_name == "hybrid_ma" and profile_name in {"base_load", "pv_gen"}:
                 lb_key = f"{profile_name}_lb"
                 ub_key = f"{profile_name}_ub"
                 lb = predicted.get(lb_key, [])

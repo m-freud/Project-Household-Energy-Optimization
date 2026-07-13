@@ -1,6 +1,6 @@
 # Moving Average Calculation
 
-This document describes the exact equations implemented in [src/simulation/controllers/mpc/predictors/ma3/moving_average.py](src/simulation/controllers/mpc/predictors/ma3/moving_average.py).
+This document describes the exact equations implemented in [src/simulation/controllers/mpc/predictors/hybrid_ma_controller/moving_average.py](src/simulation/controllers/mpc/predictors/hybrid_ma_controller/moving_average.py).
 
 ## Markdown Math Support
 
