@@ -35,6 +35,17 @@ Stressed targets:
 - stressed_mid_start
 - stressed_high_start
 
+Scenario table:
+
+| Scenario | Urgency | Start level | Start SoC | SoC allowed range | BESS end target | EV targets |
+|---|---|---|---:|---|---:|---|
+| default_scenario | relaxed | mid | 0.5 | 0.2-0.8 | 0.5 | {32: 0.35, 64: 0.5, 96: 0.8} |
+| relaxed_low_start | relaxed | low | 0.2 | 0.2-0.8 | 0.5 | {32: 0.35, 64: 0.5, 96: 0.8} |
+| relaxed_high_start | relaxed | high | 0.8 | 0.2-0.8 | 0.5 | {32: 0.35, 64: 0.5, 96: 0.8} |
+| stressed_low_start | stressed | low | 0.2 | 0.2-0.8 | 0.5 | {32: 0.6, 64: 0.75, 96: 0.9} |
+| stressed_mid_start | stressed | mid | 0.5 | 0.2-0.8 | 0.5 | {32: 0.6, 64: 0.75, 96: 0.9} |
+| stressed_high_start | stressed | high | 0.8 | 0.2-0.8 | 0.5 | {32: 0.6, 64: 0.75, 96: 0.9} |
+
 Notes:
 - default_scenario currently maps to the mid-start relaxed profile.
 - Legacy benchmark scenarios are stored separately in src/simulation/scenarios/legacy_scenarios.py.

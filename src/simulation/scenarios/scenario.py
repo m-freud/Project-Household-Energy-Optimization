@@ -77,6 +77,15 @@ EV_TARGET_PROFILES = {
     "stressed": {32: 0.6, 64: 0.75, 96: 0.9},
 }
 
+SCENARIO_METADATA = {
+    "default_scenario": {"start_level": "mid", "urgency": "relaxed"},
+    "relaxed_low_start": {"start_level": "low", "urgency": "relaxed"},
+    "relaxed_high_start": {"start_level": "high", "urgency": "relaxed"},
+    "stressed_low_start": {"start_level": "low", "urgency": "stressed"},
+    "stressed_mid_start": {"start_level": "mid", "urgency": "stressed"},
+    "stressed_high_start": {"start_level": "high", "urgency": "stressed"},
+}
+
 
 scenarios = [
     _build_uniform_scenario(
@@ -129,6 +138,24 @@ default_scenario = SCENARIOS_BY_NAME["default_scenario"]
 
 def get_scenario_names() -> list[str]:
     return [scenario.name for scenario in scenarios]
+
+
+def get_scenario_summary_rows() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for scenario in scenarios:
+        metadata = SCENARIO_METADATA.get(scenario.name, {})
+        rows.append(
+            {
+                "scenario": scenario.name,
+                "urgency": metadata.get("urgency", "unknown"),
+                "start_level": metadata.get("start_level", "unknown"),
+                "start_soc": scenario.bess.start_soc,
+                "soc_allowed_range": f"{scenario.bess.soc_allowed_range[0]:.1f}-{scenario.bess.soc_allowed_range[1]:.1f}",
+                "bess_target_eod": scenario.bess.soc_targets.get(96),
+                "ev_targets": str(scenario.ev1.soc_targets),
+            }
+        )
+    return rows
 
 
 def get_scenario_value(
