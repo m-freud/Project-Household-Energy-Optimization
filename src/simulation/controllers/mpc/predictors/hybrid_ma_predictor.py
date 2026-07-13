@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.ma3 import (
+from src.simulation.controllers.mpc.predictors.hybrid_ma_controller import (
     predict_base_load,
     predict_pv_gen,
     predict_ev_load,
@@ -26,10 +26,10 @@ def _load_source_avg_curve(table_name: str) -> list[float]:
     return [float(value) for value in df["value"].tolist()]
 
 
-class MovingAveragePredictor3(BasePredictor):
-    """Modular MA3 predictor scaffold.
+class HybridMAController(BasePredictor):
+    """Modular Hybrid MA predictor scaffold.
 
-    This class composes lower-level sub-predictors from predictors/ma3:
+    This class composes lower-level sub-predictors from predictors/hybrid_ma_controller:
     - house_profiles: base_load, pv_gen (+ optional interval bands)
     - ev_profiles: ev_load, ev_status, ev_max_charge
     - price_profiles: buy_price/sell_price and EV buy-price composition

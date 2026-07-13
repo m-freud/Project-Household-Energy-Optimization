@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from src.simulation.simulation import Simulation
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.controllers.mpc.mpc_controller import MPCController
-from src.simulation.controllers.mpc.predictors.moving_average_predictor3 import MovingAveragePredictor3
+from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAController
 from src.sqlite_connection import create_sqlite_connection
 
 PLAYER_ID = 1
@@ -32,14 +32,14 @@ def main():
         run_context = SimpleNamespace(scenario=scenario, start_time=1)
         household = sim.create_household(PLAYER_ID, run_context)
 
-        predictor = MovingAveragePredictor3(
+        predictor = HybridMAController(
             short_window_size=7,
             long_window_size=48,
             short_weight=0.7,
         )
 
         controller = MPCController(
-            name="profile_ma3",
+            name="profile_hybrid_ma",
             household=household,
             scenario=scenario,
             horizon=96,
@@ -109,7 +109,7 @@ def main():
             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
         wall_total = time.perf_counter() - wall_start
 
-        print(f"\n=== MPC Split Timing: player={PLAYER_ID}, predictor=MA3, steps={n} ===")
+        print(f"\n=== MPC Split Timing: player={PLAYER_ID}, predictor=HybridMA, steps={n} ===")
         print(f"  Total wall time : {wall_total:.3f}s")
         print(f"  Predictor       : {t_predict:.3f}s  ({100*t_predict/wall_total:.1f}%)")
         print(f"  Param update    : {t_params:.3f}s  ({100*t_params/wall_total:.1f}%)")
