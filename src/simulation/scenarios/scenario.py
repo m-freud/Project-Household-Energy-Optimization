@@ -182,4 +182,7 @@ def get_scenario_value(
         deadline = max(device_scenario.soc_targets.keys())
         return device_scenario.soc_targets.get(deadline)
 
+    if value == "soc_targets":
+        return dict(device_scenario.soc_targets)
+
     return getattr(device_scenario, str(value), None)
