@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from functools import partial
 import math
 import re
 from types import SimpleNamespace
@@ -211,32 +212,67 @@ def _build_mpc_controller_factory(
     ma3_trend_window: int,
     ma3_trend_range: int,
 ):
-    def _factory(household, scenario):
-        base_predictor = _build_predictor(
-            predictor_name=predictor_name,
-            ma3_short=ma3_short,
-            ma3_long=ma3_long,
-            ma3_weight=ma3_weight,
-            ma3_interval_width=ma3_interval_width,
-            ma3_persistence_mode=ma3_persistence_mode,
-            ma3_persistence_range=ma3_persistence_range,
-            ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-            source_average_beta=source_average_beta,
-            ma3_trend_weight=ma3_trend_weight,
-            ma3_trend_window=ma3_trend_window,
-            ma3_trend_range=ma3_trend_range,
-        )
+    return partial(
+        _build_mpc_controller,
+        policy_name=policy_name,
+        horizon=horizon,
+        predictor_name=predictor_name,
+        ma3_short=ma3_short,
+        ma3_long=ma3_long,
+        ma3_weight=ma3_weight,
+        ma3_interval_width=ma3_interval_width,
+        ma3_persistence_mode=ma3_persistence_mode,
+        ma3_persistence_range=ma3_persistence_range,
+        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+        source_average_beta=source_average_beta,
+        ma3_trend_weight=ma3_trend_weight,
+        ma3_trend_window=ma3_trend_window,
+        ma3_trend_range=ma3_trend_range,
+    )
 
-        return MPCController(
-            name=policy_name,
-            household=household,
-            scenario=scenario,
-            horizon=int(horizon),
-            predictor=base_predictor,
-            duration_hours=float(Config.DURATION_TIMESTEP),
-        )
 
-    return _factory
+def _build_mpc_controller(
+    household,
+    scenario,
+    *,
+    policy_name: str,
+    horizon: int,
+    predictor_name: str,
+    ma3_short: int,
+    ma3_long: int,
+    ma3_weight: float,
+    ma3_interval_width: float,
+    ma3_persistence_mode: str,
+    ma3_persistence_range: int,
+    ma3_persistence_constant_alpha: float,
+    source_average_beta: float,
+    ma3_trend_weight: float,
+    ma3_trend_window: int,
+    ma3_trend_range: int,
+):
+    base_predictor = _build_predictor(
+        predictor_name=predictor_name,
+        ma3_short=ma3_short,
+        ma3_long=ma3_long,
+        ma3_weight=ma3_weight,
+        ma3_interval_width=ma3_interval_width,
+        ma3_persistence_mode=ma3_persistence_mode,
+        ma3_persistence_range=ma3_persistence_range,
+        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
+        source_average_beta=source_average_beta,
+        ma3_trend_weight=ma3_trend_weight,
+        ma3_trend_window=ma3_trend_window,
+        ma3_trend_range=ma3_trend_range,
+    )
+
+    return MPCController(
+        name=policy_name,
+        household=household,
+        scenario=scenario,
+        horizon=int(horizon),
+        predictor=base_predictor,
+        duration_hours=float(Config.DURATION_TIMESTEP),
+    )
 
 
 def render_prediction_explorer(
@@ -716,15 +752,18 @@ def render_prediction_explorer(
 
     run_button_label = "Run MPC With This Predictor"
     if st.button(run_button_label, type="primary", width="stretch"):
-        total_jobs = len(scenario_catalog) * len(household_ids)
-        if total_jobs <= 0:
+        total_scenarios = len(scenario_catalog)
+        household_id_list = [int(player_id) for player_id in household_ids]
+        total_households = len(household_id_list)
+        total_jobs = total_scenarios * total_households
+        if total_scenarios <= 0 or total_households <= 0:
             st.warning("No household/scenario combinations available to run.")
             return
 
         progress = st.progress(0.0, text="Preparing MPC runs...")
         status = st.empty()
         created_run_ids: list[str] = []
-        completed = 0
+        completed_jobs = 0
 
         connection = create_sqlite_connection()
         try:
@@ -757,12 +796,19 @@ def render_prediction_explorer(
                 created_run_ids.append(run_context.run_id)
 
                 status.info(f"Running scenario: {scenario.name}")
-                for player_id in household_ids:
-                    sim.run_household(int(player_id), run_context)
-                    completed += 1
+                chunk_size = max(1, min(24, total_households // 4 if total_households > 4 else total_households))
+                for start_idx in range(0, total_households, chunk_size):
+                    chunk_households = household_id_list[start_idx : start_idx + chunk_size]
+                    sim.run_all_households(
+                        run_context,
+                        household_ids=chunk_households,
+                        parallel_households=True,
+                        parallel_workers=6,
+                    )
+                    completed_jobs += len(chunk_households)
                     progress.progress(
-                        float(completed) / float(total_jobs),
-                        text=f"Running {effective_policy_name}: {completed}/{total_jobs}",
+                        float(completed_jobs) / float(total_jobs),
+                        text=f"Running {effective_policy_name}: {completed_jobs}/{total_jobs}",
                     )
 
         except Exception as exc:
