@@ -55,8 +55,13 @@ class MPCController(BaseController):
 
 
     def _planning_horizon(self, current_timestep: int) -> int:
-        remaining_timesteps = 96 - int(current_timestep) + 1
-        return max(1, min(int(self.horizon), remaining_timesteps))
+        # Always return the full horizon so _ensure_compiled_problem compiles
+        # the CVXPY problem exactly once and DPP warm-starting applies on every
+        # subsequent solve.  Predictions are padded by _prediction_series, and
+        # _target_lb places constraints at the correct relative index regardless
+        # of how many real timesteps remain.
+        _ = current_timestep
+        return max(1, int(self.horizon))
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
@@ -124,8 +129,7 @@ class MPCController(BaseController):
 
         if self.household.ev1:
             params["ev1_soc0"] = cp.Parameter()
-            params["ev1_availability"] = cp.Parameter(h)
-            params["ev1_effective_max_charge"] = cp.Parameter(h, nonneg=True)
+            params["ev1_effective_max_charge"] = cp.Parameter(h, nonneg=True)  # = raw_max * availability
             params["ev1_home_mask"] = cp.Parameter(h)
             params["ev1_drive_load"] = cp.Parameter(h)
             params["ev1_station_price"] = cp.Parameter(h)
@@ -137,10 +141,7 @@ class MPCController(BaseController):
 
             constraints.extend([
                 ev1_soc[0] == params["ev1_soc0"],
-                ev1_charge <= cp.multiply(
-                    params["ev1_effective_max_charge"],
-                    params["ev1_availability"],
-                ),
+                ev1_charge <= params["ev1_effective_max_charge"],  # DPP: param only, availability folded in
                 ev1_soc[1:]
                 == ev1_soc[:-1]
                 + ev1_charge * duration_hours * self.household.ev1.efficiency
@@ -157,8 +158,7 @@ class MPCController(BaseController):
 
         if self.household.ev2:
             params["ev2_soc0"] = cp.Parameter()
-            params["ev2_availability"] = cp.Parameter(h)
-            params["ev2_effective_max_charge"] = cp.Parameter(h, nonneg=True)
+            params["ev2_effective_max_charge"] = cp.Parameter(h, nonneg=True)  # = raw_max * availability
             params["ev2_home_mask"] = cp.Parameter(h)
             params["ev2_drive_load"] = cp.Parameter(h)
             params["ev2_station_price"] = cp.Parameter(h)
@@ -170,10 +170,7 @@ class MPCController(BaseController):
 
             constraints.extend([
                 ev2_soc[0] == params["ev2_soc0"],
-                ev2_charge <= cp.multiply(
-                    params["ev2_effective_max_charge"],
-                    params["ev2_availability"],
-                ),
+                ev2_charge <= params["ev2_effective_max_charge"],  # DPP: param only, availability folded in
                 ev2_soc[1:]
                 == ev2_soc[:-1]
                 + ev2_charge * duration_hours * self.household.ev2.efficiency
@@ -296,11 +293,11 @@ class MPCController(BaseController):
             ev1_station_price = np.asarray(ev1_buy_price_profile, dtype=float) * ev1_station_mask
             ev1_profile_max_charge = np.asarray(ev1_max_charge_profile, dtype=float)
             ev1_device_max_charge = float(self.ev1_bounds[1])
-            ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge)
+            # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
+            ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge) * ev1_availability
 
             self._params["ev1_soc0"].value = float(ev1_soc)
             self._params["ev1_home_mask"].value = ev1_home_mask
-            self._params["ev1_availability"].value = ev1_availability
             self._params["ev1_effective_max_charge"].value = ev1_effective_max_charge
             self._params["ev1_drive_load"].value = ev1_drive_load
             self._params["ev1_station_price"].value = ev1_station_price
@@ -321,11 +318,11 @@ class MPCController(BaseController):
             ev2_station_price = np.asarray(ev2_buy_price_profile, dtype=float) * ev2_station_mask
             ev2_profile_max_charge = np.asarray(ev2_max_charge_profile, dtype=float)
             ev2_device_max_charge = float(self.ev2_bounds[1])
-            ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge)
+            # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
+            ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge) * ev2_availability
 
             self._params["ev2_soc0"].value = float(ev2_soc)
             self._params["ev2_home_mask"].value = ev2_home_mask
-            self._params["ev2_availability"].value = ev2_availability
             self._params["ev2_effective_max_charge"].value = ev2_effective_max_charge
             self._params["ev2_drive_load"].value = ev2_drive_load
             self._params["ev2_station_price"].value = ev2_station_price
