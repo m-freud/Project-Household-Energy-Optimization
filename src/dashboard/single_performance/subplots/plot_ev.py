@@ -20,6 +20,7 @@ def plot_ev(ax: plt.Axes,
     shade_ev_location_background(ax, ev_at_home_df, ev_at_station_df)
 
     target_soc_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "target_soc")
+    soc_targets_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "soc_targets") or {}
     ev_capacity = load_attribute(f"ev{ev_number}", player_id, "capacity")
     ev_deadline = get_scenario_value(scenario_name, f"ev{ev_number}", "deadline")
 
@@ -27,14 +28,22 @@ def plot_ev(ax: plt.Axes,
     if target_soc_ev is not None and ev_capacity is not None:
         target_soc_ev_kwh = float(target_soc_ev) * float(ev_capacity)
 
-    if target_soc_ev_kwh is not None:
-        ax.axhline(
-        y=target_soc_ev_kwh,
-        color="tab:red",
-        linestyle="--",
-        linewidth=1.5,
-        label="Target SOC",
-    )
+
+    if soc_targets_ev and ev_capacity is not None:
+        target_hours = []
+        target_kwh = []
+        for period, soc_target in sorted(soc_targets_ev.items()):
+            target_hours.append((float(period) - 1.0) / 4.0)
+            target_kwh.append(float(soc_target) * float(ev_capacity))
+        ax.scatter(
+            target_hours,
+            target_kwh,
+            color="tab:red",
+            marker="x",
+            s=48,
+            linewidths=1.8,
+            zorder=5,
+        )
 
     has_data = False
         

@@ -154,6 +154,7 @@ def render_single_performance(
 
 	style_handles = [
 		Line2D([0], [0], color="tab:red", linestyle="--", linewidth=1.5, label="Target SOC"),
+		Line2D([0], [0], color="tab:red", marker="x", linestyle="None", markersize=7, label="SOC Target Checkpoint"),
 		Line2D([0], [0], color="darkblue", linewidth=1.8, label="Deadline"),
 		Line2D([0], [0], color="red", linewidth=1.8, label="Missed Deadline"),
 	]

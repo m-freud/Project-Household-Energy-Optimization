@@ -14,22 +14,25 @@ def plot_bess(
     ax.set_title("BESS")
     ax.set_ylabel("SOC (kWh)")
 
-    target_soc_bess = get_scenario_value(scenario_name, "bess", "target_soc")
+    soc_targets_bess = get_scenario_value(scenario_name, "bess", "soc_targets") or {}
     bess_capacity = load_attribute("bess", player_id, "capacity")
     bess_deadline = get_scenario_value(scenario_name, "bess", "deadline")
 
-    target_soc_bess_kwh = None
-    if target_soc_bess is not None and bess_capacity is not None:
-        target_soc_bess_kwh = float(target_soc_bess) * float(bess_capacity)
-
-    if target_soc_bess_kwh is not None:
-        ax.axhline(
-        y=target_soc_bess_kwh,
-        color="tab:red",
-        linestyle="--",
-        linewidth=1.5,
-        label="Target SOC",
-    )
+    if soc_targets_bess and bess_capacity is not None:
+        target_hours = []
+        target_kwh = []
+        for period, soc_target in sorted(soc_targets_bess.items()):
+            target_hours.append((float(period) - 1.0) / 4.0)
+            target_kwh.append(float(soc_target) * float(bess_capacity))
+        ax.scatter(
+            target_hours,
+            target_kwh,
+            color="tab:red",
+            marker="x",
+            s=48,
+            linewidths=1.8,
+            zorder=5,
+        )
 
     has_data = False
         
