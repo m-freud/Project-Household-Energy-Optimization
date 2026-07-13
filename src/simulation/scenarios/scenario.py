@@ -11,6 +11,50 @@ class DeviceScenario:
 def _empty_device_scenario() -> DeviceScenario:
     return DeviceScenario(start_soc=0.0, soc_allowed_range=(0.0, 1.0), soc_targets={})
 
+
+def _make_uniform_device_scenario(
+    *,
+    start_soc: float,
+    soc_allowed_range: tuple[float, float],
+    ev_targets: dict[int, float],
+    bess_final_target: float,
+) -> tuple[DeviceScenario, DeviceScenario, DeviceScenario]:
+    """Create matching EV profiles with a simpler BESS final target profile."""
+    ev1 = DeviceScenario(
+        start_soc=start_soc,
+        soc_allowed_range=soc_allowed_range,
+        soc_targets=dict(ev_targets),
+    )
+    ev2 = DeviceScenario(
+        start_soc=start_soc,
+        soc_allowed_range=soc_allowed_range,
+        soc_targets=dict(ev_targets),
+    )
+    bess = DeviceScenario(
+        start_soc=start_soc,
+        soc_allowed_range=soc_allowed_range,
+        soc_targets={96: bess_final_target},
+    )
+    return ev1, ev2, bess
+
+
+def _build_uniform_scenario(
+    *,
+    name: str,
+    start_soc: float,
+    soc_allowed_range: tuple[float, float],
+    ev_targets: dict[int, float],
+    bess_final_target: float,
+) -> "Scenario":
+    ev1, ev2, bess = _make_uniform_device_scenario(
+        start_soc=start_soc,
+        soc_allowed_range=soc_allowed_range,
+        ev_targets=ev_targets,
+        bess_final_target=bess_final_target,
+    )
+    return Scenario(name=name, ev1=ev1, ev2=ev2, bess=bess)
+
+
 @dataclass
 class Scenario:
     name: str
@@ -19,132 +63,63 @@ class Scenario:
     bess: DeviceScenario = field(default_factory=_empty_device_scenario)
 
 
+FIXED_SOC_ALLOWED_RANGE = (0.2, 0.8)
+FIXED_BESS_FINAL_TARGET = 0.5
+
+START_SOC_LEVELS = {
+    "low": 0.2,
+    "mid": 0.5,
+    "high": 0.8,
+}
+
+EV_TARGET_PROFILES = {
+    "relaxed": {32: 0.35, 64: 0.5, 96: 0.8},
+    "stressed": {32: 0.6, 64: 0.75, 96: 0.9},
+}
+
+
 scenarios = [
-    Scenario(
+    _build_uniform_scenario(
         name="default_scenario",
-        ev1=DeviceScenario(
-            start_soc=0.1,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.9},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.1,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.9},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.1,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.9},
-        ),
+        start_soc=START_SOC_LEVELS["mid"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["relaxed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
-    Scenario(
-        name="low_start_wide",
-        ev1=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={32: 0.3, 64: 0.6, 96: 0.8},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={32: 0.3, 64: 0.6, 96: 0.8},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.8},
-        ),
+    _build_uniform_scenario(
+        name="relaxed_low_start",
+        start_soc=START_SOC_LEVELS["low"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["relaxed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
-    Scenario(
-        name="mid_start_normal",
-        ev1=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.4, 64: 0.65, 96: 0.8},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.4, 64: 0.65, 96: 0.8},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={96: 0.8},
-        ),
+    _build_uniform_scenario(
+        name="relaxed_high_start",
+        start_soc=START_SOC_LEVELS["high"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["relaxed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
-    Scenario(
-        name="high_start_narrow",
-        ev1=DeviceScenario(
-            start_soc=0.7,
-            soc_allowed_range=(0.3, 0.7),
-            soc_targets={32: 0.5, 64: 0.65, 96: 0.7},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.7,
-            soc_allowed_range=(0.3, 0.7),
-            soc_targets={32: 0.5, 64: 0.65, 96: 0.7},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.7,
-            soc_allowed_range=(0.3, 0.7),
-            soc_targets={96: 0.7},
-        ),
+    _build_uniform_scenario(
+        name="stressed_low_start",
+        start_soc=START_SOC_LEVELS["low"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["stressed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
-    Scenario(
-        name="early_urgency",
-        ev1=DeviceScenario(
-            start_soc=0.3,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.65, 64: 0.75, 96: 0.85},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.3,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.65, 64: 0.75, 96: 0.85},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.3,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={96: 0.85},
-        ),
+    _build_uniform_scenario(
+        name="stressed_mid_start",
+        start_soc=START_SOC_LEVELS["mid"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["stressed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
-    Scenario(
-        name="late_relaxed",
-        ev1=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={32: 0.35, 64: 0.5, 96: 0.75},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={32: 0.35, 64: 0.5, 96: 0.75},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.5,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.75},
-        ),
-    ),
-    Scenario(
-        name="stressed_ev_buffered_bess",
-        ev1=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.5, 64: 0.75, 96: 0.85},
-        ),
-        ev2=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.2, 0.8),
-            soc_targets={32: 0.5, 64: 0.75, 96: 0.85},
-        ),
-        bess=DeviceScenario(
-            start_soc=0.2,
-            soc_allowed_range=(0.1, 0.9),
-            soc_targets={96: 0.8},
-        ),
+    _build_uniform_scenario(
+        name="stressed_high_start",
+        start_soc=START_SOC_LEVELS["high"],
+        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
+        ev_targets=EV_TARGET_PROFILES["stressed"],
+        bess_final_target=FIXED_BESS_FINAL_TARGET,
     ),
 ]
 
