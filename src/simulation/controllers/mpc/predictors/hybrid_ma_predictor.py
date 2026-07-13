@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.hybrid_ma_controller import (
+from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_base_load,
     predict_pv_gen,
     predict_ev_load,

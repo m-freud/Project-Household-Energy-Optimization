@@ -1,15 +1,15 @@
-from src.simulation.controllers.mpc.predictors.hybrid_ma_controller.house_profiles import (
+from src.simulation.controllers.mpc.predictors.hybrid_ma.house_profiles import (
     predict_base_load,
     predict_pv_gen,
     predict_house_profiles,
 )
-from src.simulation.controllers.mpc.predictors.hybrid_ma_controller.ev_profiles import (
+from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_profiles import (
     predict_ev_load,
     predict_ev_loads,
     predict_ev_status,
     predict_ev_max_charge,
 )
-from src.simulation.controllers.mpc.predictors.hybrid_ma_controller.price_profiles import (
+from src.simulation.controllers.mpc.predictors.hybrid_ma.price_profiles import (
     predict_buy_price,
     predict_sell_price,
     predict_ev_buy_price,
