@@ -74,6 +74,14 @@ class MPCController(BaseController):
             series.extend([float(fill_value)] * (horizon - len(series)))
         return series
 
+    def _tail_mask(self, current_timestep: int, horizon: int) -> np.ndarray:
+        """Return 1.0 for real timesteps and 0.0 for synthetic tail slots."""
+        active_steps = max(0, min(int(horizon), 96 - int(current_timestep) + 1))
+        mask = np.zeros(int(horizon), dtype=float)
+        if active_steps > 0:
+            mask[:active_steps] = 1.0
+        return mask
+
     def _ensure_compiled_problem(self, planning_horizon: int):
         if self._problem is not None and self._compiled_horizon == planning_horizon:
             # only if horizon < full day. no need to recompile if horizon stays the same.
@@ -104,6 +112,8 @@ class MPCController(BaseController):
 
         if self.household.bess:
             params["bess_soc0"] = cp.Parameter()
+            params["bess_charge_limit"] = cp.Parameter(h, nonneg=True)
+            params["bess_discharge_limit"] = cp.Parameter(h, nonneg=True)
             params["bess_target_lb"] = cp.Parameter(h + 1)
 
             bess_power = cp.Variable(h)
@@ -114,8 +124,8 @@ class MPCController(BaseController):
             variables["bess_power"] = bess_power
             constraints.extend([
                 bess_soc[0] == params["bess_soc0"],
-                bess_charge <= self.household.bess.max_charge,
-                bess_discharge <= self.household.bess.max_discharge,
+                bess_charge <= params["bess_charge_limit"],
+                bess_discharge <= params["bess_discharge_limit"],
                 bess_power == bess_charge - bess_discharge,
                 bess_soc[1:]
                 == bess_soc[:-1]
@@ -250,6 +260,7 @@ class MPCController(BaseController):
         planning_horizon = self._planning_horizon(current_timestep)
         self._ensure_compiled_problem(planning_horizon)
         predictions = self.predictor.predict(household, scenario, planning_horizon)
+        tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
         base_load_profile = self._prediction_series(predictions, "base_load", planning_horizon, default=base_load)
         pv_profile = self._prediction_series(predictions, "pv_gen", planning_horizon, default=pv_generation)
@@ -276,6 +287,8 @@ class MPCController(BaseController):
         # device params next
         if household.bess:
             self._params["bess_soc0"].value = float(bess_soc)
+            self._params["bess_charge_limit"].value = np.asarray(self.household.bess.max_charge * tail_mask, dtype=float)
+            self._params["bess_discharge_limit"].value = np.asarray(self.household.bess.max_discharge * tail_mask, dtype=float)
             self._params["bess_target_lb"].value = self._target_lb(
                 self.bess_soc_targets,
                 household.bess.capacity,
@@ -294,7 +307,7 @@ class MPCController(BaseController):
             ev1_profile_max_charge = np.asarray(ev1_max_charge_profile, dtype=float)
             ev1_device_max_charge = float(self.ev1_bounds[1])
             # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
-            ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge) * ev1_availability
+            ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge) * ev1_availability * tail_mask
 
             self._params["ev1_soc0"].value = float(ev1_soc)
             self._params["ev1_home_mask"].value = ev1_home_mask
@@ -319,7 +332,7 @@ class MPCController(BaseController):
             ev2_profile_max_charge = np.asarray(ev2_max_charge_profile, dtype=float)
             ev2_device_max_charge = float(self.ev2_bounds[1])
             # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
-            ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge) * ev2_availability
+            ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge) * ev2_availability * tail_mask
 
             self._params["ev2_soc0"].value = float(ev2_soc)
             self._params["ev2_home_mask"].value = ev2_home_mask
