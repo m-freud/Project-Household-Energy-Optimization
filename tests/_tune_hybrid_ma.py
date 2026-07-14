@@ -151,6 +151,22 @@ def build_policy_name(config: HybridMAConfig, run_tag: str) -> str:
     )
 
 
+def config_to_row(config: HybridMAConfig) -> dict[str, int | float | str]:
+    return {
+        "short_window_size": config.short_window_size,
+        "long_window_size": config.long_window_size,
+        "short_weight": config.short_weight,
+        "conf_interval_frct": config.conf_interval_frct,
+        "persistence_mode": config.persistence_mode,
+        "persistence_range": config.persistence_range,
+        "persistence_constant_alpha": config.persistence_constant_alpha,
+        "trend_weight": config.trend_weight,
+        "trend_window": config.trend_window,
+        "trend_range": config.trend_range,
+        "source_average_beta": config.source_average_beta,
+    }
+
+
 def run_config(
     sim: Simulation,
     config: HybridMAConfig,
@@ -211,7 +227,7 @@ def run_config(
 
 def build_reports(
     db_path: Path,
-    executed_runs: list[tuple[str, str]],
+    executed_runs: list[dict[str, object]],
     households: list[int],
     scenarios: list[object],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -219,7 +235,8 @@ def build_reports(
         return pd.DataFrame(), pd.DataFrame()
 
     scenario_names = [scenario.name for scenario in scenarios]
-    policy_to_run = {policy: run_id for policy, run_id in executed_runs}
+    policy_to_run = {str(run["policy"]): str(run["run_id"]) for run in executed_runs}
+    metadata = pd.DataFrame(executed_runs)
 
     conn = sqlite3.connect(db_path)
     try:
@@ -255,6 +272,7 @@ def build_reports(
         ev1_target_rate=("target_met_all_ev1", "mean"),
         ev2_target_rate=("target_met_all_ev2", "mean"),
     )
+    detail = detail.merge(metadata, on=["policy", "run_id"], how="left")
 
     summary = scoped.groupby(["policy", "run_id"], as_index=False).agg(
         pairs=("player_id", "count"),
@@ -265,9 +283,10 @@ def build_reports(
         ev1_target_rate=("target_met_all_ev1", "mean"),
         ev2_target_rate=("target_met_all_ev2", "mean"),
     )
+    summary = summary.merge(metadata, on=["policy", "run_id"], how="left")
 
-    summary = summary.sort_values(["avg_total_cost", "avg_net_cost"]).reset_index(drop=True)
-    detail = detail.sort_values(["policy", "scenario"]).reset_index(drop=True)
+    summary = summary.sort_values(["avg_net_cost", "avg_total_cost", "short_window_size"]).reset_index(drop=True)
+    detail = detail.sort_values(["short_window_size", "long_window_size", "scenario"]).reset_index(drop=True)
     return summary, detail
 
 
@@ -340,7 +359,7 @@ def main() -> None:
     print(f"Scenarios ({len(scenarios)}): {[s.name for s in scenarios]}", flush=True)
 
     sim_conn = sqlite3.connect(Config.SQLITE_PATH)
-    executed_runs: list[tuple[str, str]] = []
+    executed_runs: list[dict[str, object]] = []
 
     try:
         sim = Simulation(sim_conn)
@@ -358,7 +377,16 @@ def main() -> None:
                 run_id=run_id,
                 run_tag=str(args.run_tag),
             )
-            executed_runs.append((policy_name, assigned_run_id))
+            run_record: dict[str, object] = {
+                "policy": policy_name,
+                "run_id": assigned_run_id,
+                "run_tag": str(args.run_tag),
+                "preset": str(args.preset),
+                "household_count": len(households),
+                "scenario_count": len(scenarios),
+            }
+            run_record.update(config_to_row(config))
+            executed_runs.append(run_record)
     finally:
         sim_conn.close()
 
@@ -369,7 +397,7 @@ def main() -> None:
         scenarios=scenarios,
     )
 
-    reports_dir = repo_root / "reports"
+    reports_dir = repo_root / "reports" / "tuning"
     reports_dir.mkdir(parents=True, exist_ok=True)
     summary_path = reports_dir / f"hybrid_ma_tuning_summary_{args.run_tag}.csv"
     detail_path = reports_dir / f"hybrid_ma_tuning_detail_{args.run_tag}.csv"
@@ -384,8 +412,21 @@ def main() -> None:
     print(f"Summary CSV: {summary_path}", flush=True)
     print(f"Detail CSV : {detail_path}", flush=True)
     if not summary_df.empty:
-        print("\nRanked summary (lower avg_total_cost is better):", flush=True)
-        print(summary_df.to_string(index=False), flush=True)
+        display_columns = [
+            "short_window_size",
+            "long_window_size",
+            "avg_net_cost",
+            "avg_total_cost",
+            "pairs",
+            "bess_target_rate",
+            "ev1_target_rate",
+            "ev2_target_rate",
+            "policy",
+            "run_id",
+        ]
+        available_columns = [column for column in display_columns if column in summary_df.columns]
+        print("\nRanked summary (lower avg_net_cost is better):", flush=True)
+        print(summary_df[available_columns].to_string(index=False), flush=True)
 
 
 if __name__ == "__main__":

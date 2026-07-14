@@ -1,6 +1,6 @@
 # Hybrid MA Tuning Protocol
 
-This document is the operational runbook for tuning the Hybrid MA predictor. It is intentionally strict so each stage has a clear scope, a clear exit condition, and a clear reference point for later stages.
+This document is a working guideline for tuning the Hybrid MA predictor. It is meant to give the process structure without locking us into decisions too early. We can adjust the order, defaults, and stage boundaries as concrete results come in.
 
 ## Goals
 
@@ -9,9 +9,9 @@ This document is the operational runbook for tuning the Hybrid MA predictor. It 
 3. Tune forecast structure before safety layers.
 4. Promote a configuration only after it wins on cost without harming target hit rates.
 
-## Fixed Defaults
+## Working Defaults
 
-Unless a stage says otherwise:
+Unless we decide otherwise for a specific test:
 - run all scenarios
 - use a small tuning household subset first, then re-run the best candidate on all 250 households
 - keep the simulation horizon at 96 timesteps
@@ -22,13 +22,18 @@ Recommended tuning subset:
 - `1-48` households for quick tuning
 - `1-250` households for final validation
 
+Why `48`:
+- it divides evenly across 6 workers
+- it reduces the chance of idle workers at the end of a batch
+- it stays close to a round-number subset without adding much runtime overhead
+
 ## Stage Gates
 
-Do not advance to the next stage unless the current stage satisfies both:
+As a default decision rule, try not to advance to the next stage unless the current stage satisfies both:
 - mean total cost improves over the previous stage baseline
 - target hit rates stay at or above the baseline, or any drop is explicitly accepted and documented
 
-If two configurations are effectively tied, choose the simpler one.
+If two configurations are effectively tied, prefer the simpler one.
 
 ## Stage 0: Baseline Short-Only
 
@@ -52,7 +57,7 @@ Run shape:
 - 1-48 households
 - one run-tag, for example `stage0_short_only_sw7`
 
-Exit condition:
+Suggested exit condition:
 - record the baseline total cost, net cost, and all target hit rates
 - keep this configuration as the anchor for Stage 1
 
@@ -73,7 +78,7 @@ Run shape:
 - 1-48 households
 - one run-tag per sweep, for example `stage1_short_window`
 
-Exit condition:
+Suggested exit condition:
 - choose the best short window by mean total cost, with target hit rates as a tie-breaker
 - store the winning short window as `short_window_anchor`
 
@@ -97,7 +102,7 @@ Run shape:
 - 1-48 households
 - one run-tag per sweep, for example `stage2_local_windows`
 
-Exit condition:
+Suggested exit condition:
 - choose the best local pair as the new structural baseline
 - document the selected pair and why it was chosen
 
@@ -118,7 +123,7 @@ Run shape:
 - 1-48 households
 - one run-tag per sweep, for example `stage3_short_weight`
 
-Exit condition:
+Suggested exit condition:
 - keep the best weight only if it improves cost without degrading targets
 
 ## Stage 4: Persistence Search
@@ -140,7 +145,7 @@ Run shape:
 - 1-48 households
 - one run-tag per sweep, for example `stage4_persistence`
 
-Exit condition:
+Suggested exit condition:
 - keep persistence only if it gives a measurable gain over the no-persistence baseline
 
 ## Stage 5: Secondary Forecast Features
@@ -165,7 +170,7 @@ Run shape:
 - 1-48 households
 - one run-tag per sweep, for example `stage5_secondary_features`
 
-Exit condition:
+Suggested exit condition:
 - keep only the additions that improve cost and preserve stability
 
 ## Stage 6: Full-Household Validation
@@ -193,7 +198,7 @@ Parameters:
 - any additional safety margins in the MPC layer
 - confidence-related controls that primarily reduce misses rather than improve the forecast itself
 
-Rule:
+Working rule:
 - tune these last because they can hide weaknesses in the predictor
 
 Run shape:
@@ -201,12 +206,12 @@ Run shape:
 - the current validation household set
 - one run-tag per safety pass
 
-Exit condition:
+Suggested exit condition:
 - adopt the smallest safety setting that preserves target hit rates
 
 ## Documentation Rule
 
-After each stage, record:
+After each concrete test or stage, record:
 - stage name
 - exact parameter values
 - household count
@@ -215,7 +220,7 @@ After each stage, record:
 - winning metric
 - why the winner was selected
 
-Keep the stage notes short and factual so the next stage can reference them directly.
+Keep the notes short and factual so the next stage can reference them directly. If we change the process midstream, update this file after the change is accepted.
 
 ## Naming Rule
 
@@ -230,3 +235,52 @@ Use run-tags that encode the stage and the tuned variable, for example:
 ## Decision Rule
 
 Prefer the simplest configuration that is clearly better than the baseline on total cost and does not weaken target hit rates.
+
+## Latest Recorded Results
+
+### Stage 1: Short-Window Search
+
+Run metadata:
+- run-tag: stage1_short_window
+- households: 1-48
+- scenarios: all 6
+- preset: short_only
+- tested short windows: 5, 7, 9, 12
+
+Summary by average net cost (lower is better):
+- short_window_size 7: avg_net_cost 7.886490
+- short_window_size 9: avg_net_cost 7.888594
+- short_window_size 5: avg_net_cost 7.890380
+- short_window_size 12: avg_net_cost 7.897867
+
+Target rates:
+- bess_target_rate: 1.0 for all tested windows
+- ev1_target_rate: 1.0 for all tested windows
+- ev2_target_rate: 0.993056 for all tested windows
+
+Interpretation:
+- all tested windows are close in performance
+- short_window_size 7 is currently the best anchor on avg_net_cost and stays simple
+- proceed to local short/long refinement around 7
+
+### Stage 1 Follow-up: Single Check at Short Window 24
+
+Run metadata:
+- run-tag: stage1_short_window_24
+- households: 1-48
+- scenarios: all 6
+- preset: short_only
+- tested short windows: 24
+
+Result:
+- short_window_size 24: avg_net_cost 7.904424, avg_total_cost 8.653572
+- target rates: bess 1.0, ev1 1.0, ev2 0.993056
+
+Comparison to current anchor (short_window_size 7):
+- avg_net_cost delta: +0.017934 (24 is worse)
+- avg_total_cost delta: +0.017934 (24 is worse)
+- target rates: unchanged
+
+Decision:
+- keep short_window_size 7 as anchor
+- do not include 24 in the local refinement neighborhood for Stage 2

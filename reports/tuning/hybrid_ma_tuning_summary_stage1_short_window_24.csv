@@ -1,0 +1,2 @@
+policy,run_id,pairs,avg_total_cost,avg_net_cost,avg_net_load,bess_target_rate,ev1_target_rate,ev2_target_rate,run_tag,preset,household_count,scenario_count,short_window_size,long_window_size,short_weight,conf_interval_frct,persistence_mode,persistence_range,persistence_constant_alpha,trend_weight,trend_window,trend_range,source_average_beta
+mpc_hybrid_ma_sw24_lw24_w1.00_pmnone_stage1_short_window_24,6,288,8.653572385863562,7.904424469196897,54.92436212416105,1.0,1.0,0.9930555555555556,stage1_short_window_24,short_only,48,6,24,24,1.0,0.0,none,1,0.0,0.0,2,1,0.0
