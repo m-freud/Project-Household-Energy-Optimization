@@ -6,7 +6,6 @@ from src.simulation.scenarios.scenario import Scenario
 TARGET_TOLERANCE_KWH = 1e-3
 
 
-
 class Household:
     '''
     Represents a household with various energy components and their states.
@@ -48,9 +47,10 @@ class Household:
         self.ev1_station_buy_price = 0.0  # constant buy price at charging station for ev1
         self.ev2_station_buy_price = 0.0  # constant buy price at charging station for ev2
 
-        self.oracle_profiles = {}
+        self.oracle_profiles = {} # full day profiles -> future values
 
-        self.history = {
+        
+        self.history = { # histories from start_time to now
             "base_load": {},            
             "pv_gen": {},
             "bess_soc": {},
@@ -73,7 +73,7 @@ class Household:
             "total_generation": {},
             "total_consumption": {},
             "total_cost": {}
-        } # histories from start_time to now
+        }
 
         self.controls = {
             "bess_power": 0.0,
@@ -112,14 +112,6 @@ class Household:
             if ev and not (ev.at_home or ev.at_charging_station):
                 # apply driving load (load = 0 when idle)
                 ev.take_load(ev.load, duration_hours)
-
-
-    # def set_controls(self, policy, duration_hours=0.25):
-    #     '''
-    #     applies a policy function to determine controls and then applies them
-    #     '''
-    #     controls = policy(self)
-    #     self.apply_controls(controls, duration_hours)
 
 
     def update_history(self):
@@ -203,7 +195,7 @@ class Household:
         return self.history.get(f"{device_name}_soc", {}).get(deadline)
 
 
-    def has_met_target(self, device_name: str) -> bool:
+    def has_met_final_target(self, device_name: str) -> bool:
         deadline, target_soc = self._target_at_final_deadline(device_name)
         if deadline is None or target_soc is None:
             return True

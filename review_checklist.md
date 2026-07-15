@@ -27,12 +27,8 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 4) Simulation-Kern
 
-- [ ] `src/simulation/run_context.py`
-  - Felder vollständig, `start_time` korrekt genutzt
-- [ ] `src/simulation/household.py`
-  - Initialisierung aller Felder (SoC-Startwerte, History-Dict)
-  - `current_timestep` korrekt gepflegt?
-  - History-Aufzeichnung: wann wird geschrieben, wann gelesen?
+- [x] `src/simulation/run_context.py`
+- [x] `src/simulation/household.py`
 - [ ] `src/simulation/simulation.py`
   - `run_batch` / `create_household` Flow
   - Zeitschleife: Reihenfolge der Steps (Predict → Solve → Dispatch → Record)

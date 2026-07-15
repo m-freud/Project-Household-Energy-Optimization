@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import Callable
-
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario, default_scenario
 from src.simulation.controllers.base_controller import BaseController
