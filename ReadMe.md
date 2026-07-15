@@ -30,6 +30,8 @@ It shows typical consumer behaviour, but without any autmoated energy decisions.
 
 So we get a good model of a customer and can show real optimization
 
+Recent Hybrid MA tuning results are documented in [ma_hypa_tuning_results.md](ma_hypa_tuning_results.md). The full tuning chronology showed that added complexity (trend, beta, and other extra knobs) delivered only microscopic improvements in this setup. Practical takeaway: keep the simple global moving-average baseline as default.
+
 ## Quick reset of simulation outputs (SQLite)
 
 To clear only simulation outputs (results + time-series histories) while keeping imported source tables:
