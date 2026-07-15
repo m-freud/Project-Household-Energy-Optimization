@@ -1,13 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-# paste this to enable src. imports
-from pathlib import Path
-import sys
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
+#~
 
 from src.sqlite_connection import (
 	load_household_ids as db_load_household_ids,
