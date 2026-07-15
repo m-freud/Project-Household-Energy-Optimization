@@ -189,6 +189,27 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
     if numeric_values.empty:
         return pd.DataFrame()
 
+    if table_name == "pv_gen":
+        try:
+            with sqlite3.connect(Config.SQLITE_PATH) as conn:
+                pv_households = pd.read_sql_query(
+                    """
+                    SELECT player_id
+                    FROM player_pv_bess
+                    WHERE has_pv = 1
+                    ORDER BY player_id
+                    """,
+                    conn,
+                )
+        except (pd.errors.DatabaseError, sqlite3.OperationalError):
+            pv_households = pd.DataFrame()
+
+        if not pv_households.empty:
+            pv_columns = [str(player_id) for player_id in pv_households["player_id"].tolist()]
+            selected_columns = [column for column in value_columns if column in pv_columns]
+            if selected_columns:
+                numeric_values = df[selected_columns].apply(pd.to_numeric, errors="coerce")
+
     result = pd.DataFrame()
     if period_col is not None:
         result["period"] = pd.to_numeric(df[period_col], errors="coerce")

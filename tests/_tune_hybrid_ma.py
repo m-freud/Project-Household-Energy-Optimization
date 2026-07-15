@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,6 +35,8 @@ class HybridMAConfig:
     trend_window: int
     trend_range: int
     source_average_beta: float
+    source_average_beta_base_load: float
+    source_average_beta_pv_gen: float
 
 
 def parse_int_list(raw: str) -> list[int]:
@@ -63,6 +66,13 @@ def parse_households(raw: str) -> list[int]:
     if not households:
         raise ValueError("No valid household IDs parsed from --households")
     return households
+
+
+def format_duration(seconds: float) -> str:
+    total_seconds = max(0, int(round(float(seconds))))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
 def next_run_id(conn: sqlite3.Connection) -> int:
@@ -101,42 +111,59 @@ def build_configs(args: argparse.Namespace) -> list[HybridMAConfig]:
     if not short_windows:
         raise ValueError("--short-windows must contain at least one value")
 
+    long_windows = parse_int_list(args.long_windows) if args.long_windows else [int(args.long_window)]
+    if not long_windows:
+        raise ValueError("Expected at least one long window via --long-windows or --long-window")
+
     configs: list[HybridMAConfig] = []
+
+    shared_beta = float(args.source_average_beta)
+    base_beta = shared_beta if args.source_average_beta_base_load is None else float(args.source_average_beta_base_load)
+    pv_beta = shared_beta if args.source_average_beta_pv_gen is None else float(args.source_average_beta_pv_gen)
 
     for short_window in short_windows:
         short_window = max(1, int(short_window))
-        long_window = short_window if args.lock_long_to_short else max(short_window, int(args.long_window))
 
-        if args.preset == "short_only":
-            cfg = HybridMAConfig(
-                short_window_size=short_window,
-                long_window_size=long_window,
-                short_weight=1.0,
-                conf_interval_frct=0.0,
-                persistence_mode="none",
-                persistence_range=1,
-                persistence_constant_alpha=0.0,
-                trend_weight=0.0,
-                trend_window=2,
-                trend_range=1,
-                source_average_beta=0.0,
-            )
+        if args.lock_long_to_short:
+            candidate_long_windows = [short_window]
         else:
-            cfg = HybridMAConfig(
-                short_window_size=short_window,
-                long_window_size=long_window,
-                short_weight=float(args.short_weight),
-                conf_interval_frct=float(args.conf_interval_frct),
-                persistence_mode=str(args.persistence_mode),
-                persistence_range=max(1, int(args.persistence_range)),
-                persistence_constant_alpha=float(args.persistence_constant_alpha),
-                trend_weight=float(args.trend_weight),
-                trend_window=max(2, int(args.trend_window)),
-                trend_range=max(1, int(args.trend_range)),
-                source_average_beta=float(args.source_average_beta),
-            )
+            candidate_long_windows = [max(short_window, int(long_window)) for long_window in long_windows]
 
-        configs.append(cfg)
+        for long_window in candidate_long_windows:
+            if args.preset == "short_only":
+                cfg = HybridMAConfig(
+                    short_window_size=short_window,
+                    long_window_size=long_window,
+                    short_weight=1.0,
+                    conf_interval_frct=0.0,
+                    persistence_mode="none",
+                    persistence_range=1,
+                    persistence_constant_alpha=0.0,
+                    trend_weight=0.0,
+                    trend_window=2,
+                    trend_range=1,
+                    source_average_beta=0.0,
+                    source_average_beta_base_load=0.0,
+                    source_average_beta_pv_gen=0.0,
+                )
+            else:
+                cfg = HybridMAConfig(
+                    short_window_size=short_window,
+                    long_window_size=long_window,
+                    short_weight=float(args.short_weight),
+                    conf_interval_frct=float(args.conf_interval_frct),
+                    persistence_mode=str(args.persistence_mode),
+                    persistence_range=max(1, int(args.persistence_range)),
+                    persistence_constant_alpha=float(args.persistence_constant_alpha),
+                    trend_weight=float(args.trend_weight),
+                    trend_window=max(2, int(args.trend_window)),
+                    trend_range=max(1, int(args.trend_range)),
+                    source_average_beta=shared_beta,
+                    source_average_beta_base_load=base_beta,
+                    source_average_beta_pv_gen=pv_beta,
+                )
+
+            configs.append(cfg)
 
     return configs
 
@@ -164,6 +191,8 @@ def config_to_row(config: HybridMAConfig) -> dict[str, int | float | str]:
         "trend_window": config.trend_window,
         "trend_range": config.trend_range,
         "source_average_beta": config.source_average_beta,
+        "source_average_beta_base_load": config.source_average_beta_base_load,
+        "source_average_beta_pv_gen": config.source_average_beta_pv_gen,
     }
 
 
@@ -190,6 +219,8 @@ def run_config(
         trend_window=config.trend_window,
         trend_range=config.trend_range,
         source_average_beta=config.source_average_beta,
+        source_average_beta_base_load=config.source_average_beta_base_load,
+        source_average_beta_pv_gen=config.source_average_beta_pv_gen,
     )
 
     controller_factory = make_mpc_controller(
@@ -296,19 +327,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--preset",
         choices=["short_only", "manual"],
-        default="short_only",
+        default="manual",
         help="short_only disables all non-short-window effects; manual uses explicit args",
     )
 
     parser.add_argument(
         "--short-windows",
-        default="7",
+        default="5,7,9",
         help="Comma-separated short window values to evaluate (e.g. 5,7,9,12)",
     )
     parser.add_argument(
         "--lock-long-to-short",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
         help="Force long_window_size == short_window_size for each config (default on)",
     )
     parser.add_argument(
@@ -317,16 +348,33 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=48,
         help="Long window size when --lock-long-to-short is disabled",
     )
+    parser.add_argument(
+        "--long-windows",
+        default="24,36,48",
+        help="Comma-separated long window values for grid sweeps when --lock-long-to-short is disabled",
+    )
 
     parser.add_argument("--short-weight", type=float, default=0.7)
-    parser.add_argument("--conf-interval-frct", type=float, default=0.1)
-    parser.add_argument("--persistence-mode", default="exponential")
+    parser.add_argument("--conf-interval-frct", type=float, default=0)
+    parser.add_argument("--persistence-mode", default="none", choices=["none", "constant", "linear", "exponential"])
     parser.add_argument("--persistence-range", type=int, default=8)
     parser.add_argument("--persistence-constant-alpha", type=float, default=0.5)
     parser.add_argument("--trend-weight", type=float, default=0.0)
     parser.add_argument("--trend-window", type=int, default=4)
     parser.add_argument("--trend-range", type=int, default=4)
     parser.add_argument("--source-average-beta", type=float, default=0.0)
+    parser.add_argument(
+        "--source-average-beta-base-load",
+        type=float,
+        default=None,
+        help="Optional beta for base_load source-average blend; defaults to --source-average-beta",
+    )
+    parser.add_argument(
+        "--source-average-beta-pv-gen",
+        type=float,
+        default=None,
+        help="Optional beta for pv_gen source-average blend; defaults to --source-average-beta",
+    )
 
     parser.add_argument(
         "--households",
@@ -355,17 +403,22 @@ def main() -> None:
     print("Starting Hybrid MA tuning", flush=True)
     print(f"Preset: {args.preset}", flush=True)
     print(f"Short windows: {[cfg.short_window_size for cfg in configs]}", flush=True)
+    print(f"Long windows : {[cfg.long_window_size for cfg in configs]}", flush=True)
+    print(f"Grid size    : {len(configs)}", flush=True)
     print(f"Households ({len(households)}): {households[:8]}{'...' if len(households) > 8 else ''}", flush=True)
     print(f"Scenarios ({len(scenarios)}): {[s.name for s in scenarios]}", flush=True)
 
     sim_conn = sqlite3.connect(Config.SQLITE_PATH)
     executed_runs: list[dict[str, object]] = []
+    total_configs = len(configs)
+    sweep_start = time.perf_counter()
 
     try:
         sim = Simulation(sim_conn)
         run_id_counter = next_run_id(sim_conn)
 
-        for config in configs:
+        for index, config in enumerate(configs, start=1):
+            run_start = time.perf_counter()
             run_id = str(run_id_counter)
             run_id_counter += 1
             policy_name, assigned_run_id = run_config(
@@ -387,6 +440,25 @@ def main() -> None:
             }
             run_record.update(config_to_row(config))
             executed_runs.append(run_record)
+
+            run_elapsed = time.perf_counter() - run_start
+            elapsed = time.perf_counter() - sweep_start
+            avg_per_config = elapsed / float(index)
+            remaining_configs = total_configs - index
+            eta_seconds = avg_per_config * float(remaining_configs)
+            est_total = avg_per_config * float(total_configs)
+            progress_pct = 100.0 * float(index) / float(total_configs)
+
+            print(
+                (
+                    f"Progress: {index}/{total_configs} ({progress_pct:.1f}%) | "
+                    f"last={format_duration(run_elapsed)} | "
+                    f"elapsed={format_duration(elapsed)} | "
+                    f"eta={format_duration(eta_seconds)} | "
+                    f"est_total={format_duration(est_total)}"
+                ),
+                flush=True,
+            )
     finally:
         sim_conn.close()
 
