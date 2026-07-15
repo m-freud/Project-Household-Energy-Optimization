@@ -6,9 +6,7 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 1) Konfiguration & Infrastruktur
 
-- [ ] `src/config.py`
-  - Alle Konstanten korrekt (Zeitachse 1..96, BESS/EV-Caps, PV-Fenster, Pfade)
-  - Off-by-one bei Zeitachsen-Grenzen?
+- [x] `src/config.py`
 - [ ] `src/sqlite_connection.py`
   - Connection-Handling (kein Leak, Thread-Safety)
   - `load_source_avg_profile` korrekte Aggregation
