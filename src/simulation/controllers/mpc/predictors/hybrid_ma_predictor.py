@@ -48,6 +48,8 @@ class HybridMAController(BasePredictor):
         trend_window: int = 4,
         trend_range: int = 4,
         source_average_beta: float = 0.0,
+        source_average_beta_base_load: float | None = None,
+        source_average_beta_pv_gen: float | None = None,
     ):
         self.short_window_size = max(1, int(short_window_size))
         self.long_window_size = max(self.short_window_size, int(long_window_size))
@@ -60,6 +62,16 @@ class HybridMAController(BasePredictor):
         self.trend_window = max(2, int(trend_window))
         self.trend_range = max(1, int(trend_range))
         self.source_average_beta = min(1.0, max(0.0, float(source_average_beta)))
+        self.source_average_beta_base_load = (
+            self.source_average_beta
+            if source_average_beta_base_load is None
+            else min(1.0, max(0.0, float(source_average_beta_base_load)))
+        )
+        self.source_average_beta_pv_gen = (
+            self.source_average_beta
+            if source_average_beta_pv_gen is None
+            else min(1.0, max(0.0, float(source_average_beta_pv_gen)))
+        )
 
     def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
         _ = (scenario,)
@@ -118,10 +130,18 @@ class HybridMAController(BasePredictor):
         prediction.update(ev_buy_price)
         prediction.update(ev_max_charge)
 
-        if self.source_average_beta > 0.0:
+        profile_betas = {
+            "base_load": self.source_average_beta_base_load,
+            "pv_gen": self.source_average_beta_pv_gen,
+        }
+
+        if any(beta > 0.0 for beta in profile_betas.values()):
             timestep = max(1, int(getattr(household, "current_timestep", 1)))
             start_idx = timestep - 1
             for profile_name in ("base_load", "pv_gen"):
+                profile_beta = profile_betas[profile_name]
+                if profile_beta <= 0.0:
+                    continue
                 source_avg = _load_source_avg_curve(profile_name)
                 pred_series = [float(value) for value in prediction.get(profile_name, [])]
                 if not source_avg or not pred_series:
@@ -132,7 +152,7 @@ class HybridMAController(BasePredictor):
                     source_idx = start_idx + idx
                     if source_idx < len(source_avg):
                         source_value = float(source_avg[source_idx])
-                        blended.append((1.0 - self.source_average_beta) * pred_value + self.source_average_beta * source_value)
+                        blended.append((1.0 - profile_beta) * pred_value + profile_beta * source_value)
                     else:
                         blended.append(pred_value)
                 prediction[profile_name] = blended
