@@ -4,7 +4,7 @@ import streamlit as st
 #~
 
 from src.sqlite_connection import (
-	load_household_ids as db_load_household_ids,
+	load_household_ids_from_results as db_load_household_ids,
 	load_policies as db_load_policies,
 	load_source_household_ids,
 )
