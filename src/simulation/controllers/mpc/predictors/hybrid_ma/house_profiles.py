@@ -56,8 +56,8 @@ def predict_base_load(
     trend_window: int = 4,
     trend_range: int = 4,
 ) -> dict[str, list[float]]:
-    short_window = max(1, int(short_window))
-    long_window = max(short_window, int(long_window))
+    short_window = max(0, int(short_window))
+    long_window = max(max(1, short_window), int(long_window))
     short_weight = min(1.0, max(0.0, float(short_weight)))
 
     base_series = forecast_moving_average(
@@ -97,8 +97,8 @@ def predict_pv_gen(
     trend_window: int = 4,
     trend_range: int = 4,
 ) -> dict[str, list[float]]:
-    short_window = max(1, int(short_window))
-    long_window = max(short_window, int(long_window))
+    short_window = max(0, int(short_window))
+    long_window = max(max(1, short_window), int(long_window))
     short_weight = min(1.0, max(0.0, float(short_weight)))
 
     pv_series = forecast_moving_average(

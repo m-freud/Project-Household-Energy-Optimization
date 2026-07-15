@@ -15,7 +15,11 @@ def seed_series(values: list[float], long_window: int, default: float) -> list[f
 
 
 def recent_trend(values: list[float], trend_window: int) -> float:
-    trend_window = max(2, int(trend_window))
+    trend_window = int(trend_window)
+    if trend_window <= 1:
+        return 0.0
+
+    trend_window = max(2, trend_window)
     if len(values) < 2:
         return 0.0
 
@@ -36,8 +40,11 @@ def persistence_alpha(
     constant_alpha: float = 0.5,
 ) -> float:
     step_index = max(1, int(step_index))
-    persistence_range = max(1, int(persistence_range))
+    persistence_range = int(persistence_range)
     constant_alpha = min(1.0, max(0.0, float(constant_alpha)))
+
+    if persistence_range <= 0:
+        return 0.0
 
     if mode == "none":
         return 1.0
@@ -77,19 +84,21 @@ def forecast_moving_average(
     if horizon <= 0:
         return []
 
+    short_window = max(0, int(short_window))
+    long_window = max(1, int(long_window))
     series = seed_series(values, long_window, default)
     forecast: list[float] = []
     long_weight = 1.0 - short_weight
     current_value = float(values[-1]) if values else float(default)
     trend = recent_trend(values, trend_window)
-    trend_range = max(1, int(trend_range))
+    trend_range = max(0, int(trend_range))
     trend_blend = min(1.0, max(0.0, float(trend_weight)))
 
     for step_index in range(1, horizon + 1):
-        short_slice = series[-short_window:]
+        short_slice = series[-short_window:] if short_window > 0 else []
         long_slice = series[-long_window:]
 
-        short_avg = sum(short_slice) / len(short_slice) if short_slice else float(default)
+        short_avg = sum(short_slice) / len(short_slice) if short_slice else float(sum(long_slice) / len(long_slice))
         long_avg = sum(long_slice) / len(long_slice) if long_slice else float(default)
         ma_predicted = short_weight * short_avg + long_weight * long_avg
         

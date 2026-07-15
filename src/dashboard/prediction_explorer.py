@@ -319,19 +319,19 @@ def render_prediction_explorer(
             st.markdown("**Moving average**")
             short_row = st.columns([5, 1], gap="small")
             with short_row[0]:
-                ma3_short = int(st.number_input("short window", min_value=1, max_value=96, value=7, step=1))
+                ma3_short = int(st.number_input("short window", min_value=0, max_value=96, value=0, step=1))
             with short_row[1]:
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
                 show_short_window = st.checkbox(
                     "show short window",
-                    value=True,
+                    value=False,
                     key="show_short_window",
                     label_visibility="collapsed",
                 )
 
             long_row = st.columns([5, 1], gap="small")
             with long_row[0]:
-                ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=48, step=1))
+                ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=96, step=1))
             with long_row[1]:
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
                 show_long_window = st.checkbox(
@@ -341,7 +341,7 @@ def render_prediction_explorer(
                     label_visibility="collapsed",
                 )
 
-            ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.7, step=0.05))
+            ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.0, step=0.05))
 
         with d1:
             st.markdown(
@@ -354,16 +354,16 @@ def render_prediction_explorer(
             ma3_persistence_mode = st.selectbox(
                 "persistence mode",
                 options=["exponential", "linear", "constant", "none"],
-                index=0,
+                index=2,
             )
             persistence_row = st.columns([5, 1], gap="small")
             with persistence_row[0]:
                 ma3_persistence_range = int(
                     st.number_input(
                         "persistence range",
-                        min_value=1,
+                        min_value=0,
                         max_value=96,
-                        value=8,
+                        value=0,
                         step=1,
                         disabled=ma3_persistence_mode == "none",
                     )
@@ -372,7 +372,7 @@ def render_prediction_explorer(
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
                 show_persistence_range = st.checkbox(
                     "show persistence range",
-                    value=True,
+                    value=False,
                     key="show_persistence_range",
                     disabled=ma3_persistence_mode == "none",
                     label_visibility="collapsed",
@@ -383,7 +383,7 @@ def render_prediction_explorer(
                     "constant alpha",
                     min_value=0.0,
                     max_value=1.0,
-                    value=0.5,
+                    value=0.0,
                     step=0.05,
                     disabled=ma3_persistence_mode != "constant",
                 )
@@ -402,9 +402,9 @@ def render_prediction_explorer(
                 ma3_trend_window = int(
                     st.number_input(
                         "trend window",
-                        min_value=2,
+                        min_value=0,
                         max_value=96,
-                        value=4,
+                        value=0,
                         step=1,
                     )
                 )
@@ -412,7 +412,7 @@ def render_prediction_explorer(
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
                 show_trend_window = st.checkbox(
                     "show trend window",
-                    value=True,
+                    value=False,
                     key="show_trend_window",
                     label_visibility="collapsed",
                 )
@@ -422,9 +422,9 @@ def render_prediction_explorer(
                 ma3_trend_range = int(
                     st.number_input(
                         "trend persistence range",
-                        min_value=1,
+                        min_value=0,
                         max_value=96,
-                        value=4,
+                        value=0,
                         step=1,
                     )
                 )
@@ -432,7 +432,7 @@ def render_prediction_explorer(
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
                 show_trend_range = st.checkbox(
                     "show trend range",
-                    value=True,
+                    value=False,
                     key="show_trend_range",
                     label_visibility="collapsed",
                 )
@@ -453,7 +453,7 @@ def render_prediction_explorer(
 
         with b1:
             ma3_interval_width = float(
-                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.1, step=0.01)
+                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
             )
 
         with bd1:

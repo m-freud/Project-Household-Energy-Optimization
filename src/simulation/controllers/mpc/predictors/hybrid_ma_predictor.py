@@ -51,16 +51,16 @@ class HybridMAController(BasePredictor):
         source_average_beta_base_load: float | None = None,
         source_average_beta_pv_gen: float | None = None,
     ):
-        self.short_window_size = max(1, int(short_window_size))
-        self.long_window_size = max(self.short_window_size, int(long_window_size))
+        self.short_window_size = max(0, int(short_window_size))
+        self.long_window_size = max(max(1, self.short_window_size), int(long_window_size))
         self.short_weight = min(1.0, max(0.0, float(short_weight)))
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
         self.persistence_mode = str(persistence_mode)
-        self.persistence_range = max(1, int(persistence_range))
+        self.persistence_range = max(0, int(persistence_range))
         self.persistence_constant_alpha = min(1.0, max(0.0, float(persistence_constant_alpha)))
         self.trend_weight = min(1.0, max(0.0, float(trend_weight)))
-        self.trend_window = max(2, int(trend_window))
-        self.trend_range = max(1, int(trend_range))
+        self.trend_window = max(0, int(trend_window))
+        self.trend_range = max(0, int(trend_range))
         self.source_average_beta = min(1.0, max(0.0, float(source_average_beta)))
         self.source_average_beta_base_load = (
             self.source_average_beta
