@@ -2,13 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import streamlit as st
 
-# paste this to enable src. imports
-from pathlib import Path
-import sys
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
+#~
 
 from src.dashboard.single_performance.debug_table import render_debug_table
 from src.dashboard.single_performance.kpi_table import render_kpi_strip
