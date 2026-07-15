@@ -7,29 +7,21 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 ## 1) Konfiguration & Infrastruktur
 
 - [x] `src/config.py`
-- [ ] `src/sqlite_connection.py`
-  - Connection-Handling (kein Leak, Thread-Safety)
-  - `load_source_avg_profile` korrekte Aggregation
+- [x] `src/sqlite_connection.py`
 
 ---
 
 ## 2) Datenzugang & Ingestion
 
-- [ ] `src/ingestion/table_config.py`
-  - Tabellen-/Spaltennamen korrekt
-- [ ] `src/ingestion/table_loading.py`
-  - Index-/Zeitachsen-Mapping (1-basiert vs. 0-basiert)
-  - Fehlende Werte / Fallbacks
+- [x] `src/ingestion/table_config.py`
+- [x] `src/ingestion/table_loading.py`
 
 ---
 
 ## 3) Szenarios
 
-- [ ] `src/simulation/scenarios/scenario.py`
-  - `default_scenario` und alle Szenarien vollständig und korrekt konfiguriert
-  - EV-Verfügbarkeitsfenster in allen Szenarien plausibel
-- [ ] `src/simulation/scenarios/legacy_scenarios.py`
-  - Nur noch als Archiv? Oder noch aktiv genutzt? Prüfen ob Imports existieren
+- [x] `src/simulation/scenarios/scenario.py`
+- [x] `src/simulation/scenarios/legacy_scenarios.py`
 
 ---
 

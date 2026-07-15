@@ -48,8 +48,6 @@ Scenario table:
 
 Notes:
 - default_scenario currently maps to the mid-start relaxed profile.
-- Legacy benchmark scenarios are stored separately in src/simulation/scenarios/legacy_scenarios.py.
-
 ## Future extension: SoC-range sensitivity sweep
 
 We intentionally removed SoC-range as a primary benchmark axis for now.

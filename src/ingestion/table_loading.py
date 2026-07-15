@@ -2,14 +2,9 @@ import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
-
-#~
-
-
 from src.ingestion.table_config import table_config
 from src.sqlite_connection import sqlite_conn
 from src.config import Config
-
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
