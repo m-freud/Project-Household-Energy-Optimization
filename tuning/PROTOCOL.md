@@ -2,6 +2,9 @@
 
 This document is a working guideline for tuning the Hybrid MA predictor. It is meant to give the process structure without locking us into decisions too early. We can adjust the order, defaults, and stage boundaries as concrete results come in.
 
+Latest consolidated results:
+- [../ma_hypa_tuning_results.md](../ma_hypa_tuning_results.md)
+
 ## Goals
 
 1. Find the simplest forecast configuration that clearly beats the current baseline.
