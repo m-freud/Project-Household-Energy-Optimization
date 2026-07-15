@@ -1,6 +1,6 @@
 import math
 import pandas as pd
-from src.sqlite_connection import load_series, load_household_ids
+from src.sqlite_connection import load_series, load_household_ids_from_results
 
 SCENARIO = 'default_scenario'
 POLICIES = ['waterfall', 'mpc_oracle']

@@ -1,11 +1,8 @@
 import sqlite3
 import re
-
 import pandas as pd
-
-
-#~
 from src.config import Config
+
 
 def create_sqlite_connection():
     return sqlite3.connect(Config.SQLITE_PATH)
@@ -243,7 +240,7 @@ def load_scenarios() -> list[str]:
     return [row[0] for row in rows]
 
 
-def load_household_ids() -> list[int]:
+def load_household_ids_from_results() -> list[int]:
     with sqlite3.connect(Config.SQLITE_PATH) as conn:
         try:
             rows = conn.execute(
