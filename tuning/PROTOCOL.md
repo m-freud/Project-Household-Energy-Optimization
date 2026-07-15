@@ -287,3 +287,68 @@ Comparison to current anchor (short_window_size 7):
 Decision:
 - keep short_window_size 7 as anchor
 - do not include 24 in the local refinement neighborhood for Stage 2
+
+---
+
+## Revised Strategy: Long-Window-Only (Post Stage-1 Reanalysis)
+
+Date: 2026-07-15
+
+Finding:
+- Extensive sweeps across all hybrid-MA hyperparameters (short window, long window, blend
+  weight, persistence mode/range/alpha, trend, source-average) produced only microscopic
+  changes in avg_net_cost — differences were irrelevant in practice.
+- The cleanest and most robust configuration is a pure long-window MA with all other
+  effects turned off.
+
+Adopted final configuration (Punkt 1 decision):
+- short_window_size = 0 (= long-only; short window disabled)
+- long_window_size = 96
+- short_weight = 0.0
+- conf_interval_frct = 0.0
+- persistence_mode = constant (used for sweep below; none otherwise)
+- persistence_range = 0 (disabled)
+- persistence_constant_alpha = 0.0
+- trend_weight = 0.0
+- source_average_beta = 0.0
+
+Dashboard defaults updated to reflect this configuration.
+
+---
+
+### Stage 10: Constant-Persistence Range Sweep
+
+Purpose: confirm that persistence does not help even when the rest is zeroed out.
+Run purely "spaßeshalber" — no plan to adopt persistence.
+
+Run metadata:
+- run-tag: stage10_const_persistence_sweep_pr{N}  (one run per range value)
+- households: 1-48 (default)
+- scenarios: all 6
+- preset: manual
+- fixed parameters: sw=1, lw=96, weight=0.0, alpha=0.0, trend=0.0, beta=0.0
+- varied: persistence_range ∈ {2, 4, 8, 16, 32, 64, 96}
+
+Results (sorted by avg_net_cost, lower is better):
+
+| persistence_range | pairs | avg_net_cost |
+|:-----------------:|------:|:------------:|
+|  2 | 288 | 7.8718 |
+|  4 | 288 | 7.8724 |
+|  8 | 288 | 7.8827 |
+| 16 | 288 | 7.8953 |
+| 64 | 288 | 7.9024 |
+| 96 | 288 | 7.9026 |
+| 32 | 288 | 7.9042 |
+
+Interpretation:
+- Clear monotonic trend: shorter persistence range → lower cost.
+- pr=2 is best but only 0.0006 cheaper than pr=4 — practically identical.
+- From pr=8 onwards the cost rises meaningfully (+0.011 vs. pr=2).
+- At pr=32+ the predictor is so persistence-dominated that it barely reacts to the MA.
+- Persistence hurts rather than helps at every tested range.
+
+Decision:
+- Persistence is not adopted.
+- Final configuration remains: long-window-only (lw=96, all other params = 0 / none).
+- Stage 10 is closed.
