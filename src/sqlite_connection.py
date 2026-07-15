@@ -181,6 +181,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     if table_name == "pv_gen":
+        # use only households with pv
         try:
             with sqlite3.connect(Config.SQLITE_PATH) as conn:
                 pv_households = pd.read_sql_query(
