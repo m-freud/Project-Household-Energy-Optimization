@@ -1,0 +1,173 @@
+# End-to-End Code Review Checklist
+
+Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Controller/Policies → Predictors → Dashboard
+
+---
+
+## 1) Konfiguration & Infrastruktur
+
+- [ ] `src/config.py`
+  - Alle Konstanten korrekt (Zeitachse 1..96, BESS/EV-Caps, PV-Fenster, Pfade)
+  - Off-by-one bei Zeitachsen-Grenzen?
+- [ ] `src/sqlite_connection.py`
+  - Connection-Handling (kein Leak, Thread-Safety)
+  - `load_source_avg_profile` korrekte Aggregation
+
+---
+
+## 2) Datenzugang & Ingestion
+
+- [ ] `src/ingestion/table_config.py`
+  - Tabellen-/Spaltennamen korrekt
+- [ ] `src/ingestion/table_loading.py`
+  - Index-/Zeitachsen-Mapping (1-basiert vs. 0-basiert)
+  - Fehlende Werte / Fallbacks
+
+---
+
+## 3) Szenarios
+
+- [ ] `src/simulation/scenarios/scenario.py`
+  - `default_scenario` und alle Szenarien vollständig und korrekt konfiguriert
+  - EV-Verfügbarkeitsfenster in allen Szenarien plausibel
+- [ ] `src/simulation/scenarios/legacy_scenarios.py`
+  - Nur noch als Archiv? Oder noch aktiv genutzt? Prüfen ob Imports existieren
+
+---
+
+## 4) Simulation-Kern
+
+- [ ] `src/simulation/run_context.py`
+  - Felder vollständig, `start_time` korrekt genutzt
+- [ ] `src/simulation/household.py`
+  - Initialisierung aller Felder (SoC-Startwerte, History-Dict)
+  - `current_timestep` korrekt gepflegt?
+  - History-Aufzeichnung: wann wird geschrieben, wann gelesen?
+- [ ] `src/simulation/simulation.py`
+  - `run_batch` / `create_household` Flow
+  - Zeitschleife: Reihenfolge der Steps (Predict → Solve → Dispatch → Record)
+  - Parallelisierung: shared state / DB-Zugriffe thread-safe?
+  - Off-by-one: welcher Timestep wird dem Controller übergeben?
+
+---
+
+## 5) Devices
+
+- [ ] `src/simulation/devices/bess.py`
+  - SoC-Clipping, Charge/Discharge-Limits
+  - Target-Hit-Berechnung: Schwelle, Zeitpunkt (end of day?)
+- [ ] `src/simulation/devices/ev.py`
+  - EV-Verfügbarkeit: at_home / at_station korrekt gemappt
+  - Max-Charge-Pfad: korrekte Kapazitäten pro Standort
+  - Target-Hit EV1/EV2: welche Bedingung, welcher Timestep
+- [ ] `src/simulation/devices/pv.py`
+  - PV-Fenster-Masking korrekt (frühester Start, spätestes Ende)
+
+---
+
+## 6) Controller-Basis
+
+- [ ] `src/simulation/controllers/base_controller.py`
+  - Interface vollständig, keine versteckten Seiteneffekte
+- [ ] `src/simulation/controllers/function_controller.py`
+  - Korrekt als Wrapper, keine eigene Logik die stören kann
+
+---
+
+## 7) Policies
+
+- [ ] `src/simulation/controllers/policies/waterfall/waterfall.py`
+  - Deadline-Berechnung (`min(t for t in soc_targets if t >= timestep), default=96`)
+  - Off-by-one: wird `timestep` selbst als Deadline gezählt?
+- [ ] `src/simulation/controllers/policies/linear/linear.py`
+  - Gleichmäßige Verteilung auf verbleibende Timesteps korrekt
+- [ ] `src/simulation/controllers/policies/linear/price_aware_linear.py`
+  - Preisgewichtung und Deadline-Logik konsistent mit `linear.py`
+- [ ] `src/simulation/controllers/policies/mpc/mpc.py`
+  - MPC-Policy: Übergabe von Prediction an Solver korrekt
+  - Constraint-Aufbau: Horizon, Status, Max-Charge korrekt indiziert
+- [ ] `src/simulation/controllers/policies/mpc/predictions/price_prediction.py`
+  - Preisvorhersage-Fallback bei fehlenden Daten
+
+---
+
+## 8) MPC-Controller & Solver
+
+- [ ] `src/simulation/controllers/mpc/mpc_controller.py`
+  - `make_mpc_controller` Factory: Parameter korrekt durchgereicht
+  - Horizon-Handling: was passiert wenn horizon > verbleibende Timesteps?
+  - Fallback bei CVXPY-Solve-Fehler (infeasible/timeout)
+- [ ] `src/simulation/controllers/mpc/config/device_buffer_config.py`
+  - Buffer-Werte plausibel, konsistent mit BESS/EV-Caps in `config.py`
+
+---
+
+## 9) Predictor-Basis & Legacy
+
+- [ ] `src/simulation/controllers/mpc/predictors/base_predictor.py`
+  - Interface klar, Default-Implementierungen sinnvoll
+- [ ] `src/simulation/controllers/mpc/predictors/oracle_predictor.py`
+  - Liest tatsächliche zukünftige Werte korrekt (Zeitachse!)
+- [ ] `src/simulation/controllers/mpc/predictors/moving_average_predictor.py`
+  - Noch aktiv genutzt? Wenn nein: als deprecated markieren
+- [ ] `src/simulation/controllers/mpc/predictors/moving_average_predictor2.py`
+  - Noch aktiv genutzt? Wenn nein: als deprecated markieren
+
+---
+
+## 10) Hybrid-MA Predictor
+
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
+  - Parameter-Normalisierung (short=0 erlaubt? long >= 1?)
+  - `source_average_beta`-Blending: korrekte Zeitachsen-Indizierung (`start_idx`)
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
+  - `seed_series`: Verhalten bei leerer History korrekt
+  - `persistence_alpha`: alle Modi (none / constant / linear / exponential)
+  - `forecast_moving_average`: short_window=0 Fallback (Long-Only)
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/house_profiles.py`
+  - `predict_base_load` / `predict_pv_gen`: PV-Fenster-Mask korrekt angewandt
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_profiles.py`
+  - EV-Load-Schätzung aus non-zero History sinnvoll
+  - Driving-Load vs. Station/Home-Load richtig getrennt
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_status.py`
+  - Verfügbarkeits-Forecast: historische Pattern oder feste Regel?
+- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/price_profiles.py`
+  - Buy/Sell-Price und EV-Buy-Price korrekt zusammengesetzt
+
+---
+
+## 11) Dashboard
+
+- [ ] `src/dashboard/dashboard.py`
+  - Navigation / Page-Routing vollständig
+- [ ] `src/dashboard/prediction_explorer.py`
+  - Default-Hyperparameter (long=96, rest=0, constant) korrekt gesetzt ✓
+  - Cache-Invalidierung bei Parameteränderungen korrekt
+  - Zeitachsen-Overlays (long/short/persistence window) korrekt gezeichnet
+- [ ] `src/dashboard/general_performance/general_performance.py`
+  - Aggregation über Haushalte / Szenarien korrekt
+  - Target-Hit-Rates korrekt berechnet und angezeigt
+- [ ] `src/dashboard/single_performance/single_performance.py`
+  - Haushalt / Szenario / Run auswählbar
+- [ ] `src/dashboard/single_performance/kpi_table.py`
+  - KPIs vollständig und korrekt (net_cost, total_cost, target_met_*)
+- [ ] `src/dashboard/single_performance/debug_table.py`
+  - Debug-Ausgaben konsistent mit Simulation-Output
+- [ ] `src/dashboard/single_performance/subplots/`
+  - `plot_bess.py` – SoC-Verlauf, Charge/Discharge korrekt
+  - `plot_ev.py` – EV-SoC, Availability, Max-Charge korrekt
+  - `plot_pv.py` – PV-Erzeugung vs. Vorhersage
+  - `plot_net_load.py` – Net Load Berechnung korrekt
+  - `plot_net_cost.py` – Kostenberechnung korrekt
+  - `helpers.py` – gemeinsame Hilfsfunktionen fehlerfrei
+
+---
+
+## 12) Kritische Querschnittsthemen (bei jedem File im Kopf behalten)
+
+- [ ] **Zeitachse**: Ist alles 1-basiert (1..96)? Kein Mischen mit 0-basiert?
+- [ ] **History-Zugriff**: Wird `timestep` oder `timestep-1` für den aktuellen Wert genutzt? Konsistent?
+- [ ] **Horizon**: Wird horizon auf verbleibende Timesteps gekürzt (`96 - timestep + 1`)?
+- [ ] **EV-Status/Max-Charge-Pfad**: Home-Cap vs. Station-Cap vs. None korrekt gemappt?
+- [ ] **Target-Hit-Bedingung**: Schwelle, Zeitpunkt und Aggregation über alle Szenarien einheitlich?
+- [ ] **DB-Schema**: Alle geschriebenen Spalten vorhanden, keine fehlenden Werte bei Pflichtfeldern?

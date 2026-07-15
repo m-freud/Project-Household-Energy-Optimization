@@ -1,8 +1,9 @@
 # Project ToDo
 
 ## 1) Hybrid MA Tuning abschliessen
-- [ ] Hybrid MA Tuning als abgeschlossen markieren (kein weiterer Parameter-Sweep)
-- [ ] Aktuellen Stand und Entscheidung im Kopf behalten: Fokus auf robuste, einfache MPC-Variante
+- [x] Hybrid MA Tuning als abgeschlossen markieren (kein weiterer Parameter-Sweep)
+- [x] Aktuellen Stand und Entscheidung im Kopf behalten: Fokus auf robuste, einfache MPC-Variante
+- [x] Spasseshalber noch einen Persistence-Sweep fahren, bei Defaults: long window 96, alles andere 0, persistence mode constant
 
 ## 2) Umfassende Code Review
 - [ ] End-to-end Review der Simulation, Predictor-Logik, MPC-Constraints und Fallbacks
