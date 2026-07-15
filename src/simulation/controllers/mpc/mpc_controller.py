@@ -239,6 +239,58 @@ class MPCController(BaseController):
             return 0.0
         return float(np.asarray(value).item())
 
+    def _max_charge_fallback_controls(self) -> dict[str, float]:
+        """Target-aware fallback when MPC solve is infeasible or fails.
+
+        Only devices with remaining target deficit receive max feasible charging
+        for the current step. This avoids blindly max-charging everything.
+        """
+
+        def _first_param_value(name: str, default: float = 0.0) -> float:
+            param = self._params.get(name)
+            if param is None or param.value is None:
+                return float(default)
+            arr = np.asarray(param.value).reshape(-1)
+            if arr.size == 0:
+                return float(default)
+            return float(arr[0])
+
+        def _needs_charge(target_param_name: str, soc0_param_name: str, tol_kwh: float = 1e-6) -> bool:
+            target_param = self._params.get(target_param_name)
+            soc0_param = self._params.get(soc0_param_name)
+            if target_param is None or soc0_param is None:
+                return False
+            if target_param.value is None or soc0_param.value is None:
+                return False
+
+            target_arr = np.asarray(target_param.value).reshape(-1)
+            if target_arr.size <= 1:
+                return False
+
+            # Index 0 represents SOC at current step. Charging action now affects
+            # indices >= 1, so only consider future lower bounds.
+            required_soc_kwh = float(np.max(target_arr[1:]))
+            current_soc_kwh = float(np.asarray(soc0_param.value).item())
+            return required_soc_kwh > current_soc_kwh + float(tol_kwh)
+
+        bess_power = 0.0
+        if _needs_charge("bess_target_lb", "bess_soc0"):
+            bess_power = max(0.0, _first_param_value("bess_charge_limit", default=self.bess_bounds[1]))
+
+        ev1_power = 0.0
+        if _needs_charge("ev1_target_lb", "ev1_soc0"):
+            ev1_power = max(0.0, _first_param_value("ev1_effective_max_charge", default=self.ev1_bounds[1]))
+
+        ev2_power = 0.0
+        if _needs_charge("ev2_target_lb", "ev2_soc0"):
+            ev2_power = max(0.0, _first_param_value("ev2_effective_max_charge", default=self.ev2_bounds[1]))
+
+        return {
+            "bess_power": bess_power,
+            "ev1_power": ev1_power,
+            "ev2_power": ev2_power,
+        }
+
     def set_controls(self, household: Household, scenario: Scenario, predictor: str = 'oracle', *args, **kwargs):
         _ = (household, scenario, args, kwargs)
 
@@ -356,11 +408,7 @@ class MPCController(BaseController):
             problem.solve(solver=cp.SCS, warm_start=True, verbose=False)
 
         if problem.status not in {"optimal", "optimal_inaccurate"}:
-            return {
-                "bess_power": 0.0,
-                "ev1_power": 0.0,
-                "ev2_power": 0.0,
-            }
+            return self._max_charge_fallback_controls()
 
         bess_power = self._vars.get("bess_power")
         ev1_charge = self._vars.get("ev1_charge")
