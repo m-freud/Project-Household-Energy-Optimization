@@ -16,7 +16,7 @@ if repo_root is None:
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
-from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAController
+from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, make_mpc_controller
@@ -207,7 +207,7 @@ def run_config(
 ) -> tuple[str, str]:
     policy_name = build_policy_name(config, run_tag)
 
-    predictor = HybridMAController(
+    predictor = HybridMAPredictor(
         short_window_size=config.short_window_size,
         long_window_size=config.long_window_size,
         short_weight=config.short_weight,

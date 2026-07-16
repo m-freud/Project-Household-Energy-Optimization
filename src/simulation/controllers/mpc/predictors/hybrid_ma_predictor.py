@@ -26,7 +26,7 @@ def _load_source_avg_curve(table_name: str) -> list[float]:
     return [float(value) for value in df["value"].tolist()]
 
 
-class HybridMAController(BasePredictor):
+class HybridMAPredictor(BasePredictor):
     """Modular Hybrid MA predictor scaffold.
 
     This class composes lower-level sub-predictors from predictors/hybrid_ma_controller:
