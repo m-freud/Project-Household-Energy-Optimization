@@ -11,7 +11,7 @@ import numpy as np
 import streamlit as st
 
 from src.config import Config
-from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAController
+from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -59,7 +59,7 @@ def _build_predictor(
     ma3_trend_range: int,
 ):
     if predictor_name == "hybrid_ma":
-        return HybridMAController(
+        return HybridMAPredictor(
             short_window_size=ma3_short,
             long_window_size=ma3_long,
             short_weight=ma3_weight,
