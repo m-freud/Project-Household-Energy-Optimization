@@ -29,34 +29,22 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 - [x] `src/simulation/run_context.py`
 - [x] `src/simulation/household.py`
-- [ ] `src/simulation/simulation.py`
-  - `run_batch` / `create_household` Flow
-  - Zeitschleife: Reihenfolge der Steps (Predict → Solve → Dispatch → Record)
-  - Parallelisierung: shared state / DB-Zugriffe thread-safe?
-  - Off-by-one: welcher Timestep wird dem Controller übergeben?
+- [x] `src/simulation/simulation.py`
 
 ---
 
 ## 5) Devices
 
-- [ ] `src/simulation/devices/bess.py`
-  - SoC-Clipping, Charge/Discharge-Limits
-  - Target-Hit-Berechnung: Schwelle, Zeitpunkt (end of day?)
-- [ ] `src/simulation/devices/ev.py`
-  - EV-Verfügbarkeit: at_home / at_station korrekt gemappt
-  - Max-Charge-Pfad: korrekte Kapazitäten pro Standort
-  - Target-Hit EV1/EV2: welche Bedingung, welcher Timestep
-- [ ] `src/simulation/devices/pv.py`
-  - PV-Fenster-Masking korrekt (frühester Start, spätestes Ende)
+- [x] `src/simulation/devices/bess.py`
+- [x] `src/simulation/devices/ev.py`
+- [x] `src/simulation/devices/pv.py`
 
 ---
 
 ## 6) Controller-Basis
 
-- [ ] `src/simulation/controllers/base_controller.py`
-  - Interface vollständig, keine versteckten Seiteneffekte
-- [ ] `src/simulation/controllers/function_controller.py`
-  - Korrekt als Wrapper, keine eigene Logik die stören kann
+- [x] `src/simulation/controllers/base_controller.py`
+- [x] `src/simulation/controllers/function_controller.py`
 
 ---
 
