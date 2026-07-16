@@ -1,12 +1,3 @@
-# paste this to enable src. imports
-
-from pathlib import Path
-import sys
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.config import Config
@@ -19,12 +10,12 @@ def get_next_target(current_timestep: int, target_soc_dict: dict[int, float]) ->
 
 
 def even_linear_policy(household: Household, scenario: Scenario) -> dict:
+    # Reach target by charging evenly. Naive baseline. 
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
-    pv_generation = household.pv.generation if household.pv else 0.0
 
     for ev, ev_scenario in [(household.ev1, scenario.ev1), (household.ev2, scenario.ev2)]:
         if ev and (ev.at_home or ev.at_charging_station):
@@ -42,7 +33,6 @@ def even_linear_policy(household: Household, scenario: Scenario) -> dict:
                         ev.max_charge,
                     )
 
-    # Stupid baseline BESS behavior: move evenly toward end target, then idle.
     if household.bess:
         bess = household.bess
         target_soc, deadline = get_next_target(household.current_timestep, scenario.bess.soc_targets)
@@ -83,12 +73,12 @@ def even_linear_policy(household: Household, scenario: Scenario) -> dict:
 
 
 def fast_charge_policy(household: Household, scenario: Scenario) -> dict:
+    # Just charge to target as fast as possible. Naive baseline.
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
-    pv_generation = household.pv.generation if household.pv else 0.0
 
     if household.ev1 and (household.ev1.at_home or household.ev1.at_charging_station):
         ev1_target_soc, _ = get_next_target(household.current_timestep, scenario.ev1.soc_targets)
@@ -104,7 +94,6 @@ def fast_charge_policy(household: Household, scenario: Scenario) -> dict:
             required_power = (ev2_target_soc - household.ev2.soc) / (Config.DURATION_TIMESTEP * household.ev2.efficiency)
             controls["ev2_power"] = min(household.ev2.max_charge, required_power)
 
-    # Stupid baseline BESS behavior: move to end target as fast as possible.
     if household.bess:
         bess_target_soc, _ = get_next_target(household.current_timestep, scenario.bess.soc_targets)
         bess_target_soc = bess_target_soc * household.bess.capacity

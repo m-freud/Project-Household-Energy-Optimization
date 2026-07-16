@@ -1,9 +1,3 @@
-from pathlib import Path
-import sys
-
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.config import Config
@@ -116,7 +110,7 @@ def _is_profitable_discharge(
 
 def waterfall_policy(household: Household, scenario: Scenario) -> dict:
     """
-    Waterfall V1 policy.
+    Waterfall policy.
 
     Rule stack:
     1) urgent trajectory guarantee,
