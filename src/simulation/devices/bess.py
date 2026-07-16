@@ -12,7 +12,7 @@ class BESS:
         self.capacity = capacity  # in kWh
         self.max_charge = max_charge  # in kW (per hour)
         self.max_discharge = max_discharge  # in kW (per hour)
-        self.efficiency = efficiency  # as a decimal
+        self.efficiency = efficiency  # as a decimal fraction
         self.soc = soc  # state of charge in kWh
         self.name = name
 
