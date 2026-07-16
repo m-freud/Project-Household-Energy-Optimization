@@ -50,18 +50,11 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 7) Policies
 
-- [ ] `src/simulation/controllers/policies/waterfall/waterfall.py`
-  - Deadline-Berechnung (`min(t for t in soc_targets if t >= timestep), default=96`)
-  - Off-by-one: wird `timestep` selbst als Deadline gezählt?
-- [ ] `src/simulation/controllers/policies/linear/linear.py`
+- [x] `src/simulation/controllers/policies/waterfall/waterfall.py`
+- [x] `src/simulation/controllers/policies/linear/linear.py`
   - Gleichmäßige Verteilung auf verbleibende Timesteps korrekt
-- [ ] `src/simulation/controllers/policies/linear/price_aware_linear.py`
+- [x] `src/simulation/controllers/policies/linear/price_aware_linear.py`
   - Preisgewichtung und Deadline-Logik konsistent mit `linear.py`
-- [ ] `src/simulation/controllers/policies/mpc/mpc.py`
-  - MPC-Policy: Übergabe von Prediction an Solver korrekt
-  - Constraint-Aufbau: Horizon, Status, Max-Charge korrekt indiziert
-- [ ] `src/simulation/controllers/policies/mpc/predictions/price_prediction.py`
-  - Preisvorhersage-Fallback bei fehlenden Daten
 
 ---
 

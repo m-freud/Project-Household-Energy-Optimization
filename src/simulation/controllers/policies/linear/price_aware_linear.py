@@ -1,10 +1,3 @@
-from pathlib import Path
-import sys
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
@@ -81,21 +74,22 @@ def _even_bess_power_to_target(
 def price_aware_linear(
     household: Household,
     scenario: Scenario,
-    default_behaviour: str = "no_control",
+    base_behaviour: str = "no_control",
 ) -> dict:
     """
     Price-aware linear charging for EVs and conservative BESS control.
+    Naive target fulfillment like other linear policies, but with some price-awareness.
 
     - EVs: if urgent, use even-linear; otherwise charge only when cheap, else even-linear.
     - BESS: if urgent, move evenly to target; otherwise reverse-price logic:
       discharge surplus on expensive price, charge deficit on cheap price.
     """
-    if default_behaviour == "even_linear":
+    if base_behaviour == "even_linear":
         controls = even_linear_policy(household, scenario)
-    elif default_behaviour == "no_control":
+    elif base_behaviour == "no_control":
         controls = no_control_policy(household, scenario)
     else:
-        raise ValueError("default_behaviour must be 'no_control' or 'even_linear'")
+        raise ValueError("base_behaviour must be 'no_control' or 'even_linear'")
 
     even_controls = even_linear_policy(household, scenario)
     fast_controls = fast_charge_policy(household, scenario)
@@ -145,7 +139,7 @@ def price_aware_linear(
     )
     needs_discharge_urgently = soc_deficit < 0 and _is_trajectory_urgent(
         target_soc,
-        bess.soc,
+        bess.soc, # swap target and current for discharge urgency check
         timestep,
         deadline,
         bess.max_discharge,
