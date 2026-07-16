@@ -3,14 +3,8 @@
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
-from pathlib import Path
-import sys
 from typing import Callable
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
+from simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -18,7 +12,6 @@ from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
-
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.simulation.controllers.policies.basic_examples import no_control
 from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
@@ -79,7 +72,7 @@ def build_mpc_controller(
     )
 
 
-def make_function_controller(
+def make_function_controller( # for parallel runs
     name: str,
     step_function: Callable[..., dict],
 ) -> Callable[[Household, Scenario], FunctionController]:
@@ -133,9 +126,9 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
             "total_consumption": household.total_consumption,
             "net_cost": sum(household.history["net_cost"].values()) * sim.duration_hours,
             "net_load": sum(household.history["net_load"].values()) * sim.duration_hours,
-            "target_met_bess": household.has_met_target("bess"),
-            "target_met_ev1": household.has_met_target("ev1"),
-            "target_met_ev2": household.has_met_target("ev2"),
+            "target_met_bess": household.has_met_final_target("bess"),
+            "target_met_ev1": household.has_met_final_target("ev1"),
+            "target_met_ev2": household.has_met_final_target("ev2"),
             "target_met_all_bess": household.has_met_all_targets("bess"),
             "target_met_all_ev1": household.has_met_all_targets("ev1"),
             "target_met_all_ev2": household.has_met_all_targets("ev2"),
@@ -373,13 +366,16 @@ class Simulation:
             measurements=self.env_inputs
         )
 
-        # household gets access to prices over day # TODO ev prices are using oracle, switch to constant station price
+        # household gets access to prices over day 
         household.buy_price_day_profile = self.household_profiles["buy_price"]
         household.sell_price_day_profile = self.household_profiles["sell_price"]
-        household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"]
-        household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"]
+        household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"] # used for quantiles, not exact predictions
+        household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"] # used for quantiles, not exact predictions
         household.oracle_profiles = self.household_profiles
 
+        # set default drive load for EVs based on first non-zero value in the load profile
+        # technically this is an illegal prediction, but it is a good proxy for "yesterdays last value"
+        # and we have to start somewhere.
         def _first_non_zero_value(values: list[float]) -> float:
             for value in values:
                 value_f = float(value)
@@ -407,6 +403,7 @@ class Simulation:
         return controller
 
 
+    # perform a single simulation step for 1 house
     def step(
             self,
             household: Household,
@@ -422,7 +419,7 @@ class Simulation:
 
 
     def update_household_inputs(self, household: Household):
-        # update time
+        # update the time
         timestep = self.current_timestep
         household.current_timestep = self.current_timestep
         profile_time_index = timestep - 1
@@ -493,8 +490,8 @@ class Simulation:
         run_context: RunContext,
         household_ids: list[int] | None = None,
         max_households: int | None = None,
-        parallel_households: bool = False,
-        parallel_workers: int | None = 6,
+        parallel_households: bool = True,
+        parallel_workers: int | None = 6, # optimal number depends on CPUs of your machine
     ):
         if household_ids is None:
             selected_households = list(range(1, self.num_households + 1))
@@ -561,9 +558,11 @@ class Simulation:
             )
 
 
+    # result loading.
+    # household results != household history. helper functions enable modularity for external usage
+
     def load_household_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
         # extract dict from household, load to sqlite
-        
         payload = {
             "run_id": run_id,
             "policy": policy_name,
@@ -575,9 +574,9 @@ class Simulation:
             "total_consumption": household.total_consumption,
             "net_cost": sum(household.history["net_cost"].values()) * 0.25,
             "net_load": sum(household.history["net_load"].values()) * 0.25,
-            "target_met_bess": household.has_met_target("bess"),
-            "target_met_ev1": household.has_met_target("ev1"),
-            "target_met_ev2": household.has_met_target("ev2"),
+            "target_met_bess": household.has_met_final_target("bess"),
+            "target_met_ev1": household.has_met_final_target("ev1"),
+            "target_met_ev2": household.has_met_final_target("ev2"),
             "target_met_all_bess": household.has_met_all_targets("bess"),
             "target_met_all_ev1": household.has_met_all_targets("ev1"),
             "target_met_all_ev2": household.has_met_all_targets("ev2"),
@@ -585,6 +584,7 @@ class Simulation:
             "soc_at_deadline_ev1": household.soc_at_deadline("ev1"),
             "soc_at_deadline_ev2": household.soc_at_deadline("ev2"),
         }
+
         self.load_results_payload_to_sqlite(payload)
 
 
@@ -604,6 +604,7 @@ class Simulation:
                 for measurement in measurements
             },
         }
+
         self.load_history_payload_to_sqlite(payload)
 
     
@@ -740,17 +741,24 @@ if __name__ == "__main__":
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
         "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, duration_hours=sim.duration_hours),
-        "mpc_moving_average": make_mpc_controller(
-            "mpc_moving_average",
+        "mpc_hybrid_moving_average": make_mpc_controller(
+            "mpc_hybrid_moving_average",
             horizon=96,
-            predictor=MovingAveragePredictor(window_size=12),
-            duration_hours=sim.duration_hours,
-        ),
-        "mpc_moving_average2": make_mpc_controller(
-            "mpc_moving_average2",
-            horizon=96,
-            predictor=MovingAveragePredictor2(short_window_size=7, long_window_size=48, short_weight=0.7),
-            duration_hours=sim.duration_hours,
+            predictor=HybridMAPredictor(
+                short_window_size=0,
+                long_window_size=96,
+                short_weight=0.0,
+                conf_interval_frct=0.0,
+                persistence_mode="none",
+                persistence_range=0,
+                persistence_constant_alpha=0,
+                trend_weight=0,
+                trend_window=0,
+                trend_range=0,
+                source_average_beta=0,
+                source_average_beta_base_load=0,
+                source_average_beta_pv_gen=0,
+            ),
         ),
     }
 
