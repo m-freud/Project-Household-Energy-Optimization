@@ -25,6 +25,7 @@ from src.simulation.simulation import Simulation, make_mpc_controller
 @dataclass(frozen=True)
 class HybridMAConfig:
     window_size: int
+    persistence_range: int
     conf_interval_frct: float
 
 
@@ -104,10 +105,12 @@ def build_configs(args: argparse.Namespace) -> list[HybridMAConfig]:
 
     for window_size in window_sizes:
         window_size = max(1, int(window_size))
+        persistence_range = max(0, int(args.persistence_range))
         conf_interval_frct = 0.0 if args.preset == "short_only" else float(args.conf_interval_frct)
         configs.append(
             HybridMAConfig(
                 window_size=window_size,
+                persistence_range=persistence_range,
                 conf_interval_frct=conf_interval_frct,
             )
         )
@@ -118,6 +121,7 @@ def build_configs(args: argparse.Namespace) -> list[HybridMAConfig]:
 def build_policy_name(config: HybridMAConfig, run_tag: str) -> str:
     return (
         f"mpc_hybrid_ma_w{config.window_size}"
+        f"_pr{config.persistence_range}"
         f"_ci{config.conf_interval_frct:.2f}"
         f"_{run_tag}"
     )
@@ -126,6 +130,7 @@ def build_policy_name(config: HybridMAConfig, run_tag: str) -> str:
 def config_to_row(config: HybridMAConfig) -> dict[str, int | float | str]:
     return {
         "window_size": config.window_size,
+        "persistence_range": config.persistence_range,
         "conf_interval_frct": config.conf_interval_frct,
     }
 
@@ -143,6 +148,7 @@ def run_config(
 
     predictor = HybridMAPredictor(
         window_size=config.window_size,
+        persistence_range=config.persistence_range,
         conf_interval_frct=config.conf_interval_frct,
     )
 
@@ -261,6 +267,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument("--conf-interval-frct", type=float, default=0)
+    parser.add_argument(
+        "--persistence-range",
+        type=int,
+        default=1,
+        help="Number of initial forecast steps to persist the latest observed value",
+    )
 
     parser.add_argument(
         "--households",
