@@ -297,7 +297,7 @@ class MPCController(BaseController):
         self._ensure_compiled_problem(planning_horizon)
 
         # make predictions
-        predictions = self.predictor.predict(household, scenario, planning_horizon)
+        predictions = self.predictor.predict(household, planning_horizon)
 
         # compute tail mask to block controls after day 1
         tail_mask = self._tail_mask(current_timestep, planning_horizon)

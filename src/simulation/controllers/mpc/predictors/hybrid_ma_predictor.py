@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from functools import lru_cache
-
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_base_load,
@@ -14,7 +12,6 @@ from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_sell_price,
 )
 from src.simulation.household import Household
-from src.simulation.scenarios.scenario import Scenario
 from src.sqlite_connection import load_source_avg_profile
 
 
@@ -27,12 +24,12 @@ def _load_source_avg_curve(table_name: str) -> list[float]:
 
 
 class HybridMAPredictor(BasePredictor):
-    """Modular Hybrid MA predictor scaffold.
+    """Modular Hybrid MA predictor
 
     This class composes lower-level sub-predictors from predictors/hybrid_ma_controller:
-    - house_profiles: base_load, pv_gen (+ optional interval bands)
-    - ev_profiles: ev_load, ev_status, ev_max_charge
-    - price_profiles: buy_price/sell_price and EV buy-price composition
+    - house_profiles: base_load, pv_gen (+ optional interval bands) -> moving avg
+    - ev_profiles: ev_load, ev_status, ev_max_charge -> moving avg or worst case
+    - price_profiles: buy_price/sell_price and EV buy-price composition -> look up
     """
 
     def __init__(
@@ -73,8 +70,7 @@ class HybridMAPredictor(BasePredictor):
             else min(1.0, max(0.0, float(source_average_beta_pv_gen)))
         )
 
-    def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
-        _ = (scenario,)
+    def predict(self, household: Household, horizon: int) -> dict:
         horizon = max(0, int(horizon))
 
         base_load = predict_base_load(
