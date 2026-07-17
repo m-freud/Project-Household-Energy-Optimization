@@ -1,7 +1,9 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 
+'''
+enable time / soc buffers to ensure target hit rates
+unused as long as target hit rates are 100%'''
 
 @dataclass(frozen=True)
 class DeviceBuffer:
