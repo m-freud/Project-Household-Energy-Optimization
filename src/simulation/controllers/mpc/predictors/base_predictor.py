@@ -1,7 +1,5 @@
 from __future__ import annotations
-
 from abc import ABC, abstractmethod
-
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 
@@ -9,15 +7,10 @@ from src.simulation.scenarios.scenario import Scenario
 class BasePredictor(ABC):
     """Interface for predictors used by the MPC controller."""
 
-    # Predictors can override this to disable synthetic tail padding near the
-    # end of the day (used by oracle-style predictors).
-    allow_tail_padding: bool = True
-
     @abstractmethod
     def predict(
         self,
         household: Household,
-        scenario: Scenario,
         horizon: int,
     ) -> dict:
         """Return future household profiles for the next planning horizon.
