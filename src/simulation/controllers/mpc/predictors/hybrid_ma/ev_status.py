@@ -199,8 +199,8 @@ def _predict_single_ev_status(
     if observed_first_start is not None:
         first_start = observed_first_start
     elif state_now == "driving" and current_period < second_start:
-        # Forecast starts at current_period + 1, so align commute start to the next predicted period.
-        first_start = min(day_end_period, current_period + 1)
+        # Forecast index 0 corresponds to current_period.
+        first_start = min(day_end_period, current_period)
     elif state_now == "home" and current_period >= first_start:
         # Commute should have started by now but has not; shift the first window right.
         first_start = min(day_end_period, first_start + 1)
@@ -216,7 +216,7 @@ def _predict_single_ev_status(
     if observed_second_start is not None:
         second_start = observed_second_start
     elif state_now == "driving" and current_period >= 48:
-        second_start = max(second_start, min(day_end_period, current_period + 1))
+        second_start = max(second_start, min(day_end_period, current_period))
     elif state_now == "station" and current_period >= second_start:
         # Return commute should have started but EV is still at station; shift second window right.
         second_start = min(day_end_period, second_start + 1)
@@ -228,7 +228,7 @@ def _predict_single_ev_status(
     at_home: list[float] = []
     at_station: list[float] = []
     for offset in range(max(0, int(horizon))):
-        period = current_period + offset + 1
+        period = current_period + offset
         if period < first_start:
             state = "home"
         elif first_start <= period <= first_end:
@@ -242,6 +242,18 @@ def _predict_single_ev_status(
 
         at_home.append(1.0 if state == "home" else 0.0)
         at_station.append(1.0 if state == "station" else 0.0)
+
+    # Keep first predicted step aligned to current observed state.
+    if at_home:
+        if state_now == "home":
+            at_home[0] = 1.0
+            at_station[0] = 0.0
+        elif state_now == "station":
+            at_home[0] = 0.0
+            at_station[0] = 1.0
+        else:
+            at_home[0] = 0.0
+            at_station[0] = 0.0
 
     return at_home, at_station
 

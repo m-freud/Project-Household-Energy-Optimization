@@ -75,7 +75,7 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 - [x] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
 - [x] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/house_profiles.py`
+- [x] `src/simulation/controllers/mpc/predictors/hybrid_ma/house_profiles.py`
   - `predict_base_load` / `predict_pv_gen`: PV-Fenster-Mask korrekt angewandt
 - [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_profiles.py`
   - EV-Load-Schätzung aus non-zero History sinnvoll
