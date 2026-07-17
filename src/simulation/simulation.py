@@ -4,7 +4,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from typing import Callable
-from simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
+from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -20,8 +20,6 @@ from src.simulation.controllers.policies.waterfall.waterfall import waterfall_po
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
-from src.simulation.controllers.mpc.predictors.moving_average_predictor import MovingAveragePredictor
-from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.config import Config
 
