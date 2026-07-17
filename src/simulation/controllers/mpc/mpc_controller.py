@@ -198,8 +198,8 @@ class MPCController(BaseController):
 
         time_buffer_steps = max(0, int(time_buffer_steps))
         energy_buffer_soc_frct = max(0.0, float(energy_buffer_soc_frct))
-        for deadline, target_soc in sorted(targets.items()):
-            buffered_target_soc = min(1.0, float(target_soc) + energy_buffer_soc_frct)
+        for deadline, target_soc_frct in sorted(targets.items()):
+            buffered_target_soc = min(1.0, float(target_soc_frct) + energy_buffer_soc_frct)
             target_soc_kwh = buffered_target_soc * float(capacity)
             deadline_step = int(deadline)
 
