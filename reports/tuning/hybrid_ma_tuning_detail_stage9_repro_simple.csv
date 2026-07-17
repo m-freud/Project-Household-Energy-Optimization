@@ -1,0 +1,7 @@
+policy,run_id,scenario,pairs,avg_total_cost,avg_net_cost,avg_net_load,bess_target_rate,ev1_target_rate,ev2_target_rate,run_tag,preset,household_count,scenario_count,window_size,conf_interval_frct
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,default_scenario,48,8.087666845975784,7.338518929309116,48.5922139624735,1.0,1.0,0.9791666666666666,stage9_repro_simple,manual,48,6,96,0.0
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,relaxed_high_start,48,3.8477996835762114,3.0986517669095455,16.5947607761137,1.0,1.0,1.0,stage9_repro_simple,manual,48,6,96,0.0
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,relaxed_low_start,48,12.308036353055511,11.558888436388843,82.89476103701041,1.0,1.0,0.9791666666666666,stage9_repro_simple,manual,48,6,96,0.0
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,stressed_high_start,48,5.167222046604461,4.418074129937795,26.33175027768867,1.0,1.0,1.0,stage9_repro_simple,manual,48,6,96,0.0
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,stressed_low_start,48,13.617571788663739,12.868423871997072,96.18498874903527,1.0,1.0,1.0,stage9_repro_simple,manual,48,6,96,0.0
+mpc_hybrid_ma_w96_ci0.00_stage9_repro_simple,19,stressed_mid_start,48,9.470426370349815,8.721278453683148,59.807697315274574,1.0,1.0,1.0,stage9_repro_simple,manual,48,6,96,0.0
