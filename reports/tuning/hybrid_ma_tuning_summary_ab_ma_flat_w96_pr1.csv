@@ -1,0 +1,2 @@
+policy,run_id,pairs,avg_total_cost,avg_net_cost,avg_net_load,bess_target_rate,ev1_target_rate,ev2_target_rate,run_tag,preset,household_count,scenario_count,window_size,persistence_range,ma_mode,conf_interval_frct
+mpc_hybrid_ma_w96_pr1_mmflat_ci0.00_ab_ma_flat_w96_pr1,24,288,8.623347274818244,7.874199358151576,55.18840742071269,1.0,1.0,0.9930555555555556,ab_ma_flat_w96_pr1,manual,48,6,96,1,flat,0.0
