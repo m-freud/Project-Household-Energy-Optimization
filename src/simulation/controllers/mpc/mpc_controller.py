@@ -2,16 +2,6 @@ import cvxpy as cp
 import numpy as np
 from typing import cast
 from cvxpy.constraints.constraint import Constraint
-
-# paste this to enable src. imports
-
-from pathlib import Path
-import sys
-
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
@@ -38,30 +28,21 @@ class MPCController(BaseController):
         self.duration_hours = float(duration_hours)
         self.buffer_config = buffer_config or DeviceBufferConfig.disabled()
 
-        self.bess_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else [0,0]
-        self.ev1_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0]
-        self.ev2_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else [0,0]
+        self.bess_control_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else [0,0]
+        self.ev1_control_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0] # no discharge
+        self.ev2_control_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else [0,0] # no discharge
 
         self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess else {}
         self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else {}
         self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else {}
 
         # Built once and reused every timestep via Parameters (DPP) to avoid
-        # repeated canonicalization overhead.
+        # repeated compilation overhead.
         self._compiled_horizon: int | None = None
         self._problem: cp.Problem | None = None
         self._params: dict[str, cp.Parameter] = {}
         self._vars: dict[str, cp.Variable | None] = {}
 
-
-    def _planning_horizon(self, current_timestep: int) -> int:
-        # Always return the full horizon so _ensure_compiled_problem compiles
-        # the CVXPY problem exactly once and DPP warm-starting applies on every
-        # subsequent solve.  Predictions are padded by _prediction_series, and
-        # _target_lb places constraints at the correct relative index regardless
-        # of how many real timesteps remain.
-        _ = current_timestep
-        return max(1, int(self.horizon))
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
@@ -275,15 +256,15 @@ class MPCController(BaseController):
 
         bess_power = 0.0
         if _needs_charge("bess_target_lb", "bess_soc0"):
-            bess_power = max(0.0, _first_param_value("bess_charge_limit", default=self.bess_bounds[1]))
+            bess_power = max(0.0, _first_param_value("bess_charge_limit", default=self.bess_control_bounds[1]))
 
         ev1_power = 0.0
         if _needs_charge("ev1_target_lb", "ev1_soc0"):
-            ev1_power = max(0.0, _first_param_value("ev1_effective_max_charge", default=self.ev1_bounds[1]))
+            ev1_power = max(0.0, _first_param_value("ev1_effective_max_charge", default=self.ev1_control_bounds[1]))
 
         ev2_power = 0.0
         if _needs_charge("ev2_target_lb", "ev2_soc0"):
-            ev2_power = max(0.0, _first_param_value("ev2_effective_max_charge", default=self.ev2_bounds[1]))
+            ev2_power = max(0.0, _first_param_value("ev2_effective_max_charge", default=self.ev2_control_bounds[1]))
 
         return {
             "bess_power": bess_power,
@@ -291,9 +272,8 @@ class MPCController(BaseController):
             "ev2_power": ev2_power,
         }
 
-    def set_controls(self, household: Household, scenario: Scenario, predictor: str = 'oracle', *args, **kwargs):
-        _ = (household, scenario, args, kwargs)
-
+    def set_controls(self, household: Household, scenario: Scenario):
+        # fetch current states
         current_timestep = household.current_timestep
         bess_soc = household.bess_soc
         ev1_soc = household.ev1_soc
@@ -309,11 +289,20 @@ class MPCController(BaseController):
         ev1_load = household.ev1_load
         ev2_load = household.ev2_load
 
-        planning_horizon = self._planning_horizon(current_timestep)
+        # set problem horizon
+        # constant horizon (-> constant problem shape) means we dont have to recompile the problem every timestep 
+        planning_horizon = self.horizon
+
+        # compile problem or reuse uf possible
         self._ensure_compiled_problem(planning_horizon)
+
+        # make predictions
         predictions = self.predictor.predict(household, scenario, planning_horizon)
+
+        # mask the next day, we only care about day 1
         tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
+        # fetch predictions
         base_load_profile = self._prediction_series(predictions, "base_load", planning_horizon, default=base_load)
         pv_profile = self._prediction_series(predictions, "pv_gen", planning_horizon, default=pv_generation)
         ev1_load_profile = self._prediction_series(predictions, "ev1_load", planning_horizon, default=ev1_load)
@@ -329,7 +318,7 @@ class MPCController(BaseController):
         ev1_buy_price_profile = self._prediction_series(predictions, "ev1_buy_price", planning_horizon, default=buy_price)
         ev2_buy_price_profile = self._prediction_series(predictions, "ev2_buy_price", planning_horizon, default=buy_price)
 
-        # update /fill the compiled problem
+        # fill/update the params for the compiled problem
         # global params first
         self._params["base_load"].value = np.asarray(base_load_profile, dtype=float)
         self._params["pv_gen"].value = np.asarray(pv_profile, dtype=float)
@@ -357,7 +346,7 @@ class MPCController(BaseController):
             ev1_drive_load = np.asarray(ev1_load_profile, dtype=float) * (1.0 - ev1_availability)
             ev1_station_price = np.asarray(ev1_buy_price_profile, dtype=float) * ev1_station_mask
             ev1_profile_max_charge = np.asarray(ev1_max_charge_profile, dtype=float)
-            ev1_device_max_charge = float(self.ev1_bounds[1])
+            ev1_device_max_charge = float(self.ev1_control_bounds[1])
             # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
             ev1_effective_max_charge = np.minimum(ev1_profile_max_charge, ev1_device_max_charge) * ev1_availability * tail_mask
 
@@ -382,7 +371,7 @@ class MPCController(BaseController):
             ev2_drive_load = np.asarray(ev2_load_profile, dtype=float) * (1.0 - ev2_availability)
             ev2_station_price = np.asarray(ev2_buy_price_profile, dtype=float) * ev2_station_mask
             ev2_profile_max_charge = np.asarray(ev2_max_charge_profile, dtype=float)
-            ev2_device_max_charge = float(self.ev2_bounds[1])
+            ev2_device_max_charge = float(self.ev2_control_bounds[1])
             # Fold availability into effective_max_charge so the CVXPY constraint is DPP-compliant (param only, no param*param)
             ev2_effective_max_charge = np.minimum(ev2_profile_max_charge, ev2_device_max_charge) * ev2_availability * tail_mask
 
