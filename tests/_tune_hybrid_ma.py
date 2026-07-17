@@ -239,8 +239,8 @@ def build_reports(
     )
     summary = summary.merge(metadata, on=["policy", "run_id"], how="left")
 
-    summary = summary.sort_values(["avg_net_cost", "avg_total_cost", "short_window_size"]).reset_index(drop=True)
-    detail = detail.sort_values(["short_window_size", "long_window_size", "scenario"]).reset_index(drop=True)
+    summary = summary.sort_values(["avg_net_cost", "avg_total_cost", "window_size"]).reset_index(drop=True)
+    detail = detail.sort_values(["window_size", "scenario"]).reset_index(drop=True)
     return summary, detail
 
 
