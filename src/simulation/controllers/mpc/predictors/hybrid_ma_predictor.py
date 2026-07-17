@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_base_load,
@@ -14,12 +15,12 @@ from src.simulation.household import Household
 
 
 class HybridMAPredictor(BasePredictor):
-    """Modular Hybrid MA predictor
+    """Hybrid MA predictor assembled from profile-specific helper functions.
 
-    This class composes lower-level sub-predictors from predictors/hybrid_ma_controller:
-    - house_profiles: base_load, pv_gen (+ optional interval bands) -> moving avg
-    - ev_profiles: ev_load, ev_status, ev_max_charge -> moving avg or worst case
-    - price_profiles: buy_price/sell_price and EV buy-price composition -> look up
+    Tunables are intentionally small:
+    - ``window_size``: moving-average window used for base load and PV
+    - ``persistence_range``: number of initial steps that keep the last observed value
+    - ``conf_interval_frct``: width factor for point-forecast bands
     """
 
     def __init__(
@@ -32,7 +33,7 @@ class HybridMAPredictor(BasePredictor):
         self.persistence_range = max(0, int(persistence_range))
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
 
-    def predict(self, household: Household, horizon: int) -> dict:
+    def predict(self, household: Household, horizon: int) -> dict[str, list[float]]:
         horizon = max(0, int(horizon))
 
         base_load = predict_base_load(

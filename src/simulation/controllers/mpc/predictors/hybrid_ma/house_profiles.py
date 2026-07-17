@@ -98,7 +98,7 @@ def predict_house_profiles(
 ) -> dict[str, list[float]]:
     """Predict household-level continuous profiles.
 
-    Placeholder MA implementation:
+    Current implementation:
     - base_load, pv_gen: recursive moving average over one window
     - base_load/pv_gen forecast bands: simple percent envelope around point forecast
     """
