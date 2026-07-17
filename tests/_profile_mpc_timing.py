@@ -32,11 +32,7 @@ def main():
         run_context = SimpleNamespace(scenario=scenario, start_time=1)
         household = sim.create_household(PLAYER_ID, run_context)
 
-        predictor = HybridMAPredictor(
-            short_window_size=7,
-            long_window_size=48,
-            short_weight=0.7,
-        )
+        predictor = HybridMAPredictor(window_size=96, conf_interval_frct=0.0)
 
         controller = MPCController(
             name="profile_hybrid_ma",

@@ -45,34 +45,14 @@ def _apply_pv_window_mask(household: Household, series: list[float]) -> list[flo
 def predict_base_load(
     household: Household,
     horizon: int,
-    short_window: int = 7,
-    long_window: int = 48,
-    short_weight: float = 0.7,
+    window_size: int = 48,
     interval_width_fraction: float = 0.1,
-    persistence_mode: str = "exponential",
-    persistence_range: int = 8,
-    persistence_constant_alpha: float = 0.5,
-    trend_weight: float = 0.0,
-    trend_window: int = 4,
-    trend_range: int = 4,
 ) -> dict[str, list[float]]:
-    short_window = max(0, int(short_window))
-    long_window = max(max(1, short_window), int(long_window))
-    short_weight = min(1.0, max(0.0, float(short_weight)))
-
     base_series = forecast_moving_average(
         values=_history_values(household, "base_load"),
         horizon=horizon,
-        short_window=short_window,
-        long_window=long_window,
-        short_weight=short_weight,
+        window_size=window_size,
         default=float(household.base_load),
-        persistence_mode=persistence_mode,
-        persistence_range=persistence_range,
-        persistence_constant_alpha=persistence_constant_alpha,
-        trend_weight=trend_weight,
-        trend_window=trend_window,
-        trend_range=trend_range,
     )
     base_lb, base_ub = _make_band(base_series, interval_width_fraction)
 
@@ -86,34 +66,14 @@ def predict_base_load(
 def predict_pv_gen(
     household: Household,
     horizon: int,
-    short_window: int = 7,
-    long_window: int = 48,
-    short_weight: float = 0.7,
+    window_size: int = 96,
     interval_width_fraction: float = 0.1,
-    persistence_mode: str = "exponential",
-    persistence_range: int = 8,
-    persistence_constant_alpha: float = 0.5,
-    trend_weight: float = 0.0,
-    trend_window: int = 4,
-    trend_range: int = 4,
 ) -> dict[str, list[float]]:
-    short_window = max(0, int(short_window))
-    long_window = max(max(1, short_window), int(long_window))
-    short_weight = min(1.0, max(0.0, float(short_weight)))
-
     pv_series = forecast_moving_average(
         values=_history_values(household, "pv_gen"),
         horizon=horizon,
-        short_window=short_window,
-        long_window=long_window,
-        short_weight=short_weight,
+        window_size=window_size,
         default=float(household.pv_gen),
-        persistence_mode=persistence_mode,
-        persistence_range=persistence_range,
-        persistence_constant_alpha=persistence_constant_alpha,
-        trend_weight=trend_weight,
-        trend_window=trend_window,
-        trend_range=trend_range,
     )
     pv_series = _apply_pv_window_mask(household, pv_series)
     pv_lb, pv_ub = _make_band(pv_series, interval_width_fraction)
@@ -128,21 +88,13 @@ def predict_pv_gen(
 def predict_house_profiles(
     household: Household,
     horizon: int,
-    short_window: int = 7,
-    long_window: int = 48,
-    short_weight: float = 0.7,
+    window_size: int = 96,
     interval_width_fraction: float = 0.1,
-    persistence_mode: str = "exponential",
-    persistence_range: int = 8,
-    persistence_constant_alpha: float = 0.5,
-    trend_weight: float = 0.0,
-    trend_window: int = 4,
-    trend_range: int = 4,
 ) -> dict[str, list[float]]:
     """Predict household-level continuous profiles.
 
-    Placeholder MA3 implementation:
-    - base_load, pv_gen: blended short/long moving average
+    Placeholder MA implementation:
+    - base_load, pv_gen: recursive moving average over one window
     - base_load/pv_gen forecast bands: simple percent envelope around point forecast
     """
 
@@ -151,32 +103,16 @@ def predict_house_profiles(
         predict_base_load(
             household,
             horizon,
-            short_window=short_window,
-            long_window=long_window,
-            short_weight=short_weight,
+            window_size=window_size,
             interval_width_fraction=interval_width_fraction,
-            persistence_mode=persistence_mode,
-            persistence_range=persistence_range,
-            persistence_constant_alpha=persistence_constant_alpha,
-            trend_weight=trend_weight,
-            trend_window=trend_window,
-            trend_range=trend_range,
         )
     )
     payload.update(
         predict_pv_gen(
             household,
             horizon,
-            short_window=short_window,
-            long_window=long_window,
-            short_weight=short_weight,
+            window_size=window_size,
             interval_width_fraction=interval_width_fraction,
-            persistence_mode=persistence_mode,
-            persistence_range=persistence_range,
-            persistence_constant_alpha=persistence_constant_alpha,
-            trend_weight=trend_weight,
-            trend_window=trend_window,
-            trend_range=trend_range,
         )
     )
     return payload

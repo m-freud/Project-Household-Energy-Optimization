@@ -24,19 +24,8 @@ from src.simulation.simulation import Simulation, make_mpc_controller
 
 @dataclass(frozen=True)
 class HybridMAConfig:
-    short_window_size: int
-    long_window_size: int
-    short_weight: float
+    window_size: int
     conf_interval_frct: float
-    persistence_mode: str
-    persistence_range: int
-    persistence_constant_alpha: float
-    trend_weight: float
-    trend_window: int
-    trend_range: int
-    source_average_beta: float
-    source_average_beta_base_load: float
-    source_average_beta_pv_gen: float
 
 
 def parse_int_list(raw: str) -> list[int]:
@@ -107,92 +96,37 @@ def select_scenarios(scenario_names_csv: str | None) -> list[object]:
 
 
 def build_configs(args: argparse.Namespace) -> list[HybridMAConfig]:
-    short_windows = parse_int_list(args.short_windows)
-    if not short_windows:
-        raise ValueError("--short-windows must contain at least one value")
-
-    long_windows = parse_int_list(args.long_windows) if args.long_windows else [int(args.long_window)]
-    if not long_windows:
-        raise ValueError("Expected at least one long window via --long-windows or --long-window")
+    window_sizes = parse_int_list(args.window_sizes)
+    if not window_sizes:
+        raise ValueError("--window-sizes must contain at least one value")
 
     configs: list[HybridMAConfig] = []
 
-    shared_beta = float(args.source_average_beta)
-    base_beta = shared_beta if args.source_average_beta_base_load is None else float(args.source_average_beta_base_load)
-    pv_beta = shared_beta if args.source_average_beta_pv_gen is None else float(args.source_average_beta_pv_gen)
-
-    for short_window in short_windows:
-        short_window = max(1, int(short_window))
-
-        if args.lock_long_to_short:
-            candidate_long_windows = [short_window]
-        else:
-            candidate_long_windows = [max(short_window, int(long_window)) for long_window in long_windows]
-
-        for long_window in candidate_long_windows:
-            if args.preset == "short_only":
-                cfg = HybridMAConfig(
-                    short_window_size=short_window,
-                    long_window_size=long_window,
-                    short_weight=1.0,
-                    conf_interval_frct=0.0,
-                    persistence_mode="none",
-                    persistence_range=1,
-                    persistence_constant_alpha=0.0,
-                    trend_weight=0.0,
-                    trend_window=2,
-                    trend_range=1,
-                    source_average_beta=0.0,
-                    source_average_beta_base_load=0.0,
-                    source_average_beta_pv_gen=0.0,
-                )
-            else:
-                cfg = HybridMAConfig(
-                    short_window_size=short_window,
-                    long_window_size=long_window,
-                    short_weight=float(args.short_weight),
-                    conf_interval_frct=float(args.conf_interval_frct),
-                    persistence_mode=str(args.persistence_mode),
-                    persistence_range=max(1, int(args.persistence_range)),
-                    persistence_constant_alpha=float(args.persistence_constant_alpha),
-                    trend_weight=float(args.trend_weight),
-                    trend_window=max(2, int(args.trend_window)),
-                    trend_range=max(1, int(args.trend_range)),
-                    source_average_beta=shared_beta,
-                    source_average_beta_base_load=base_beta,
-                    source_average_beta_pv_gen=pv_beta,
-                )
-
-            configs.append(cfg)
+    for window_size in window_sizes:
+        window_size = max(1, int(window_size))
+        conf_interval_frct = 0.0 if args.preset == "short_only" else float(args.conf_interval_frct)
+        configs.append(
+            HybridMAConfig(
+                window_size=window_size,
+                conf_interval_frct=conf_interval_frct,
+            )
+        )
 
     return configs
 
 
 def build_policy_name(config: HybridMAConfig, run_tag: str) -> str:
     return (
-        f"mpc_hybrid_ma_sw{config.short_window_size}"
-        f"_lw{config.long_window_size}"
-        f"_w{config.short_weight:.2f}"
-        f"_pm{config.persistence_mode}"
+        f"mpc_hybrid_ma_w{config.window_size}"
+        f"_ci{config.conf_interval_frct:.2f}"
         f"_{run_tag}"
     )
 
 
 def config_to_row(config: HybridMAConfig) -> dict[str, int | float | str]:
     return {
-        "short_window_size": config.short_window_size,
-        "long_window_size": config.long_window_size,
-        "short_weight": config.short_weight,
+        "window_size": config.window_size,
         "conf_interval_frct": config.conf_interval_frct,
-        "persistence_mode": config.persistence_mode,
-        "persistence_range": config.persistence_range,
-        "persistence_constant_alpha": config.persistence_constant_alpha,
-        "trend_weight": config.trend_weight,
-        "trend_window": config.trend_window,
-        "trend_range": config.trend_range,
-        "source_average_beta": config.source_average_beta,
-        "source_average_beta_base_load": config.source_average_beta_base_load,
-        "source_average_beta_pv_gen": config.source_average_beta_pv_gen,
     }
 
 
@@ -208,19 +142,8 @@ def run_config(
     policy_name = build_policy_name(config, run_tag)
 
     predictor = HybridMAPredictor(
-        short_window_size=config.short_window_size,
-        long_window_size=config.long_window_size,
-        short_weight=config.short_weight,
+        window_size=config.window_size,
         conf_interval_frct=config.conf_interval_frct,
-        persistence_mode=config.persistence_mode,
-        persistence_range=config.persistence_range,
-        persistence_constant_alpha=config.persistence_constant_alpha,
-        trend_weight=config.trend_weight,
-        trend_window=config.trend_window,
-        trend_range=config.trend_range,
-        source_average_beta=config.source_average_beta,
-        source_average_beta_base_load=config.source_average_beta_base_load,
-        source_average_beta_pv_gen=config.source_average_beta_pv_gen,
     )
 
     controller_factory = make_mpc_controller(
@@ -332,49 +255,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--short-windows",
-        default="5,7,9",
-        help="Comma-separated short window values to evaluate (e.g. 5,7,9,12)",
-    )
-    parser.add_argument(
-        "--lock-long-to-short",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Force long_window_size == short_window_size for each config (default on)",
-    )
-    parser.add_argument(
-        "--long-window",
-        type=int,
-        default=48,
-        help="Long window size when --lock-long-to-short is disabled",
-    )
-    parser.add_argument(
-        "--long-windows",
-        default="24,36,48",
-        help="Comma-separated long window values for grid sweeps when --lock-long-to-short is disabled",
+        "--window-sizes",
+        default="48,96",
+        help="Comma-separated window sizes to evaluate (e.g. 48,96)",
     )
 
-    parser.add_argument("--short-weight", type=float, default=0.7)
     parser.add_argument("--conf-interval-frct", type=float, default=0)
-    parser.add_argument("--persistence-mode", default="none", choices=["none", "constant", "linear", "exponential"])
-    parser.add_argument("--persistence-range", type=int, default=8)
-    parser.add_argument("--persistence-constant-alpha", type=float, default=0.5)
-    parser.add_argument("--trend-weight", type=float, default=0.0)
-    parser.add_argument("--trend-window", type=int, default=4)
-    parser.add_argument("--trend-range", type=int, default=4)
-    parser.add_argument("--source-average-beta", type=float, default=0.0)
-    parser.add_argument(
-        "--source-average-beta-base-load",
-        type=float,
-        default=None,
-        help="Optional beta for base_load source-average blend; defaults to --source-average-beta",
-    )
-    parser.add_argument(
-        "--source-average-beta-pv-gen",
-        type=float,
-        default=None,
-        help="Optional beta for pv_gen source-average blend; defaults to --source-average-beta",
-    )
 
     parser.add_argument(
         "--households",
@@ -402,8 +288,7 @@ def main() -> None:
 
     print("Starting Hybrid MA tuning", flush=True)
     print(f"Preset: {args.preset}", flush=True)
-    print(f"Short windows: {[cfg.short_window_size for cfg in configs]}", flush=True)
-    print(f"Long windows : {[cfg.long_window_size for cfg in configs]}", flush=True)
+    print(f"Window sizes : {[cfg.window_size for cfg in configs]}", flush=True)
     print(f"Grid size    : {len(configs)}", flush=True)
     print(f"Households ({len(households)}): {households[:8]}{'...' if len(households) > 8 else ''}", flush=True)
     print(f"Scenarios ({len(scenarios)}): {[s.name for s in scenarios]}", flush=True)
@@ -485,8 +370,7 @@ def main() -> None:
     print(f"Detail CSV : {detail_path}", flush=True)
     if not summary_df.empty:
         display_columns = [
-            "short_window_size",
-            "long_window_size",
+            "window_size",
             "avg_net_cost",
             "avg_total_cost",
             "pairs",
