@@ -3,8 +3,7 @@ from __future__ import annotations
 from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_status import predict_ev_status
 from src.simulation.household import Household
 
-# Predictors for ev status, ev_load, ev_max_charge
-# (messy)
+# Predictors for EV-related profiles: status, driving load, and max charge.
 
 def _history_values(household: Household, key: str) -> list[float]:
     history = household.history.get(key, {})
