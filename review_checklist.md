@@ -60,26 +60,15 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 8) MPC-Controller & Solver
 
-- [ ] `src/simulation/controllers/mpc/mpc_controller.py`
-  - `make_mpc_controller` Factory: Parameter korrekt durchgereicht
-  - Horizon-Handling: was passiert wenn horizon > verbleibende Timesteps?
-  - Fallback bei CVXPY-Solve-Fehler (infeasible/timeout)
-- [ ] `src/simulation/controllers/mpc/config/device_buffer_config.py`
-  - Buffer-Werte plausibel, konsistent mit BESS/EV-Caps in `config.py`
+- [x] `src/simulation/controllers/mpc/mpc_controller.py`
+- [x] `src/simulation/controllers/mpc/config/device_buffer_config.py`
 
 ---
 
 ## 9) Predictor-Basis & Legacy
 
-- [ ] `src/simulation/controllers/mpc/predictors/base_predictor.py`
-  - Interface klar, Default-Implementierungen sinnvoll
-- [ ] `src/simulation/controllers/mpc/predictors/oracle_predictor.py`
-  - Liest tatsächliche zukünftige Werte korrekt (Zeitachse!)
-- [ ] `src/simulation/controllers/mpc/predictors/moving_average_predictor.py`
-  - Noch aktiv genutzt? Wenn nein: als deprecated markieren
-- [ ] `src/simulation/controllers/mpc/predictors/moving_average_predictor2.py`
-  - Noch aktiv genutzt? Wenn nein: als deprecated markieren
-
+- [x] `src/simulation/controllers/mpc/predictors/base_predictor.py`
+- [x] `src/simulation/controllers/mpc/predictors/oracle_predictor.py`
 ---
 
 ## 10) Hybrid-MA Predictor

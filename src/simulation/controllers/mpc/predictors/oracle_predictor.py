@@ -1,19 +1,13 @@
 from __future__ import annotations
-
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.household import Household
-from src.simulation.scenarios.scenario import Scenario
 
 
 class OraclePredictor(BasePredictor):
     """Predictor that uses the household's existing profile data as future forecasts."""
 
-    allow_tail_padding: bool = False # TODO do we need this? i think not
-
-    def predict(self, household: Household, scenario: Scenario, horizon: int) -> dict:
-        _ = (scenario,) # TODO do we need this? i think not
-
-        profiles = household.oracle_profiles or {}
+    def predict(self, household: Household, horizon: int) -> dict:
+        profiles = household.oracle_profiles
 
         prediction = {
             "base_load": profiles.get("base_load", []),
@@ -32,13 +26,12 @@ class OraclePredictor(BasePredictor):
             "ev2_max_charge": profiles.get("ev2_max_charge", []),
         }
 
-        if horizon is not None:
-            start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep - 1))
-            for key, values in list(prediction.items()):
-                if isinstance(values, list):
-                    if not values:
-                        prediction[key] = []
-                        continue
-                    prediction[key] = values[start_index:start_index + horizon]
+        start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep - 1))
+        for key, values in list(prediction.items()):
+            if isinstance(values, list):
+                if not values:
+                    prediction[key] = []
+                    continue
+                prediction[key] = values[start_index:start_index + horizon]
 
         return prediction
