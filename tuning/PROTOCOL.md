@@ -2,6 +2,11 @@
 
 This document is a working guideline for tuning the Hybrid MA predictor. It is meant to give the process structure without locking us into decisions too early. We can adjust the order, defaults, and stage boundaries as concrete results come in.
 
+Top-level summary:
+- The HyMA family did not produce a meaningful improvement over the simplest long-window setup.
+- The current practical default is a pure long-window predictor with `long_window_size = 96` and all other HyMA knobs off.
+- Short-window, persistence, trend, and source-average sweeps were useful as a confirmation exercise, but they did not justify added complexity.
+
 Latest consolidated results:
 - [../ma_hypa_tuning_results.md](../ma_hypa_tuning_results.md)
 
@@ -352,3 +357,37 @@ Decision:
 - Persistence is not adopted.
 - Final configuration remains: long-window-only (lw=96, all other params = 0 / none).
 - Stage 10 is closed.
+
+---
+
+### Stage 11: Short-Window Sweep at lw=96
+
+Purpose: test whether a small short window adds anything once the long window is fixed at 96.
+
+Run metadata:
+- run-tag: stage11_short_grid_lw96_w05
+- households: 1-48
+- scenarios: all 6
+- preset: manual
+- fixed parameters: lw=96, short_weight=0.5, persistence=none, trend=0, source-average=0
+- varied: short_window_size ∈ {2, 4, 8, 12, 16}
+
+Results (sorted by avg_net_cost, lower is better):
+
+| short_window_size | pairs | avg_net_cost |
+|:-----------------:|------:|:------------:|
+|  2 | 288 | 7.873992 |
+|  4 | 288 | 7.884332 |
+|  8 | 288 | 7.901066 |
+| 12 | 288 | 7.924417 |
+| 16 | 288 | 7.938288 |
+
+Interpretation:
+- The shorter the short window, the better the result in this sweep.
+- The best short-window candidate is `2`, but it is still worse than the earlier no-shortwindow / pure long-window result from Stage 9 (`avg_net_cost=7.841718`).
+- The whole short-window family is therefore not worth keeping as an active complexity layer.
+
+Decision:
+- Do not reintroduce a short window.
+- Keep the predictor as a pure long-window setup with `long_window_size=96` and all other HyMA knobs off.
+- Treat short-window tuning as closed unless a materially different dataset changes the picture.
