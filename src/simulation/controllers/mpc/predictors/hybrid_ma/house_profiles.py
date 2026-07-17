@@ -46,6 +46,7 @@ def predict_base_load(
     household: Household,
     horizon: int,
     window_size: int = 48,
+    persistence_range: int = 1,
     interval_width_fraction: float = 0.1,
 ) -> dict[str, list[float]]:
     base_series = forecast_moving_average(
@@ -53,6 +54,7 @@ def predict_base_load(
         horizon=horizon,
         window_size=window_size,
         default=float(household.base_load),
+        persistence_range=persistence_range,
     )
     base_lb, base_ub = _make_band(base_series, interval_width_fraction)
 
@@ -67,6 +69,7 @@ def predict_pv_gen(
     household: Household,
     horizon: int,
     window_size: int = 96,
+    persistence_range: int = 1,
     interval_width_fraction: float = 0.1,
 ) -> dict[str, list[float]]:
     pv_series = forecast_moving_average(
@@ -74,6 +77,7 @@ def predict_pv_gen(
         horizon=horizon,
         window_size=window_size,
         default=float(household.pv_gen),
+        persistence_range=persistence_range,
     )
     pv_series = _apply_pv_window_mask(household, pv_series)
     pv_lb, pv_ub = _make_band(pv_series, interval_width_fraction)
@@ -89,6 +93,7 @@ def predict_house_profiles(
     household: Household,
     horizon: int,
     window_size: int = 96,
+    persistence_range: int = 1,
     interval_width_fraction: float = 0.1,
 ) -> dict[str, list[float]]:
     """Predict household-level continuous profiles.
@@ -104,6 +109,7 @@ def predict_house_profiles(
             household,
             horizon,
             window_size=window_size,
+            persistence_range=persistence_range,
             interval_width_fraction=interval_width_fraction,
         )
     )
@@ -112,6 +118,7 @@ def predict_house_profiles(
             household,
             horizon,
             window_size=window_size,
+            persistence_range=persistence_range,
             interval_width_fraction=interval_width_fraction,
         )
     )
