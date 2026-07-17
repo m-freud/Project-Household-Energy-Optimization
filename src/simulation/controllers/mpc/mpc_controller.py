@@ -299,7 +299,7 @@ class MPCController(BaseController):
         # make predictions
         predictions = self.predictor.predict(household, scenario, planning_horizon)
 
-        # mask the next day, we only care about day 1
+        # compute tail mask to block controls after day 1
         tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
         # fetch predictions
@@ -393,10 +393,11 @@ class MPCController(BaseController):
 
         try:
             problem.solve(solver=cp.CLARABEL, warm_start=True, verbose=False)
-        except Exception:
+        except Exception: # rare
             problem.solve(solver=cp.SCS, warm_start=True, verbose=False)
 
         if problem.status not in {"optimal", "optimal_inaccurate"}:
+            # if target is not reachable, apply max charge to at least come as close as possible
             return self._max_charge_fallback_controls()
 
         bess_power = self._vars.get("bess_power")
