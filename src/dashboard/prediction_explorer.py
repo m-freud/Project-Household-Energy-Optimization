@@ -46,31 +46,13 @@ PROFILE_OPTIONS = [
 
 def _build_predictor(
     predictor_name: str,
-    ma3_short: int,
-    ma3_long: int,
-    ma3_weight: float,
+    ma3_window_size: int,
     ma3_interval_width: float,
-    ma3_persistence_mode: str,
-    ma3_persistence_range: int,
-    ma3_persistence_constant_alpha: float,
-    source_average_beta: float,
-    ma3_trend_weight: float,
-    ma3_trend_window: int,
-    ma3_trend_range: int,
 ):
     if predictor_name == "hybrid_ma":
         return HybridMAPredictor(
-            short_window_size=ma3_short,
-            long_window_size=ma3_long,
-            short_weight=ma3_weight,
+            window_size=ma3_window_size,
             conf_interval_frct=ma3_interval_width,
-            persistence_mode=ma3_persistence_mode,
-            persistence_range=ma3_persistence_range,
-            persistence_constant_alpha=ma3_persistence_constant_alpha,
-            source_average_beta=source_average_beta,
-            trend_weight=ma3_trend_weight,
-            trend_window=ma3_trend_window,
-            trend_range=ma3_trend_range,
         )
     return OraclePredictor()
 
@@ -81,33 +63,15 @@ def _compute_snapshot(
     predictor_name: str,
     timestep: int,
     horizon: int,
-    ma3_short: int,
-    ma3_long: int,
-    ma3_weight: float,
+    ma3_window_size: int,
     ma3_interval_width: float,
-    ma3_persistence_mode: str,
-    ma3_persistence_range: int,
-    ma3_persistence_constant_alpha: float,
-    source_average_beta: float,
-    ma3_trend_weight: float,
-    ma3_trend_window: int,
-    ma3_trend_range: int,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
     predictor = _build_predictor(
         predictor_name=predictor_name,
-        ma3_short=ma3_short,
-        ma3_long=ma3_long,
-        ma3_weight=ma3_weight,
+        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
-        ma3_persistence_mode=ma3_persistence_mode,
-        ma3_persistence_range=ma3_persistence_range,
-        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        source_average_beta=source_average_beta,
-        ma3_trend_weight=ma3_trend_weight,
-        ma3_trend_window=ma3_trend_window,
-        ma3_trend_range=ma3_trend_range,
     )
 
     connection = create_sqlite_connection()
@@ -166,31 +130,14 @@ def _format_float_token(value: float, digits: int = 2) -> str:
 
 def _build_default_policy_name(
     predictor_name: str,
-    ma3_short: int,
-    ma3_long: int,
-    ma3_weight: float,
+    ma3_window_size: int,
     ma3_interval_width: float,
-    ma3_persistence_mode: str,
-    ma3_persistence_range: int,
-    ma3_persistence_constant_alpha: float,
-    source_average_beta: float,
-    ma3_trend_weight: float,
-    ma3_trend_window: int,
-    ma3_trend_range: int,
 ) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if predictor_name == "hybrid_ma":
         return (
-            f"mpc_hybrid_ma_sw{int(ma3_short)}_lw{int(ma3_long)}"
-            f"_w{_format_float_token(ma3_weight)}"
+            f"mpc_hybrid_ma_w{int(ma3_window_size)}"
             f"_ci{_format_float_token(ma3_interval_width)}"
-            f"_pm{_slugify_name(ma3_persistence_mode) or 'exp'}"
-            f"_pr{int(ma3_persistence_range)}"
-            f"_pa{_format_float_token(ma3_persistence_constant_alpha)}"
-            f"_tw{_format_float_token(ma3_trend_weight)}"
-            f"_twin{int(ma3_trend_window)}"
-            f"_tr{int(ma3_trend_range)}"
-            f"_sa{_format_float_token(source_average_beta)}"
             f"_{timestamp}"
         )
     return f"mpc_oracle_{timestamp}"
@@ -200,34 +147,16 @@ def _build_mpc_controller_factory(
     policy_name: str,
     horizon: int,
     predictor_name: str,
-    ma3_short: int,
-    ma3_long: int,
-    ma3_weight: float,
+    ma3_window_size: int,
     ma3_interval_width: float,
-    ma3_persistence_mode: str,
-    ma3_persistence_range: int,
-    ma3_persistence_constant_alpha: float,
-    source_average_beta: float,
-    ma3_trend_weight: float,
-    ma3_trend_window: int,
-    ma3_trend_range: int,
 ):
     return partial(
         _build_mpc_controller,
         policy_name=policy_name,
         horizon=horizon,
         predictor_name=predictor_name,
-        ma3_short=ma3_short,
-        ma3_long=ma3_long,
-        ma3_weight=ma3_weight,
+        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
-        ma3_persistence_mode=ma3_persistence_mode,
-        ma3_persistence_range=ma3_persistence_range,
-        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        source_average_beta=source_average_beta,
-        ma3_trend_weight=ma3_trend_weight,
-        ma3_trend_window=ma3_trend_window,
-        ma3_trend_range=ma3_trend_range,
     )
 
 
@@ -238,31 +167,13 @@ def _build_mpc_controller(
     policy_name: str,
     horizon: int,
     predictor_name: str,
-    ma3_short: int,
-    ma3_long: int,
-    ma3_weight: float,
+    ma3_window_size: int,
     ma3_interval_width: float,
-    ma3_persistence_mode: str,
-    ma3_persistence_range: int,
-    ma3_persistence_constant_alpha: float,
-    source_average_beta: float,
-    ma3_trend_weight: float,
-    ma3_trend_window: int,
-    ma3_trend_range: int,
 ):
     base_predictor = _build_predictor(
         predictor_name=predictor_name,
-        ma3_short=ma3_short,
-        ma3_long=ma3_long,
-        ma3_weight=ma3_weight,
+        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
-        ma3_persistence_mode=ma3_persistence_mode,
-        ma3_persistence_range=ma3_persistence_range,
-        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        source_average_beta=source_average_beta,
-        ma3_trend_weight=ma3_trend_weight,
-        ma3_trend_window=ma3_trend_window,
-        ma3_trend_range=ma3_trend_range,
     )
 
     return MPCController(
@@ -319,29 +230,15 @@ def render_prediction_explorer(
             st.markdown("**Moving average**")
             short_row = st.columns([5, 1], gap="small")
             with short_row[0]:
-                ma3_short = int(st.number_input("short window", min_value=0, max_value=96, value=0, step=1))
+                ma3_window_size = int(st.number_input("window size", min_value=1, max_value=96, value=96, step=1))
             with short_row[1]:
                 st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_short_window = st.checkbox(
-                    "show short window",
-                    value=False,
-                    key="show_short_window",
-                    label_visibility="collapsed",
-                )
-
-            long_row = st.columns([5, 1], gap="small")
-            with long_row[0]:
-                ma3_long = int(st.number_input("long window", min_value=1, max_value=96, value=96, step=1))
-            with long_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_long_window = st.checkbox(
-                    "show long window",
+                show_window = st.checkbox(
+                    "show window",
                     value=True,
-                    key="show_long_window",
+                    key="show_window",
                     label_visibility="collapsed",
                 )
-
-            ma3_weight = float(st.slider("short weight", min_value=0.0, max_value=1.0, value=0.0, step=0.05))
 
         with d1:
             st.markdown(
@@ -350,43 +247,9 @@ def render_prediction_explorer(
             )
 
         with s2:
-            st.markdown("**Value persistence**")
-            ma3_persistence_mode = st.selectbox(
-                "persistence mode",
-                options=["exponential", "linear", "constant", "none"],
-                index=2,
-            )
-            persistence_row = st.columns([5, 1], gap="small")
-            with persistence_row[0]:
-                ma3_persistence_range = int(
-                    st.number_input(
-                        "persistence range",
-                        min_value=0,
-                        max_value=96,
-                        value=0,
-                        step=1,
-                        disabled=ma3_persistence_mode == "none",
-                    )
-                )
-            with persistence_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_persistence_range = st.checkbox(
-                    "show persistence range",
-                    value=False,
-                    key="show_persistence_range",
-                    disabled=ma3_persistence_mode == "none",
-                    label_visibility="collapsed",
-                )
-
-            ma3_persistence_constant_alpha = float(
-                st.slider(
-                    "constant alpha",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=0.0,
-                    step=0.05,
-                    disabled=ma3_persistence_mode != "constant",
-                )
+            st.markdown("**Interval**")
+            ma3_interval_width = float(
+                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
             )
 
         with d2:
@@ -396,92 +259,7 @@ def render_prediction_explorer(
             )
 
         with s3:
-            st.markdown("**Trend persistence**")
-            trend_window_row = st.columns([5, 1], gap="small")
-            with trend_window_row[0]:
-                ma3_trend_window = int(
-                    st.number_input(
-                        "trend window",
-                        min_value=0,
-                        max_value=96,
-                        value=0,
-                        step=1,
-                    )
-                )
-            with trend_window_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_trend_window = st.checkbox(
-                    "show trend window",
-                    value=False,
-                    key="show_trend_window",
-                    label_visibility="collapsed",
-                )
-
-            trend_range_row = st.columns([5, 1], gap="small")
-            with trend_range_row[0]:
-                ma3_trend_range = int(
-                    st.number_input(
-                        "trend persistence range",
-                        min_value=0,
-                        max_value=96,
-                        value=0,
-                        step=1,
-                    )
-                )
-            with trend_range_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_trend_range = st.checkbox(
-                    "show trend range",
-                    value=False,
-                    key="show_trend_range",
-                    label_visibility="collapsed",
-                )
-
-            ma3_trend_weight = float(
-                st.slider(
-                    "trend weight",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=0.0,
-                    step=0.05,
-                )
-            )
-
-        st.markdown("---")
-
-        b1, bd1, b2, bd2, b3 = st.columns([1, 0.05, 1, 0.05, 1], gap="medium")
-
-        with b1:
-            ma3_interval_width = float(
-                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
-            )
-
-        with bd1:
-            st.markdown(
-                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 6rem; margin: 0 auto;'></div>",
-                unsafe_allow_html=True,
-            )
-
-        with b2:
-            source_average_beta = float(
-                st.slider(
-                    "source-average beta",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=0.0,
-                    step=0.05,
-                    help="Applied to MA3 prediction only: 0.0 = no source-average blend, 1.0 = source average only",
-                )
-            )
-            show_source_average = st.checkbox("Show all-household source average", value=True)
-
-        with bd2:
-            st.markdown(
-                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 6rem; margin: 0 auto;'></div>",
-                unsafe_allow_html=True,
-            )
-
-        with b3:
+            st.markdown("**Display**")
             show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
 
     t_key = "pred_timestep"
@@ -511,17 +289,9 @@ def render_prediction_explorer(
 
     # Display window/range overlays using the Hybrid MA configuration.
     if "hybrid_ma" in selected_predictors:
-        display_short_window = int(ma3_short)
-        display_long_window = int(ma3_long)
-        display_persistence_range = int(ma3_persistence_range)
-        display_trend_window = int(ma3_trend_window)
-        display_trend_range = int(ma3_trend_range)
+        display_window_size = int(ma3_window_size)
     else:
-        display_short_window = 0
-        display_long_window = 0
-        display_persistence_range = 0
-        display_trend_window = 0
-        display_trend_range = 0
+        display_window_size = 0
 
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
@@ -530,17 +300,8 @@ def render_prediction_explorer(
             predictor_name=str(predictor_name),
             timestep=timestep,
             horizon=horizon,
-            ma3_short=ma3_short,
-            ma3_long=ma3_long,
-            ma3_weight=ma3_weight,
+            ma3_window_size=ma3_window_size,
             ma3_interval_width=ma3_interval_width,
-            ma3_persistence_mode=ma3_persistence_mode,
-            ma3_persistence_range=ma3_persistence_range,
-            ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-            source_average_beta=source_average_beta,
-            ma3_trend_weight=ma3_trend_weight,
-            ma3_trend_window=ma3_trend_window,
-            ma3_trend_range=ma3_trend_range,
         )
 
     actual_ref = snapshots[selected_predictors[0]][0]
@@ -722,17 +483,8 @@ def render_prediction_explorer(
     selected_run_predictor = str(selected_predictors[0])
     generated_policy_name = _build_default_policy_name(
         predictor_name=selected_run_predictor,
-        ma3_short=ma3_short,
-        ma3_long=ma3_long,
-        ma3_weight=ma3_weight,
+        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
-        ma3_persistence_mode=ma3_persistence_mode,
-        ma3_persistence_range=ma3_persistence_range,
-        ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-        source_average_beta=source_average_beta,
-        ma3_trend_weight=ma3_trend_weight,
-        ma3_trend_window=ma3_trend_window,
-        ma3_trend_range=ma3_trend_range,
     )
 
     name_help = (

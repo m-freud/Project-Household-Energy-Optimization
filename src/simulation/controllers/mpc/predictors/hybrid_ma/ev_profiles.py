@@ -24,9 +24,6 @@ def predict_ev_load(
     household: Household,
     horizon: int,
     ev_status: dict[str, list[float]],
-    short_window: int = 7,
-    long_window: int = 48,
-    short_weight: float = 0.7,
 ) -> dict[str, list[float]]:
     """Predict EV driving load as average non-zero historical load masked by status.
 
@@ -64,18 +61,12 @@ def predict_ev_loads(
     household: Household,
     horizon: int,
     ev_status: dict[str, list[float]],
-    short_window: int = 7,
-    long_window: int = 48,
-    short_weight: float = 0.7,
 ) -> dict[str, list[float]]:
     # Backward-compatible alias.
     return predict_ev_load(
         household,
         horizon,
         ev_status,
-        short_window=short_window,
-        long_window=long_window,
-        short_weight=short_weight,
     )
 
 

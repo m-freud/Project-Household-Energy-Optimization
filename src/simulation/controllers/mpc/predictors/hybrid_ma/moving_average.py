@@ -1,119 +1,34 @@
 from __future__ import annotations
 
-import math
 
-
-def seed_series(values: list[float], long_window: int, default: float) -> list[float]:
-    seed = values[-long_window:]
-    if len(seed) >= long_window:
+def seed_series(values: list[float], window_size: int, default: float) -> list[float]:
+    window_size = max(1, int(window_size))
+    seed = values[-window_size:]
+    if len(seed) >= window_size:
         return seed
 
-    needed = long_window - len(seed)
+    needed = window_size - len(seed)
     if seed:
         return [float(seed[0])] * needed + seed
-    return [float(default)] * long_window
-
-
-def recent_trend(values: list[float], trend_window: int) -> float:
-    trend_window = int(trend_window)
-    if trend_window <= 1:
-        return 0.0
-
-    trend_window = max(2, trend_window)
-    if len(values) < 2:
-        return 0.0
-
-    tail = [float(value) for value in values[-trend_window:]]
-    if len(tail) < 2:
-        return 0.0
-
-    diffs = [tail[i] - tail[i - 1] for i in range(1, len(tail))]
-    if not diffs:
-        return 0.0
-    return float(sum(diffs) / len(diffs))
-
-
-def persistence_alpha(
-    step_index: int,
-    mode: str,
-    persistence_range: int,
-    constant_alpha: float = 0.5,
-) -> float:
-    step_index = max(1, int(step_index))
-    persistence_range = int(persistence_range)
-    constant_alpha = min(1.0, max(0.0, float(constant_alpha)))
-
-    if persistence_range <= 0:
-        return 0.0
-
-    if mode == "none":
-        return 1.0
-
-    if mode == "constant":
-        if step_index > persistence_range:
-            return 1.0
-        return constant_alpha
-
-    if step_index == 1:
-        return 0.0
-
-    if persistence_range == 1:
-        return 1.0
-
-    if mode == "linear":
-        return min(1.0, float(step_index - 1) / float(persistence_range - 1))
-
-    tau = float(persistence_range - 1) / math.log(10.0)
-    return min(1.0, 1.0 - math.exp(-float(step_index - 1) / tau))
+    return [float(default)] * window_size
 
 
 def forecast_moving_average(
     values: list[float],
     horizon: int,
-    short_window: int,
-    long_window: int,
-    short_weight: float,
-    default: float = 0,
-    persistence_mode: str = "exponential",
-    persistence_range: int = 8,
-    persistence_constant_alpha: float = 0.5,
-    trend_weight: float = 0.0,
-    trend_window: int = 4,
-    trend_range: int = 4,
+    window_size: int,
+    default: float = 0.0,
 ) -> list[float]:
     if horizon <= 0:
         return []
 
-    short_window = max(0, int(short_window))
-    long_window = max(1, int(long_window))
-    series = seed_series(values, long_window, default)
+    window_size = max(1, int(window_size))
+    series = seed_series(values, window_size, default)
     forecast: list[float] = []
-    long_weight = 1.0 - short_weight
-    current_value = float(values[-1]) if values else float(default)
-    trend = recent_trend(values, trend_window)
-    trend_range = max(0, int(trend_range))
-    trend_blend = min(1.0, max(0.0, float(trend_weight)))
 
-    for step_index in range(1, horizon + 1):
-        short_slice = series[-short_window:] if short_window > 0 else []
-        long_slice = series[-long_window:]
-
-        short_avg = sum(short_slice) / len(short_slice) if short_slice else float(sum(long_slice) / len(long_slice))
-        long_avg = sum(long_slice) / len(long_slice) if long_slice else float(default)
-        ma_predicted = short_weight * short_avg + long_weight * long_avg
-        
-        alpha = persistence_alpha(
-            step_index,
-            persistence_mode,
-            persistence_range,
-            constant_alpha=persistence_constant_alpha,
-        )
-
-        trend_steps = min(max(0, step_index - 1), trend_range)
-        trend_target = current_value + float(trend_steps) * trend
-        persistence_target = (1.0 - trend_blend) * current_value + trend_blend * trend_target
-        predicted = (1.0 - alpha) * persistence_target + alpha * ma_predicted
-
+    for _ in range(horizon):
+        window = series[-window_size:]
+        predicted = sum(window) / len(window) if window else float(default)
         forecast.append(float(predicted))
         series.append(float(predicted))
 
