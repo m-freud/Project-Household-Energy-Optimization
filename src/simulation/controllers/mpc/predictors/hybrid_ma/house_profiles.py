@@ -99,7 +99,7 @@ def predict_house_profiles(
     """Predict household-level continuous profiles.
 
     Current implementation:
-    - base_load, pv_gen: recursive moving average over one window
+    - base_load, pv_gen: one-window flat moving average after persistence steps
     - base_load/pv_gen forecast bands: simple percent envelope around point forecast
     """
 
