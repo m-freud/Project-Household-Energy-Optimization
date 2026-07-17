@@ -73,13 +73,8 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 10) Hybrid-MA Predictor
 
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
-  - Parameter-Normalisierung (short=0 erlaubt? long >= 1?)
-  - `source_average_beta`-Blending: korrekte Zeitachsen-Indizierung (`start_idx`)
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
-  - `seed_series`: Verhalten bei leerer History korrekt
-  - `persistence_alpha`: alle Modi (none / constant / linear / exponential)
-  - `forecast_moving_average`: short_window=0 Fallback (Long-Only)
+- [x] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
+- [x] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
 - [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/house_profiles.py`
   - `predict_base_load` / `predict_pv_gen`: PV-Fenster-Mask korrekt angewandt
 - [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_profiles.py`

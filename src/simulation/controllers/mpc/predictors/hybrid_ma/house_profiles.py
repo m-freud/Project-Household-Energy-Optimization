@@ -6,7 +6,6 @@ from .moving_average import forecast_moving_average
 
 # Predictors for base_load, pv_gen
 
-
 def _history_values(household: Household, key: str) -> list[float]:
     history = household.history.get(key, {})
     if not history:
@@ -34,7 +33,7 @@ def _apply_pv_window_mask(household: Household, series: list[float]) -> list[flo
 
     masked: list[float] = []
     for idx, value in enumerate(series):
-        period = current_period + idx + 1
+        period = current_period + idx
         if start_period <= period <= end_period:
             masked.append(float(value))
         else:
@@ -47,7 +46,7 @@ def predict_base_load(
     horizon: int,
     window_size: int = 48,
     persistence_range: int = 1,
-    interval_width_fraction: float = 0.1,
+    interval_width_fraction: float = 0.0,
 ) -> dict[str, list[float]]:
     base_series = forecast_moving_average(
         values=_history_values(household, "base_load"),
@@ -70,7 +69,7 @@ def predict_pv_gen(
     horizon: int,
     window_size: int = 96,
     persistence_range: int = 1,
-    interval_width_fraction: float = 0.1,
+    interval_width_fraction: float = 0.0,
 ) -> dict[str, list[float]]:
     pv_series = forecast_moving_average(
         values=_history_values(household, "pv_gen"),
@@ -94,7 +93,7 @@ def predict_house_profiles(
     horizon: int,
     window_size: int = 96,
     persistence_range: int = 1,
-    interval_width_fraction: float = 0.1,
+    interval_width_fraction: float = 0.0,
 ) -> dict[str, list[float]]:
     """Predict household-level continuous profiles.
 
