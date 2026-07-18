@@ -73,16 +73,15 @@ Reihenfolge: Fundament → Datenzugang → Simulation-Kern → Devices → Contr
 
 ## 10) Hybrid-MA Predictor
 
-- [x] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
-- [x] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
+- [?] `src/simulation/controllers/mpc/predictors/hybrid_ma_predictor.py`
+- [?] `src/simulation/controllers/mpc/predictors/hybrid_ma/moving_average.py`
 - [x] `src/simulation/controllers/mpc/predictors/hybrid_ma/house_profiles.py`
-  - `predict_base_load` / `predict_pv_gen`: PV-Fenster-Mask korrekt angewandt
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_profiles.py`
+- [?] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_profiles.py`
   - EV-Load-Schätzung aus non-zero History sinnvoll
   - Driving-Load vs. Station/Home-Load richtig getrennt
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_status.py`
+- [test] `src/simulation/controllers/mpc/predictors/hybrid_ma/ev_status.py`
   - Verfügbarkeits-Forecast: historische Pattern oder feste Regel?
-- [ ] `src/simulation/controllers/mpc/predictors/hybrid_ma/price_profiles.py`
+- [?] `src/simulation/controllers/mpc/predictors/hybrid_ma/price_profiles.py`
   - Buy/Sell-Price und EV-Buy-Price korrekt zusammengesetzt
 
 ---

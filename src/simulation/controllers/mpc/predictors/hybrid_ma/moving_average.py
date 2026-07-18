@@ -18,24 +18,16 @@ def forecast_moving_average(
     horizon: int,
     window_size: int,
     default: float = 0.0,
-    persistence_range: int = 1,
 ) -> list[float]:
     if horizon <= 0:
         return []
 
     window_size = max(1, int(window_size))
-    persistence_range = max(0, int(persistence_range))
     series = seed_series(values, window_size, default)
     forecast: list[float] = []
-    last_value = float(values[-1]) if values else float(default)
     flat_predicted = float(sum(series[-window_size:]) / len(series[-window_size:])) if series else float(default)
 
-    for step_index in range(1, horizon + 1):
-        if step_index <= persistence_range:
-            predicted = float(last_value)
-            forecast.append(predicted)
-            continue
-
+    for _ in range(horizon):
         predicted = flat_predicted
         forecast.append(float(predicted))
 

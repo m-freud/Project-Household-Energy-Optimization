@@ -88,7 +88,7 @@ def _compute_snapshot(
             household.update_history()
 
         effective_horizon = max(1, min(int(horizon), 96 - current_timestep + 1))
-        predicted = predictor.predict(household, scenario, effective_horizon)
+        predicted = predictor.predict(household, effective_horizon)
 
         actual = household.oracle_profiles
         return actual, predicted, effective_horizon
@@ -228,17 +228,7 @@ def render_prediction_explorer(
 
         with s1:
             st.markdown("**Moving average**")
-            short_row = st.columns([5, 1], gap="small")
-            with short_row[0]:
-                ma3_window_size = int(st.number_input("window size", min_value=1, max_value=96, value=96, step=1))
-            with short_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_window = st.checkbox(
-                    "show window",
-                    value=True,
-                    key="show_window",
-                    label_visibility="collapsed",
-                )
+            ma3_window_size = int(st.number_input("window size", min_value=1, max_value=96, value=96, step=1))
 
         with d1:
             st.markdown(
@@ -261,6 +251,7 @@ def render_prediction_explorer(
         with s3:
             st.markdown("**Display**")
             show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
+            show_source_average = st.checkbox("Show source average", value=False, key="show_source_average")
 
     t_key = "pred_timestep"
     if t_key not in st.session_state:
@@ -286,12 +277,6 @@ def render_prediction_explorer(
         horizon = int(st.number_input("Horizon", min_value=1, max_value=96, value=96, step=1))
 
     timestep = int(st.session_state[t_key])
-
-    # Display window/range overlays using the Hybrid MA configuration.
-    if "hybrid_ma" in selected_predictors:
-        display_window_size = int(ma3_window_size)
-    else:
-        display_window_size = 0
 
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
@@ -362,60 +347,8 @@ def render_prediction_explorer(
                     color="tab:purple",
                     linewidth=1.6,
                     linestyle=":",
-                    label="source avg (all households)",
+                    label="source avg",
                 )
-
-        if show_long_window and display_long_window > 0:
-            long_start = max(1, timestep - display_long_window + 1)
-            axis.axvspan(
-                float(long_start),
-                float(timestep),
-                color="tab:orange",
-                alpha=0.08,
-                label=f"long window ({display_long_window})",
-            )
-
-        if show_short_window and display_short_window > 0:
-            short_start = max(1, timestep - display_short_window + 1)
-            axis.axvspan(
-                float(short_start),
-                float(timestep),
-                color="tab:green",
-                alpha=0.15,
-                label=f"short window ({display_short_window})",
-            )
-
-        if show_trend_window and display_trend_window > 0:
-            trend_window_start = max(1, timestep - display_trend_window + 1)
-            axis.axvspan(
-                float(trend_window_start),
-                float(timestep),
-                color="tab:blue",
-                alpha=0.08,
-                label=f"trend window ({display_trend_window})",
-            )
-
-        if show_persistence_range and display_persistence_range > 0:
-            persistence_end = min(96, timestep + display_persistence_range - 1)
-            axis.axvspan(
-                float(timestep),
-                float(persistence_end),
-                color="tab:brown",
-                alpha=0.08,
-                label=f"persistence range ({display_persistence_range})",
-            )
-
-        if show_trend_range and display_trend_range > 0:
-            # Trend target uses min(step_index - 1, trend_range), so the change
-            # reaches its final step one period later than persistence range.
-            trend_range_end = min(96, timestep + display_trend_range)
-            axis.axvspan(
-                float(timestep),
-                float(trend_range_end),
-                color="tab:cyan",
-                alpha=0.08,
-                label=f"trend range ({display_trend_range})",
-            )
 
         for predictor_name in selected_predictors:
             predicted = snapshots[predictor_name][1]
@@ -525,17 +458,8 @@ def render_prediction_explorer(
                 policy_name=effective_policy_name,
                 horizon=96,
                 predictor_name=selected_run_predictor,
-                ma3_short=ma3_short,
-                ma3_long=ma3_long,
-                ma3_weight=ma3_weight,
+                ma3_window_size=ma3_window_size,
                 ma3_interval_width=ma3_interval_width,
-                ma3_persistence_mode=ma3_persistence_mode,
-                ma3_persistence_range=ma3_persistence_range,
-                ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-                source_average_beta=source_average_beta,
-                ma3_trend_weight=ma3_trend_weight,
-                ma3_trend_window=ma3_trend_window,
-                ma3_trend_range=ma3_trend_range,
             )
 
             for scenario in scenario_catalog:
