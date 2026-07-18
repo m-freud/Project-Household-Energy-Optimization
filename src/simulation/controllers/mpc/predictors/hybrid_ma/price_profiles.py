@@ -8,9 +8,9 @@ from src.simulation.household import Household
 
 def _lookup_slice(household: Household, key: str, horizon: int) -> list[float]:
     # current_timestep is 1-based while Python lists are 0-based.
-    start_time = max(0, int(household.current_timestep) - 1)
+    start_time_idx = household.current_timestep - 1
     profile = household.oracle_profiles.get(key, [])
-    raw = [float(value) for value in profile[start_time : start_time + horizon]]
+    raw = [float(value) for value in profile[start_time_idx : start_time_idx + horizon]]
     # Pad to the requested horizon so callers always get exactly `horizon` values.
     if len(raw) < horizon:
         fill = raw[-1] if raw else 0.0

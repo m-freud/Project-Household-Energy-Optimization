@@ -6,8 +6,10 @@ from src.simulation.controllers.mpc.predictors.hybrid_ma.house_profiles import (
 from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_profiles import (
     predict_ev_load,
     predict_ev_loads,
-    predict_ev_status,
     predict_ev_max_charge,
+)
+from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_status import (
+    predict_ev_status,
 )
 from src.simulation.controllers.mpc.predictors.hybrid_ma.price_profiles import (
     predict_buy_price,

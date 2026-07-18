@@ -1,10 +1,7 @@
 from __future__ import annotations
-
-from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_status import predict_ev_status
 from src.simulation.household import Household
 
 # Predictors for EV-related profiles: status, driving load, and max charge.
-
 def _history_values(household: Household, key: str) -> list[float]:
     history = household.history.get(key, {})
     if not history:
@@ -17,6 +14,24 @@ def _average_non_zero(values: list[float], default: float = 0.0) -> float:
     if non_zero:
         return float(sum(non_zero) / len(non_zero))
     return float(default)
+
+
+def _status_value(ev_status: dict[str, list[float]], key: str, idx: int) -> float:
+    series = ev_status.get(key, [])
+    if 0 <= int(idx) < len(series):
+        value = float(series[idx])
+        return value
+    return 0.0
+
+
+def _exclusive_location(home_value: float, station_value: float) -> tuple[float, float]:
+    home = min(1.0, max(0.0, float(home_value)))
+    station = min(1.0, max(0.0, float(station_value)))
+    if home <= 0.0 and station <= 0.0:
+        return 0.0, 0.0
+    if home >= station:
+        return 1.0, 0.0
+    return 0.0, 1.0
 
 
 def predict_ev_load(
@@ -41,8 +56,13 @@ def predict_ev_load(
     ev2_series: list[float] = []
 
     for i in range(max(0, int(horizon))):
-        ev1_available = max(ev_status["ev1_at_home"][i], ev_status["ev1_at_charging_station"][i])
-        ev2_available = max(ev_status["ev2_at_home"][i], ev_status["ev2_at_charging_station"][i])
+        ev1_home = _status_value(ev_status, "ev1_at_home", i)
+        ev1_station = _status_value(ev_status, "ev1_at_charging_station", i)
+        ev2_home = _status_value(ev_status, "ev2_at_home", i)
+        ev2_station = _status_value(ev_status, "ev2_at_charging_station", i)
+
+        ev1_available = max(ev1_home, ev1_station)
+        ev2_available = max(ev2_home, ev2_station)
 
         ev1_driving = 1.0 - ev1_available
         ev2_driving = 1.0 - ev2_available
@@ -81,16 +101,20 @@ def predict_ev_max_charge(
     ev1_station_cap = float(household.ev1_max_station_charge)
     ev2_station_cap = float(household.ev2_max_station_charge)
 
-    ev1_max = [
-        ev1_home_cap * max(0.0, float(ev_status["ev1_at_home"][i]))
-        + ev1_station_cap * max(0.0, float(ev_status["ev1_at_charging_station"][i]))
-        for i in range(horizon)
-    ]
-    ev2_max = [
-        ev2_home_cap * max(0.0, float(ev_status["ev2_at_home"][i]))
-        + ev2_station_cap * max(0.0, float(ev_status["ev2_at_charging_station"][i]))
-        for i in range(horizon)
-    ]
+    ev1_max: list[float] = []
+    ev2_max: list[float] = []
+    for i in range(horizon):
+        ev1_home, ev1_station = _exclusive_location(
+            _status_value(ev_status, "ev1_at_home", i),
+            _status_value(ev_status, "ev1_at_charging_station", i),
+        )
+        ev2_home, ev2_station = _exclusive_location(
+            _status_value(ev_status, "ev2_at_home", i),
+            _status_value(ev_status, "ev2_at_charging_station", i),
+        )
+
+        ev1_max.append(ev1_home_cap * ev1_home + ev1_station_cap * ev1_station)
+        ev2_max.append(ev2_home_cap * ev2_home + ev2_station_cap * ev2_station)
 
     return {
         "ev1_max_charge": ev1_max,

@@ -26,7 +26,7 @@ class OraclePredictor(BasePredictor):
             "ev2_max_charge": profiles.get("ev2_max_charge", []),
         }
 
-        start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep - 1))
+        start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep))
         for key, values in list(prediction.items()):
             if isinstance(values, list):
                 if not values:
