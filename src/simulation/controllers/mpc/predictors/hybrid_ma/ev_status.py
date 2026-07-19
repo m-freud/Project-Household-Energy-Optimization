@@ -4,19 +4,19 @@ from src.config import Config
 from src.simulation.household import Household
 
 
-def _observed_ev_states(
+def _observed_past_ev_states(
     household: Household,
     at_home_key: str,
     at_station_key: str,
 ) -> list[str]:
-    observed_steps = max(0, int(household.current_timestep))
-    home_profile = household.oracle_profiles.get(at_home_key, [])
-    station_profile = household.oracle_profiles.get(at_station_key, [])
+    home_profile = household.history.get(at_home_key, {})
+    station_profile = household.history.get(at_station_key, {})
 
     states: list[str] = []
-    for idx in range(observed_steps):
-        at_home = float(home_profile[idx]) > 0.0 if idx < len(home_profile) else False
-        at_station = float(station_profile[idx]) > 0.0 if idx < len(station_profile) else False
+    observed_past_steps = int(household.current_timestep) - 1
+    for period in range(1, observed_past_steps + 1):
+        at_home = float(home_profile.get(period, 0.0)) > 0.0
+        at_station = float(station_profile.get(period, 0.0)) > 0.0
         if at_home:
             states.append("home")
         elif at_station:
@@ -43,11 +43,13 @@ def _first_non_state_period_after(states: list[str], target: str, start_period: 
     return None
 
 
-def _profile_value_at_period(profile: list[float], period: int, default: float) -> float:
+def _profile_value_at_period(profile: list[float], period: int) -> float:
+    # convert timestep from config to list index (0-indexed)
     idx = int(period) - 1
     if 0 <= idx < len(profile):
         return float(profile[idx])
-    return float(default)
+    else:
+        raise IndexError(f"Period {period} is out of bounds for profile of length {len(profile)}")
 
 
 def _home_buy_price_profile(household: Household) -> list[float]:
@@ -55,7 +57,7 @@ def _home_buy_price_profile(household: Household) -> list[float]:
     return [float(value) for value in day_profile]
 
 
-def _constant_station_buy_price(household: Household, ev_name: str) -> float:
+def _station_buy_price_constant(household: Household, ev_name: str) -> float:
     attr = f"{ev_name}_station_buy_price"
     return float(getattr(household, attr, household.buy_price))
 
@@ -76,66 +78,72 @@ def _worst_case_two_commute_starts(
     commute_steps: int,
     day_end_period: int,
 ) -> tuple[int, int]:
-    windows = Config.EV_UNAVAILABLE_WINDOWS_ALLOWED[ev_name]
-    first_window = windows[0]
-    second_window = windows[1]
+    # assume worst case scenario in terms of cost
+    # -> charge during cheap windows before it's too late
+    commute_windows = Config.EV_UNAVAILABLE_WINDOWS_ALLOWED[ev_name]
+    first_window = commute_windows[0]
+    second_window = commute_windows[1]
 
-    first_earliest = int(first_window["earliest_start"])
-    first_latest_start = int(first_window["latest_end"]) - commute_steps + 1
-    second_earliest = int(second_window["earliest_start"])
-    second_latest_start = int(second_window["latest_end"]) - commute_steps + 1
+    # determine earliest and latest possible start times to choose from
+    earliest_first_start = int(first_window["earliest_start"])
+    latest_first_start = int(first_window["latest_end"]) - commute_steps + 1
+    earliest_second_start = int(second_window["earliest_start"])
+    latest_second_start = int(second_window["latest_end"]) - commute_steps + 1
 
-    # defensive programming in action
-    first_latest_start = max(first_earliest, first_latest_start)
-    second_latest_start = max(second_earliest, second_latest_start)
-
-    home_prices = _home_buy_price_profile(household)
-    station_price = _constant_station_buy_price(household, ev_name)
-    default_home_price = float(household.buy_price)
+    # get prices
+    home_prices: list[float] = _home_buy_price_profile(household) # full day profile, 0-indexed
+    station_price: float = _station_buy_price_constant(household, ev_name) # constant price at station
 
     # Pick first commute start independently.
     # Costed over: start of day -> second window earliest start - 1
     # State model: home -> driving -> station
-    first_eval_end = max(1, second_earliest - 1)
-    best_first_start = first_earliest
-    best_first_cost = float("-inf")
-    for first_start in range(first_earliest, first_latest_start + 1):
+    # compute trajectory with highest cost sum -> same as tr. with smallest cheap window
+    first_eval_end = max(1, earliest_second_start - 1)
+    worst_first_start = earliest_first_start
+    worst_first_cost = float("-inf")
+    for first_start in range(earliest_first_start, latest_first_start + 1):
         first_end = first_start + commute_steps - 1
         total_cost = 0.0
         for period in range(1, first_eval_end + 1):
-            if first_start <= period <= first_end:
-                continue
             if period < first_start:
-                total_cost += _profile_value_at_period(home_prices, period, default_home_price)
+                # charging at home before commute
+                total_cost += _profile_value_at_period(home_prices, period)
+            if first_start <= period <= first_end:
+                # no charging during commute
+                continue
             else:
+                # charging at station after commute 
                 total_cost += station_price
 
-        if total_cost > best_first_cost or (total_cost == best_first_cost and first_start > best_first_start):
-            best_first_cost = total_cost
-            best_first_start = first_start
+        if total_cost > worst_first_cost or (total_cost == worst_first_cost and first_start > worst_first_start):
+            worst_first_cost = total_cost
+            worst_first_start = first_start
 
     # Pick second commute start independently.
     # Costed over: first window latest end + 1 -> end of day
     # State model: station -> driving -> home
     second_eval_start = min(day_end_period, int(first_window["latest_end"]) + 1)
-    best_second_start = second_earliest
+    best_second_start = earliest_second_start
     best_second_cost = float("-inf")
-    for second_start in range(second_earliest, second_latest_start + 1):
+    for second_start in range(earliest_second_start, latest_second_start + 1):
         second_end = second_start + commute_steps - 1
         total_cost = 0.0
         for period in range(second_eval_start, int(day_end_period) + 1):
-            if second_start <= period <= second_end:
-                continue
             if period < second_start:
+                # still at station
                 total_cost += station_price
+            if second_start <= period <= second_end:
+                # no charging during commute
+                continue
             else:
-                total_cost += _profile_value_at_period(home_prices, period, default_home_price)
+                # back home after commute
+                total_cost += _profile_value_at_period(home_prices, period)
 
         if total_cost > best_second_cost or (total_cost == best_second_cost and second_start > best_second_start):
             best_second_cost = total_cost
             best_second_start = second_start
 
-    return int(best_first_start), int(best_second_start)
+    return int(worst_first_start), int(best_second_start)
 
 
 def _predict_single_ev_status(
@@ -144,11 +152,12 @@ def _predict_single_ev_status(
     ev_name: str,
     home_key: str,
     station_key: str,
+    commute_steps: int = 5,
 ) -> tuple[list[float], list[float]]:
-    current_period = int(household.current_timestep)
+    current_timestep = int(household.current_timestep)
     day_end_period = 96
-    commute_steps = 5
 
+    # base commute window assumption (worst case scenario in terms of price)
     first_start, second_start = _worst_case_two_commute_starts(
         household=household,
         ev_name=ev_name,
@@ -158,7 +167,8 @@ def _predict_single_ev_status(
     first_end = first_start + commute_steps - 1
     second_end = second_start + commute_steps - 1
 
-    observed_states = _observed_ev_states(household, home_key, station_key)
+    # get observed states to adjust windows if necessary (e.g., if commute has already started)
+    observed_states = _observed_past_ev_states(household, home_key, station_key)
     observed_first_start = _first_state_period(
         observed_states,
         "driving",
@@ -182,7 +192,6 @@ def _predict_single_ev_status(
         )
         if first_non_driving is not None:
             observed_first_end = first_non_driving - 1
-
     observed_second_end: int | None = None
     if observed_second_start is not None:
         second_non_driving = _first_non_state_period_after(
@@ -197,13 +206,14 @@ def _predict_single_ev_status(
     state_now = _current_state(household, home_key, station_key)
 
     if observed_first_start is not None:
+        # first start in the past
         first_start = observed_first_start
-    elif state_now == "driving" and current_period < second_start:
-        # Forecast starts at current_period + 1, so align commute start to the next predicted period.
-        first_start = min(day_end_period, current_period + 1)
-    elif state_now == "home" and current_period >= first_start:
-        # Commute should have started by now but has not; shift the first window right.
-        first_start = min(day_end_period, first_start + 1)
+    elif state_now == "driving" and current_timestep < second_start:
+        # first start is now
+        first_start = current_timestep
+    elif state_now == "home" and current_timestep >= first_start:
+        # first start is later than predicted, shift to the right
+        first_start += 1
     if observed_first_end is not None:
         first_end = max(first_start, observed_first_end)
     else:
@@ -214,12 +224,14 @@ def _predict_single_ev_status(
     second_start = min(second_start, day_end_period)
 
     if observed_second_start is not None:
+        # second start in the past
         second_start = observed_second_start
-    elif state_now == "driving" and current_period >= 48:
-        second_start = max(second_start, min(day_end_period, current_period + 1))
-    elif state_now == "station" and current_period >= second_start:
-        # Return commute should have started but EV is still at station; shift second window right.
-        second_start = min(day_end_period, second_start + 1)
+    elif state_now == "driving" and current_timestep >= 48:
+        # no second start in the past but now driving -> second start is now
+        second_start = current_timestep
+    elif state_now == "station" and current_timestep >= second_start:
+        # second start is late, shift right
+        second_start += 1
     if observed_second_end is not None:
         second_end = max(second_start, observed_second_end)
     else:
@@ -227,8 +239,9 @@ def _predict_single_ev_status(
 
     at_home: list[float] = []
     at_station: list[float] = []
-    for offset in range(max(0, int(horizon))):
-        period = current_period + offset + 1
+
+    for offset in range(horizon): # prediction length is horizon, starting at current timestep
+        period = current_timestep + offset
         if period < first_start:
             state = "home"
         elif first_start <= period <= first_end:
