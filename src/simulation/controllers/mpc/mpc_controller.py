@@ -14,14 +14,16 @@ class MPCController(BaseController):
         self,
         name: str,
         household: Household,
-        scenario: Scenario,
         predictor: BasePredictor,
+        scenario: Scenario|None = None,
         horizon: int = 96,
         duration_hours: float = 0.25,
         buffer_config: DeviceBufferConfig | None = None,
     ):
         super().__init__(name)
         self.household = household
+        if scenario is None:
+            scenario = household.scenario
         self.scenario = scenario
         self.horizon = int(horizon)
         self.predictor = predictor

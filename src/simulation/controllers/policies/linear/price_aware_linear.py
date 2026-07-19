@@ -73,7 +73,7 @@ def _even_bess_power_to_target(
 
 def price_aware_linear(
     household: Household,
-    scenario: Scenario,
+    scenario: Scenario|None = None,
     base_behaviour: str = "no_control",
 ) -> dict:
     """
@@ -84,6 +84,10 @@ def price_aware_linear(
     - BESS: if urgent, move evenly to target; otherwise reverse-price logic:
       discharge surplus on expensive price, charge deficit on cheap price.
     """
+
+    if scenario is None:
+        scenario = household.scenario
+
     if base_behaviour == "even_linear":
         controls = even_linear_policy(household, scenario)
     elif base_behaviour == "no_control":
