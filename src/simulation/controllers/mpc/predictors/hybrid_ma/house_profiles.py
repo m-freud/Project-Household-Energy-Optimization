@@ -76,8 +76,13 @@ def predict_pv_gen(
     horizon: int,
     interval_width_fraction: float = 0.1,
 ) -> dict[str, list[float]]:
+    values_since_sunlight = []
+    for t, val in sorted(household.history.get("pv_gen", {}).items()):
+        if t >= Config.PV_GENERATION_WINDOW_OBSERVED["earliest_start"]:
+            values_since_sunlight.append(float(val))
+
     pv_series = _forecast_historical_average(
-        values=_history_values(household, "pv_gen"),
+        values=values_since_sunlight,
         horizon=horizon,
         default=float(household.pv_gen),
     )
