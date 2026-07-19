@@ -15,7 +15,7 @@ class MPCController(BaseController):
         name: str,
         household: Household,
         predictor: BasePredictor,
-        scenario: Scenario|None = None,
+        scenario: Scenario|None = None, # explicit scenario optional, household already has one
         horizon: int = 96,
         duration_hours: float = 0.25,
         buffer_config: DeviceBufferConfig | None = None,
@@ -25,10 +25,10 @@ class MPCController(BaseController):
         if scenario is None:
             scenario = household.scenario
         self.scenario = scenario
-        self.horizon = int(horizon)
+        self.horizon = horizon
         self.predictor = predictor
         self.duration_hours = float(duration_hours)
-        self.buffer_config = buffer_config or DeviceBufferConfig.disabled()
+        self.buffer_config = buffer_config or DeviceBufferConfig.disabled() # can be used to improve hit rates but ideally unused
 
         self.bess_control_bounds = [-self.household.bess.max_discharge, self.household.bess.max_charge] if self.household.bess else [0,0]
         self.ev1_control_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0] # no discharge
@@ -52,10 +52,13 @@ class MPCController(BaseController):
             values = [values]
 
         series = [float(value) for value in values[:horizon]]
+
         if len(series) < horizon:
             fill_value = series[-1] if series else default
             series.extend([float(fill_value)] * (horizon - len(series)))
+
         return series
+
 
     def _tail_mask(self, current_timestep: int, horizon: int) -> np.ndarray:
         """Return 1.0 for real timesteps and 0.0 for synthetic tail slots."""
@@ -67,7 +70,7 @@ class MPCController(BaseController):
 
     def _ensure_compiled_problem(self, planning_horizon: int):
         if self._problem is not None and self._compiled_horizon == planning_horizon:
-            # only if horizon < full day. no need to recompile if horizon stays the same.
+            # reuse existing problem if possible
             return
 
         h = int(planning_horizon)
@@ -91,7 +94,10 @@ class MPCController(BaseController):
         objective = duration_hours * (
             params["buy_price"] @ grid_import - params["sell_price"] @ grid_export
         )
-        constraints: list[Constraint] = [net_load_expr == grid_import - grid_export]
+
+        constraints: list[Constraint] = []
+
+        constraints.append(net_load_expr == grid_import - grid_export) # cover net load with import or export
 
         if self.household.bess:
             params["bess_soc0"] = cp.Parameter()
@@ -99,6 +105,7 @@ class MPCController(BaseController):
             params["bess_discharge_limit"] = cp.Parameter(h, nonneg=True)
             params["bess_target_lb"] = cp.Parameter(h + 1)
 
+            # control variables
             bess_power = cp.Variable(h)
             bess_charge = cp.Variable(h, nonneg=True)
             bess_discharge = cp.Variable(h, nonneg=True)
@@ -109,7 +116,7 @@ class MPCController(BaseController):
                 bess_soc[0] == params["bess_soc0"],
                 bess_charge <= params["bess_charge_limit"],
                 bess_discharge <= params["bess_discharge_limit"],
-                bess_power == bess_charge - bess_discharge,
+                bess_power == bess_charge - bess_discharge, # effectively one is always 0 (circular charging is not attractive)
                 bess_soc[1:]
                 == bess_soc[:-1]
                 + self.household.bess.efficiency * bess_charge * duration_hours
@@ -185,7 +192,7 @@ class MPCController(BaseController):
         self._vars = variables
         self._problem = cp.Problem(cp.Minimize(objective), constraints)
 
-    def _target_lb(
+    def _target_lower_bound(
         self,
         targets: dict | None,
         capacity: float,
@@ -201,17 +208,20 @@ class MPCController(BaseController):
         time_buffer_steps = max(0, int(time_buffer_steps))
         energy_buffer_soc_frct = max(0.0, float(energy_buffer_soc_frct))
         for deadline, target_soc_frct in sorted(targets.items()):
+            # add energy buffer to target
             buffered_target_soc = min(1.0, float(target_soc_frct) + energy_buffer_soc_frct)
+
             target_soc_kwh = buffered_target_soc * float(capacity)
             deadline_step = int(deadline)
 
-            # Keep the original deadline target and copy it left for each
-            # configured buffer step (e.g., buffer=4 -> d, d-1, d-2, d-3, d-4).
+            # add target to lower bound, relative to current timestep
+            # add time buffer by extending target to the left
             for offset in range(0, time_buffer_steps + 1):
                 buffered_step = deadline_step - offset
                 target_index = buffered_step - int(current_timestep) + 1
                 if 0 <= target_index <= horizon:
                     lb[target_index] = max(lb[target_index], target_soc_kwh)
+
         return lb
 
     def _first_value(self, variable: cp.Variable | None) -> float:
@@ -304,7 +314,8 @@ class MPCController(BaseController):
         # compute tail mask to block controls after day 1
         tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
-        # fetch predictions
+        # fetch predictions (lists starting at 0 = current timestep) and fill with defaults if missing
+        # default padding is only necessary if planning_horizon < horizon, so mostly not used, but we keep it for safety/testing
         base_load_profile = self._prediction_series(predictions, "base_load", planning_horizon, default=base_load)
         pv_profile = self._prediction_series(predictions, "pv_gen", planning_horizon, default=pv_generation)
         ev1_load_profile = self._prediction_series(predictions, "ev1_load", planning_horizon, default=ev1_load)
@@ -330,9 +341,9 @@ class MPCController(BaseController):
         # device params next
         if household.bess:
             self._params["bess_soc0"].value = float(bess_soc)
-            self._params["bess_charge_limit"].value = np.asarray(self.household.bess.max_charge * tail_mask, dtype=float)
-            self._params["bess_discharge_limit"].value = np.asarray(self.household.bess.max_discharge * tail_mask, dtype=float)
-            self._params["bess_target_lb"].value = self._target_lb(
+            self._params["bess_charge_limit"].value = np.asarray(household.bess.max_charge * tail_mask, dtype=float)
+            self._params["bess_discharge_limit"].value = np.asarray(household.bess.max_discharge * tail_mask, dtype=float)
+            self._params["bess_target_lb"].value = self._target_lower_bound(
                 self.bess_soc_targets,
                 household.bess.capacity,
                 current_timestep,
@@ -357,7 +368,7 @@ class MPCController(BaseController):
             self._params["ev1_effective_max_charge"].value = ev1_effective_max_charge
             self._params["ev1_drive_load"].value = ev1_drive_load
             self._params["ev1_station_price"].value = ev1_station_price
-            self._params["ev1_target_lb"].value = self._target_lb(
+            self._params["ev1_target_lb"].value = self._target_lower_bound(
                 self.ev1_soc_targets,
                 household.ev1.capacity,
                 current_timestep,
@@ -382,7 +393,7 @@ class MPCController(BaseController):
             self._params["ev2_effective_max_charge"].value = ev2_effective_max_charge
             self._params["ev2_drive_load"].value = ev2_drive_load
             self._params["ev2_station_price"].value = ev2_station_price
-            self._params["ev2_target_lb"].value = self._target_lb(
+            self._params["ev2_target_lb"].value = self._target_lower_bound(
                 self.ev2_soc_targets,
                 household.ev2.capacity,
                 current_timestep,

@@ -1,7 +1,7 @@
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
-from src.simulation.scenarios.scenario import Scenario
+from src.simulation.scenarios.scenario import Scenario, default_scenario
 
 TARGET_TOLERANCE_KWH = 1e-3
 
@@ -14,7 +14,7 @@ class Household:
             self,
             player_id=1,
             start_time=1,
-            scenario: Scenario | None = None,
+            scenario: Scenario = default_scenario,
             pv:PV|None=None,
             bess:BESS|None=None,
             ev1:EV|None=None,
