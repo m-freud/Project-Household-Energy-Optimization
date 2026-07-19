@@ -108,7 +108,7 @@ def _is_profitable_discharge(
     return current_buy_price > effective_cost
 
 
-def waterfall_policy(household: Household, scenario: Scenario) -> dict:
+def waterfall_policy(household: Household, scenario: Scenario|None = None) -> dict:
     """
     Waterfall policy.
 
@@ -120,6 +120,9 @@ def waterfall_policy(household: Household, scenario: Scenario) -> dict:
     5) even-linear fallback to target.
     """
     controls = {"ev1_power": 0.0, "ev2_power": 0.0, "bess_power": 0.0}
+
+    if scenario is None:
+        scenario = household.scenario
 
     t = household.current_timestep
     buy_price = household.buy_price

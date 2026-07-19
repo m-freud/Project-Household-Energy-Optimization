@@ -1,5 +1,5 @@
 '''
-Docstring for src.simulation.policies.rule_based
+Very basic examples for demonstration / introduction purposes. Not intended for actual use.
 '''
 
 from src.simulation.household import Household

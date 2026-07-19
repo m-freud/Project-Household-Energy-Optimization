@@ -9,13 +9,16 @@ def get_next_target(current_timestep: int, target_soc_dict: dict[int, float]) ->
     return target_soc, deadline
 
 
-def even_linear_policy(household: Household, scenario: Scenario) -> dict:
+def even_linear_policy(household: Household, scenario: Scenario|None = None) -> dict:
     # Reach target by charging evenly. Naive baseline. 
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
+
+    if scenario is None:
+        scenario = household.scenario
 
     for ev, ev_scenario in [(household.ev1, scenario.ev1), (household.ev2, scenario.ev2)]:
         if ev and (ev.at_home or ev.at_charging_station):
@@ -72,13 +75,16 @@ def even_linear_policy(household: Household, scenario: Scenario) -> dict:
     return controls
 
 
-def fast_charge_policy(household: Household, scenario: Scenario) -> dict:
+def fast_charge_policy(household: Household, scenario: Scenario|None = None) -> dict:
     # Just charge to target as fast as possible. Naive baseline.
     controls = {
         "ev1_power": 0.0,
         "ev2_power": 0.0,
         "bess_power": 0.0,
     }
+
+    if scenario is None:
+        scenario = household.scenario
 
     if household.ev1 and (household.ev1.at_home or household.ev1.at_charging_station):
         ev1_target_soc, _ = get_next_target(household.current_timestep, scenario.ev1.soc_targets)
