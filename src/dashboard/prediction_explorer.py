@@ -4,7 +4,6 @@ from datetime import datetime
 from functools import partial
 import math
 import re
-from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,12 +45,10 @@ PROFILE_OPTIONS = [
 
 def _build_predictor(
     predictor_name: str,
-    ma3_window_size: int,
     ma3_interval_width: float,
 ):
     if predictor_name == "hybrid_ma":
         return HybridMAPredictor(
-            window_size=ma3_window_size,
             conf_interval_frct=ma3_interval_width,
         )
     return OraclePredictor()
@@ -63,22 +60,19 @@ def _compute_snapshot(
     predictor_name: str,
     timestep: int,
     horizon: int,
-    ma3_window_size: int,
     ma3_interval_width: float,
 ) -> tuple[dict[str, list[float]], dict[str, list[float]], int]:
     scenario = default_scenario
 
     predictor = _build_predictor(
         predictor_name=predictor_name,
-        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
     )
 
     connection = create_sqlite_connection()
     try:
         sim = Simulation(connection, ensure_schema=False)
-        # create_household only needs scenario + start_time from this object.
-        run_context = SimpleNamespace(scenario=scenario, start_time=1)
+        run_context = RunContext(scenario=scenario, start_time=1)
         household = sim.create_household(player_id, run_context)
 
         current_timestep = max(1, min(96, int(timestep)))
@@ -88,7 +82,7 @@ def _compute_snapshot(
             household.update_history()
 
         effective_horizon = max(1, min(int(horizon), 96 - current_timestep + 1))
-        predicted = predictor.predict(household, scenario, effective_horizon)
+        predicted = predictor.predict(household, effective_horizon)
 
         actual = household.oracle_profiles
         return actual, predicted, effective_horizon
@@ -130,16 +124,11 @@ def _format_float_token(value: float, digits: int = 2) -> str:
 
 def _build_default_policy_name(
     predictor_name: str,
-    ma3_window_size: int,
     ma3_interval_width: float,
 ) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if predictor_name == "hybrid_ma":
-        return (
-            f"mpc_hybrid_ma_w{int(ma3_window_size)}"
-            f"_ci{_format_float_token(ma3_interval_width)}"
-            f"_{timestamp}"
-        )
+        return f"mpc_hybrid_ma_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
     return f"mpc_oracle_{timestamp}"
 
 
@@ -147,7 +136,6 @@ def _build_mpc_controller_factory(
     policy_name: str,
     horizon: int,
     predictor_name: str,
-    ma3_window_size: int,
     ma3_interval_width: float,
 ):
     return partial(
@@ -155,7 +143,6 @@ def _build_mpc_controller_factory(
         policy_name=policy_name,
         horizon=horizon,
         predictor_name=predictor_name,
-        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
     )
 
@@ -167,12 +154,10 @@ def _build_mpc_controller(
     policy_name: str,
     horizon: int,
     predictor_name: str,
-    ma3_window_size: int,
     ma3_interval_width: float,
 ):
     base_predictor = _build_predictor(
         predictor_name=predictor_name,
-        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
     )
 
@@ -223,44 +208,11 @@ def render_prediction_explorer(
         st.info("Select at least one profile.")
         return
 
-    with st.expander("Predictor hyperparameters", expanded=False):
-        s1, d1, s2, d2, s3 = st.columns([1, 0.05, 1, 0.05, 1], gap="medium")
-
-        with s1:
-            st.markdown("**Moving average**")
-            short_row = st.columns([5, 1], gap="small")
-            with short_row[0]:
-                ma3_window_size = int(st.number_input("window size", min_value=1, max_value=96, value=96, step=1))
-            with short_row[1]:
-                st.markdown("<div style='padding-top: 0.35rem; margin-bottom: -0.25rem;'>show</div>", unsafe_allow_html=True)
-                show_window = st.checkbox(
-                    "show window",
-                    value=True,
-                    key="show_window",
-                    label_visibility="collapsed",
-                )
-
-        with d1:
-            st.markdown(
-                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 18rem; margin: 0 auto;'></div>",
-                unsafe_allow_html=True,
-            )
-
-        with s2:
-            st.markdown("**Interval**")
-            ma3_interval_width = float(
-                st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
-            )
-
-        with d2:
-            st.markdown(
-                "<div style='border-left: 1px solid rgba(128, 128, 128, 0.35); height: 18rem; margin: 0 auto;'></div>",
-                unsafe_allow_html=True,
-            )
-
-        with s3:
-            st.markdown("**Display**")
-            show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
+    with st.expander("Predictor settings", expanded=False):
+        ma3_interval_width = float(
+            st.slider("confidence interval", min_value=0.0, max_value=1.0, value=0.0, step=0.01)
+        )
+        show_pv_unavailable_shadow = st.checkbox("Show PV unavailable shadow", value=True)
 
     t_key = "pred_timestep"
     if t_key not in st.session_state:
@@ -287,12 +239,6 @@ def render_prediction_explorer(
 
     timestep = int(st.session_state[t_key])
 
-    # Display window/range overlays using the Hybrid MA configuration.
-    if "hybrid_ma" in selected_predictors:
-        display_window_size = int(ma3_window_size)
-    else:
-        display_window_size = 0
-
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
         snapshots[predictor_name] = _compute_snapshot(
@@ -300,7 +246,6 @@ def render_prediction_explorer(
             predictor_name=str(predictor_name),
             timestep=timestep,
             horizon=horizon,
-            ma3_window_size=ma3_window_size,
             ma3_interval_width=ma3_interval_width,
         )
 
@@ -351,72 +296,6 @@ def render_prediction_explorer(
                 if pv_end < 96:
                     axis.axvspan(float(pv_end), 96.0, color="gray", alpha=0.10)
 
-        source_avg_values: list[float] = []
-        if show_source_average and profile_name in {"base_load", "pv_gen"}:
-            source_avg_values = _load_source_avg_curve(profile_name)
-            if source_avg_values:
-                source_x = np.arange(1, len(source_avg_values) + 1)
-                axis.plot(
-                    source_x,
-                    source_avg_values,
-                    color="tab:purple",
-                    linewidth=1.6,
-                    linestyle=":",
-                    label="source avg (all households)",
-                )
-
-        if show_long_window and display_long_window > 0:
-            long_start = max(1, timestep - display_long_window + 1)
-            axis.axvspan(
-                float(long_start),
-                float(timestep),
-                color="tab:orange",
-                alpha=0.08,
-                label=f"long window ({display_long_window})",
-            )
-
-        if show_short_window and display_short_window > 0:
-            short_start = max(1, timestep - display_short_window + 1)
-            axis.axvspan(
-                float(short_start),
-                float(timestep),
-                color="tab:green",
-                alpha=0.15,
-                label=f"short window ({display_short_window})",
-            )
-
-        if show_trend_window and display_trend_window > 0:
-            trend_window_start = max(1, timestep - display_trend_window + 1)
-            axis.axvspan(
-                float(trend_window_start),
-                float(timestep),
-                color="tab:blue",
-                alpha=0.08,
-                label=f"trend window ({display_trend_window})",
-            )
-
-        if show_persistence_range and display_persistence_range > 0:
-            persistence_end = min(96, timestep + display_persistence_range - 1)
-            axis.axvspan(
-                float(timestep),
-                float(persistence_end),
-                color="tab:brown",
-                alpha=0.08,
-                label=f"persistence range ({display_persistence_range})",
-            )
-
-        if show_trend_range and display_trend_range > 0:
-            # Trend target uses min(step_index - 1, trend_range), so the change
-            # reaches its final step one period later than persistence range.
-            trend_range_end = min(96, timestep + display_trend_range)
-            axis.axvspan(
-                float(timestep),
-                float(trend_range_end),
-                color="tab:cyan",
-                alpha=0.08,
-                label=f"trend range ({display_trend_range})",
-            )
-
         for predictor_name in selected_predictors:
             predicted = snapshots[predictor_name][1]
             predicted_values = [float(value) for value in predicted.get(profile_name, [])]
@@ -452,7 +331,7 @@ def render_prediction_explorer(
         f"Prediction Explorer | player {selected_household_id}",
         y=0.995,
     )
-    fig.tight_layout(rect=[0, 0, 1, 0.985])
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.985))
     st.pyplot(fig, width="stretch")
 
     info1, info2, info3 = st.columns(3)
@@ -483,7 +362,6 @@ def render_prediction_explorer(
     selected_run_predictor = str(selected_predictors[0])
     generated_policy_name = _build_default_policy_name(
         predictor_name=selected_run_predictor,
-        ma3_window_size=ma3_window_size,
         ma3_interval_width=ma3_interval_width,
     )
 
@@ -525,17 +403,7 @@ def render_prediction_explorer(
                 policy_name=effective_policy_name,
                 horizon=96,
                 predictor_name=selected_run_predictor,
-                ma3_short=ma3_short,
-                ma3_long=ma3_long,
-                ma3_weight=ma3_weight,
                 ma3_interval_width=ma3_interval_width,
-                ma3_persistence_mode=ma3_persistence_mode,
-                ma3_persistence_range=ma3_persistence_range,
-                ma3_persistence_constant_alpha=ma3_persistence_constant_alpha,
-                source_average_beta=source_average_beta,
-                ma3_trend_weight=ma3_trend_weight,
-                ma3_trend_window=ma3_trend_window,
-                ma3_trend_range=ma3_trend_range,
             )
 
             for scenario in scenario_catalog:
