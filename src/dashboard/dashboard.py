@@ -1,3 +1,11 @@
+from pathlib import Path
+import sys
+
+# Ensure absolute imports like `from src...` work even when launched from a subdirectory.
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+	sys.path.insert(0, str(repo_root))
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
