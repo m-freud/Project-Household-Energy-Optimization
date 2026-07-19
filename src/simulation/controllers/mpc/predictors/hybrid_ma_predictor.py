@@ -4,10 +4,10 @@ from src.simulation.controllers.mpc.predictors.base_predictor import BasePredict
 from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_base_load,
     predict_pv_gen,
+    predict_ev_status,
     predict_ev_load,
     predict_ev_max_charge,
     predict_ev_buy_price,
-    predict_ev_status,
     predict_buy_price,
     predict_sell_price,
 )
@@ -39,15 +39,11 @@ class HybridMAPredictor(BasePredictor):
         base_load = predict_base_load(
             household,
             horizon,
-            window_size=self.window_size,
-            persistence_range=self.persistence_range,
             interval_width_fraction=self.interval_width_fraction,
         )
         pv_gen = predict_pv_gen(
             household,
             horizon,
-            window_size=self.window_size,
-            persistence_range=self.persistence_range,
             interval_width_fraction=self.interval_width_fraction,
         )
         ev_status = predict_ev_status(household, horizon)
