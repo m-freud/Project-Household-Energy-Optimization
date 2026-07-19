@@ -31,42 +31,29 @@ def predict_ev_load(
     - apply it only on timesteps that are neither at home nor at station
     """
 
-    ev1_default = float(household.ev1_default_drive_load) if float(household.ev1_default_drive_load) > 0.0 else 0.0
-    ev2_default = float(household.ev2_default_drive_load) if float(household.ev2_default_drive_load) > 0.0 else 0.0
+    ev1_default = household.ev1_default_drive_load
+    ev2_default = household.ev2_default_drive_load
 
     ev1_avg_drive_load = _average_non_zero(_history_values(household, "ev1_load"), default=ev1_default)
     ev2_avg_drive_load = _average_non_zero(_history_values(household, "ev2_load"), default=ev2_default)
 
-    ev1_series: list[float] = []
-    ev2_series: list[float] = []
+    ev1_load_pred: list[float] = []
+    ev2_load_pred: list[float] = []
 
-    for i in range(max(0, int(horizon))):
+    for i in range(horizon):
         ev1_available = max(ev_status["ev1_at_home"][i], ev_status["ev1_at_charging_station"][i])
         ev2_available = max(ev_status["ev2_at_home"][i], ev_status["ev2_at_charging_station"][i])
 
         ev1_driving = 1.0 - ev1_available
         ev2_driving = 1.0 - ev2_available
 
-        ev1_series.append(float(ev1_avg_drive_load) * float(max(0.0, ev1_driving)))
-        ev2_series.append(float(ev2_avg_drive_load) * float(max(0.0, ev2_driving)))
+        ev1_load_pred.append(ev1_avg_drive_load * ev1_driving)
+        ev2_load_pred.append(ev2_avg_drive_load * ev2_driving)
 
     return {
-        "ev1_load": ev1_series,
-        "ev2_load": ev2_series,
+        "ev1_load": ev1_load_pred,
+        "ev2_load": ev2_load_pred,
     }
-
-
-def predict_ev_loads(
-    household: Household,
-    horizon: int,
-    ev_status: dict[str, list[float]],
-) -> dict[str, list[float]]:
-    # Backward-compatible alias.
-    return predict_ev_load(
-        household,
-        horizon,
-        ev_status,
-    )
 
 
 def predict_ev_max_charge(
@@ -76,23 +63,23 @@ def predict_ev_max_charge(
 ) -> dict[str, list[float]]:
     """Predict EV max charge from home/station capacities masked by predicted location."""
 
-    ev1_home_cap = float(household.ev1_max_home_charge)
-    ev2_home_cap = float(household.ev2_max_home_charge)
-    ev1_station_cap = float(household.ev1_max_station_charge)
-    ev2_station_cap = float(household.ev2_max_station_charge)
+    ev1_home_max_charge = household.ev1_max_home_charge
+    ev2_home_max_charge = household.ev2_max_home_charge
+    ev1_station_max_charge = household.ev1_max_station_charge
+    ev2_station_max_charge = household.ev2_max_station_charge
 
-    ev1_max = [
-        ev1_home_cap * max(0.0, float(ev_status["ev1_at_home"][i]))
-        + ev1_station_cap * max(0.0, float(ev_status["ev1_at_charging_station"][i]))
+    ev1_max_pred = [
+        ev1_home_max_charge * max(0.0, float(ev_status["ev1_at_home"][i]))
+        + ev1_station_max_charge * max(0.0, float(ev_status["ev1_at_charging_station"][i]))
         for i in range(horizon)
     ]
-    ev2_max = [
-        ev2_home_cap * max(0.0, float(ev_status["ev2_at_home"][i]))
-        + ev2_station_cap * max(0.0, float(ev_status["ev2_at_charging_station"][i]))
+    ev2_max_pred = [
+        ev2_home_max_charge * max(0.0, float(ev_status["ev2_at_home"][i]))
+        + ev2_station_max_charge * max(0.0, float(ev_status["ev2_at_charging_station"][i]))
         for i in range(horizon)
     ]
 
     return {
-        "ev1_max_charge": ev1_max,
-        "ev2_max_charge": ev2_max,
+        "ev1_max_charge": ev1_max_pred,
+        "ev2_max_charge": ev2_max_pred,
     }
