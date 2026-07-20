@@ -41,14 +41,11 @@ class Household:
 
         self.buy_price_day_profile = []  # store buy price profile for the day
         self.sell_price_day_profile = []  # store sell price profile for the day
-        self.ev1_buy_price_day_profile = []  # store ev1 buy price profile for the day
-        self.ev2_buy_price_day_profile = []  # store ev2 buy price profile for the day
 
         self.ev1_station_buy_price = 0.0  # constant buy price at charging station for ev1
         self.ev2_station_buy_price = 0.0  # constant buy price at charging station for ev2
 
         self.oracle_profiles = {} # full day profiles -> future values
-
         
         self.history = { # histories from start_time to now
             "base_load": {},            

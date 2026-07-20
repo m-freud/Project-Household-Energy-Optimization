@@ -21,6 +21,15 @@ def _q75_threshold(profile: list[float]) -> float | None:
     return sorted_profile[idx]
 
 
+def _ev_quantile_profile(household: Household, ev_name: str) -> list[float]:
+    # Use oracle EV buy-price profile directly; this is equivalent to a
+    # "last day profile" (same quartiles)
+    profile = household.oracle_profiles.get(f"{ev_name}_buy_price", [])
+    if profile:
+        return [float(value) for value in profile]
+    return household.buy_price_day_profile
+
+
 def _next_target(timestep: int, soc_targets: dict[int, float]) -> tuple[float, int]:
     deadline = min((t for t in soc_targets if t >= timestep), default=96)
     return soc_targets.get(deadline, 0.0), deadline
@@ -116,7 +125,7 @@ def price_aware_linear(
             controls[power_key] = even_controls[power_key]
             continue
 
-        ev_profile = getattr(household, f"{ev.name}_buy_price_day_profile", household.buy_price_day_profile)
+        ev_profile = _ev_quantile_profile(household, ev.name)
         ev_q25 = _q25_threshold(ev_profile)
 
         if ev_q25 is not None and ev.buy_price <= ev_q25:
