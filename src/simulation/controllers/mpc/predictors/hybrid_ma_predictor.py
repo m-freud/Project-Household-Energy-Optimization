@@ -8,8 +8,8 @@ from src.simulation.controllers.mpc.predictors.hybrid_ma import (
     predict_ev_load,
     predict_ev_max_charge,
     predict_ev_buy_price,
-    predict_buy_price,
-    predict_sell_price,
+    predict_buy_price_home,
+    predict_sell_price_home,
 )
 from src.simulation.household import Household
 
@@ -48,8 +48,8 @@ class HybridMAPredictor(BasePredictor):
         )
         ev_status = predict_ev_status(household, horizon)
         ev_load = predict_ev_load(household, horizon, ev_status)
-        buy_price = predict_buy_price(household, horizon)
-        sell_price = predict_sell_price(household, horizon)
+        buy_price = predict_buy_price_home(household, horizon)
+        sell_price = predict_sell_price_home(household, horizon)
         ev_buy_price = predict_ev_buy_price(household, horizon, ev_status)
 
         ev_max_charge = predict_ev_max_charge(household, horizon, ev_status)
