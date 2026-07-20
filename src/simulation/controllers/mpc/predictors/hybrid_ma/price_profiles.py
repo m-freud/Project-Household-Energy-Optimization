@@ -43,7 +43,7 @@ def compose_ev_buy_prices(
     horizon: int,
     ev_status_pred: dict[str, list[float]],
     grid_prices: dict[str, list[float]],
-    station_prices: dict[str, list[float]],
+    station_prices: dict[str, float],
 ) -> dict[str, list[float]]:
     """Compose effective EV buy prices from EV status and known tariffs.
 
