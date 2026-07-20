@@ -12,11 +12,10 @@ from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_profiles import (
 )
 
 from src.simulation.controllers.mpc.predictors.hybrid_ma.price_profiles import (
-    predict_buy_price,
-    predict_sell_price,
+    predict_buy_price_home,
+    predict_sell_price_home,
     predict_ev_buy_price,
     predict_grid_prices,
-    predict_ev_station_prices,
     compose_ev_buy_prices,
 )
 
@@ -27,10 +26,9 @@ __all__ = [
     "predict_ev_load",
     "predict_ev_status",
     "predict_ev_max_charge",
-    "predict_buy_price",
-    "predict_sell_price",
+    "predict_buy_price_home",
+    "predict_sell_price_home",
     "predict_ev_buy_price",
     "predict_grid_prices",
-    "predict_ev_station_prices",
     "compose_ev_buy_prices",
 ]
