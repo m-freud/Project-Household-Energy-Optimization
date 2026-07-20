@@ -33,20 +33,22 @@ class Household:
         self.ev1 = ev1
         self.ev2 = ev2
 
-        # current states
+        # current states. states and profiles are populated by Simulation
         self.base_load = 0.0  # current base load
         self.buy_price = 0.0  # current buy price for electricity
         self.sell_price = 0.0  # current sell price for electricity
         self.base_cost = base_cost  # fixed cost per day
 
+        # future profiles are lists
         self.buy_price_day_profile = []  # store buy price profile for the day
         self.sell_price_day_profile = []  # store sell price profile for the day
 
         self.ev1_station_buy_price = 0.0  # constant buy price at charging station for ev1
         self.ev2_station_buy_price = 0.0  # constant buy price at charging station for ev2
 
-        self.oracle_profiles = {} # full day profiles -> future values
+        self.oracle_profiles: dict[str, list[float]] = {} # full day profiles -> future values
         
+        # histories are 1-based dicts
         self.history = { # histories from start_time to now
             "base_load": {},            
             "pv_gen": {},
