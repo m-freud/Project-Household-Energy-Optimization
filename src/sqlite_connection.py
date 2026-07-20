@@ -314,7 +314,7 @@ def fetch_timeseries(sqlite_cursor, player_id, measurement):
     return [row[0] for row in data]
 
 
-def fetch_multiple_timeseries(sqlite_cursor, player_id, measurements):
+def fetch_multiple_timeseries(sqlite_cursor, player_id, measurements) -> dict[str, list[float]]:
     timeseries_data = {measurement: [] for measurement in measurements}
     for measurement in measurements:
         data = fetch_timeseries(sqlite_cursor, player_id, measurement)
