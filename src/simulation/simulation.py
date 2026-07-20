@@ -367,9 +367,7 @@ class Simulation:
         # household gets access to prices over day 
         household.buy_price_day_profile = self.household_profiles["buy_price"]
         household.sell_price_day_profile = self.household_profiles["sell_price"]
-        household.ev1_buy_price_day_profile = self.household_profiles["ev1_buy_price"] # used for quantiles, not exact predictions
-        household.ev2_buy_price_day_profile = self.household_profiles["ev2_buy_price"] # used for quantiles, not exact predictions
-        household.oracle_profiles = self.household_profiles
+        household.oracle_profiles = self.household_profiles # just pass them through for easy lookup if needed
 
         # set default drive load for EVs based on first non-zero value in the load profile
         # technically this is an illegal prediction, but it is a good proxy for "yesterdays last value"
@@ -418,9 +416,8 @@ class Simulation:
 
     def update_household_inputs(self, household: Household):
         # update the time
-        timestep = self.current_timestep
         household.current_timestep = self.current_timestep
-        profile_time_index = timestep - 1
+        profile_time_index = self.current_timestep - 1
 
         profiles = self.household_profiles
         ev1 = household.ev1

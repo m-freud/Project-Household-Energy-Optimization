@@ -25,6 +25,15 @@ def _price_quartiles(profile: list[float]) -> tuple[float | None, float | None]:
     return q25, q75
 
 
+def _ev_quantile_profile(household: Household, ev_name: str) -> list[float]:
+    # Use oracle EV buy-price profile directly; this is equivalent to a
+    # "last day profile" (same quartiles)
+    profile = household.oracle_profiles.get(f"{ev_name}_buy_price", [])
+    if profile:
+        return [float(value) for value in profile]
+    return household.buy_price_day_profile
+
+
 def _is_trajectory_urgent(
     current_soc: float,
     target_soc: float,
@@ -151,7 +160,7 @@ def waterfall_policy(household: Household, scenario: Scenario|None = None) -> di
         blocked_steps = _estimated_unavailable_steps(ev.name, t, deadline)
         remaining_steps = max(1, raw_remaining_steps - blocked_steps)
 
-        ev_profile = getattr(household, f"{ev.name}_buy_price_day_profile", household.buy_price_day_profile)
+        ev_profile = _ev_quantile_profile(household, ev.name)
         ev_q25, ev_q75 = _price_quartiles(ev_profile)
         ev_price_cheap = ev_q25 is not None and ev.buy_price <= ev_q25
         ev_price_expensive = ev_q75 is not None and ev.buy_price >= ev_q75
