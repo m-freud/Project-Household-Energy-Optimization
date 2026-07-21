@@ -2,6 +2,6 @@
 class PV:
     def __init__(
             self,
-            generation=0
+            generation=0.0,
             ):
         self.generation = generation

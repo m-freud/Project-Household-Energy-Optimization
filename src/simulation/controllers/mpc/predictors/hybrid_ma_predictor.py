@@ -19,18 +19,15 @@ class HybridMAPredictor(BasePredictor):
 
     Tunables are intentionally small:
     - ``window_size``: moving-average window used for base load and PV
-    - ``persistence_range``: number of initial steps that keep the last observed value
     - ``conf_interval_frct``: width factor for point-forecast bands
     """
 
     def __init__(
         self,
         window_size: int = 96,
-        persistence_range: int = 1,
         conf_interval_frct: float = 0.1,
     ):
         self.window_size = max(1, int(window_size))
-        self.persistence_range = max(0, int(persistence_range))
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
 
     def predict(self, household: Household, horizon: int) -> dict[str, list[float]]:
