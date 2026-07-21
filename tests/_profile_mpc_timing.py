@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from src.simulation.simulation import Simulation
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.controllers.mpc.mpc_controller import MPCController
-from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
+from simulation.controllers.mpc.predictors.hybrid_avg_persist_predictor import HybridAvgPersistPredictor
 from src.sqlite_connection import create_sqlite_connection
 
 PLAYER_ID = 1
@@ -32,7 +32,7 @@ def main():
         run_context = SimpleNamespace(scenario=scenario, start_time=1)
         household = sim.create_household(PLAYER_ID, run_context)
 
-        predictor = HybridMAPredictor(window_size=96, conf_interval_frct=0.0)
+        predictor = HybridAvgPersistPredictor(window_size=96, conf_interval_frct=0.0)
 
         controller = MPCController(
             name="profile_hybrid_ma",
