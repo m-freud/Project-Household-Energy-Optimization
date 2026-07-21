@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.simulation.controllers.mpc.predictors.hybrid_ma.ev_status import (
+from src.simulation.controllers.mpc.predictors.hybrid_ap.ev_status import (
     _worst_case_two_commute_starts,
     predict_ev_status,
 )

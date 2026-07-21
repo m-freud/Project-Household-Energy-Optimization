@@ -4,7 +4,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from typing import Callable
-from src.simulation.controllers.mpc.predictors.hybrid_ma_predictor import HybridMAPredictor
+from src.simulation.controllers.mpc.predictors.hybrid_avg_persist_predictor import HybridAvgPersistPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -434,16 +434,16 @@ class Simulation:
         # update ev1
         if ev1:
             ev1.load = profiles["ev1_load"][profile_time_index]
-            ev1.at_home = profiles["ev1_at_home"][profile_time_index]
-            ev1.at_charging_station = profiles["ev1_at_charging_station"][profile_time_index]
+            ev1.at_home = profiles["ev1_at_home"][profile_time_index] > 0
+            ev1.at_charging_station = profiles["ev1_at_charging_station"][profile_time_index] > 0
             ev1.buy_price = profiles["ev1_buy_price"][profile_time_index]
             ev1.max_charge = profiles["ev1_max_charge"][profile_time_index]
 
         # update ev2
         if ev2:
             ev2.load = profiles["ev2_load"][profile_time_index]
-            ev2.at_home = profiles["ev2_at_home"][profile_time_index]
-            ev2.at_charging_station = profiles["ev2_at_charging_station"][profile_time_index]
+            ev2.at_home = profiles["ev2_at_home"][profile_time_index] > 0
+            ev2.at_charging_station = profiles["ev2_at_charging_station"][profile_time_index] > 0
             ev2.buy_price = profiles["ev2_buy_price"][profile_time_index]
             ev2.max_charge = profiles["ev2_max_charge"][profile_time_index]
 
@@ -712,12 +712,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--parallel-households",
         action="store_true",
+        default=True,
         help="Run households in parallel using process workers",
     )
     parser.add_argument(
         "--parallel-workers",
         type=int,
-        default=None,
+        default=6,
         help="Number of worker processes for --parallel-households (default: Python decides)",
     )
     args = parser.parse_args()
@@ -727,22 +728,21 @@ if __name__ == "__main__":
     sim = Simulation(sqlite_conn)
 
     controller_factories_by_name = {
-        "no_control": make_function_controller("no_control", no_control),
-        "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
-        "even_linear": make_function_controller("even_linear", even_linear_policy),
+        # "no_control": make_function_controller("no_control", no_control),
+        # "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
+        # "even_linear": make_function_controller("even_linear", even_linear_policy),
         "price_aware_linear": make_function_controller(
             "price_aware_linear",
-            partial(price_aware_linear, default_behaviour="even_linear"),
+            partial(price_aware_linear, base_behaviour="even_linear"),
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
-        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, duration_hours=sim.duration_hours),
-        "mpc_hybrid_moving_average": make_mpc_controller(
-            "mpc_hybrid_moving_average",
+        "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, predictor=OraclePredictor()),
+        "mpc_hybrid": make_mpc_controller(
+            "mpc_hybrid",
             horizon=96,
-            predictor=HybridMAPredictor(
+            predictor=HybridAvgPersistPredictor(
                 window_size=96,
                 conf_interval_frct=0.0,
-                persistence_range=0,
             ),
         ),
     }
