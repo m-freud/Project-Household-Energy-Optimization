@@ -24,15 +24,11 @@ class HybridRunningAvgPredictor(BasePredictor):
 
     def __init__(
         self,
-        window_size: int = 96,
         conf_interval_frct: float = 0.1,
     ):
-        self.window_size = max(1, int(window_size))
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
 
     def predict(self, household: Household, horizon: int) -> dict[str, list[float]]:
-        horizon = max(0, int(horizon))
-
         base_load = predict_base_load(
             household,
             horizon,
