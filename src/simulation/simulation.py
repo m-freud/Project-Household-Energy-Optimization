@@ -4,7 +4,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from typing import Callable
-from src.simulation.controllers.mpc.predictors.hybrid_avg_persist_predictor import HybridAvgPersistPredictor
+from simulation.controllers.mpc.predictors.hybrid_running_avg_predictor import HybridRunningAvgPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -740,7 +740,7 @@ if __name__ == "__main__":
         "mpc_hybrid": make_mpc_controller(
             "mpc_hybrid",
             horizon=96,
-            predictor=HybridAvgPersistPredictor(
+            predictor=HybridRunningAvgPredictor(
                 window_size=96,
                 conf_interval_frct=0.0,
             ),

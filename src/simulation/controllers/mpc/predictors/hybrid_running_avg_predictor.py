@@ -14,7 +14,7 @@ from src.simulation.controllers.mpc.predictors.hybrid_ap import (
 from src.simulation.household import Household
 
 
-class HybridAvgPersistPredictor(BasePredictor):
+class HybridRunningAvgPredictor(BasePredictor):
     """Hybrid average persist predictor assembled from profile-specific helper functions.
 
     Tunables are intentionally small:

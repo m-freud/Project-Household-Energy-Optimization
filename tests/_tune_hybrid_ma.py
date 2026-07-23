@@ -16,7 +16,7 @@ if repo_root is None:
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.hybrid_avg_persist_predictor import HybridAvgPersistPredictor
+from simulation.controllers.mpc.predictors.hybrid_running_avg_predictor import HybridRunningAvgPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, make_mpc_controller
@@ -146,7 +146,7 @@ def run_config(
 ) -> tuple[str, str]:
     policy_name = build_policy_name(config, run_tag)
 
-    predictor = HybridAvgPersistPredictor(
+    predictor = HybridRunningAvgPredictor(
         window_size=config.window_size,
         persistence_range=config.persistence_range,
         conf_interval_frct=config.conf_interval_frct,

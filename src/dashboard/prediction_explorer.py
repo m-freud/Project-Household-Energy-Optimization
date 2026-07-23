@@ -10,7 +10,7 @@ import numpy as np
 import streamlit as st
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.hybrid_avg_persist_predictor import HybridAvgPersistPredictor
+from simulation.controllers.mpc.predictors.hybrid_running_avg_predictor import HybridRunningAvgPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -48,7 +48,7 @@ def _build_predictor(
     ma3_interval_width: float,
 ):
     if predictor_name == "hybrid_avg_persist":
-        return HybridAvgPersistPredictor(
+        return HybridRunningAvgPredictor(
             conf_interval_frct=ma3_interval_width,
         )
     return OraclePredictor()
