@@ -741,7 +741,6 @@ if __name__ == "__main__":
             "mpc_hybrid",
             horizon=96,
             predictor=HybridRunningAvgPredictor(
-                window_size=96,
                 conf_interval_frct=0.0,
             ),
         ),

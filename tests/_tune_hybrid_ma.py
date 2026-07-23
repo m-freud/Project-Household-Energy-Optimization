@@ -147,8 +147,6 @@ def run_config(
     policy_name = build_policy_name(config, run_tag)
 
     predictor = HybridRunningAvgPredictor(
-        window_size=config.window_size,
-        persistence_range=config.persistence_range,
         conf_interval_frct=config.conf_interval_frct,
     )
 
