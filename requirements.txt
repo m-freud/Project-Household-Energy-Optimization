@@ -1,6 +1,7 @@
-pandas
-openpyxl
+cvxpy
 dotenv
 matplotlib
+openpyxl
+pandas
 streamlit
-cvxpy
+xgboost
