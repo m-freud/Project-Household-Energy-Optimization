@@ -5,7 +5,7 @@ from src.simulation.household import Household
 
 # Predictors for base_load, pv_gen
 
-def _forecast_historical_average(
+def _forecast_running_average(
     values: list[float],
     horizon: int,
     default: float = 0.0, # default value if no history is available, most profiles start low
@@ -14,7 +14,6 @@ def _forecast_historical_average(
     forecast = [hist_avg] * horizon
     forecast[0] = float(values[-1]) if values else float(default)
     return forecast
-
 
 
 def _history_values(household: Household, key: str) -> list[float]:
@@ -57,7 +56,7 @@ def predict_base_load(
     horizon: int,
     interval_width_fraction: float = 0.1,
 ) -> dict[str, list[float]]:
-    base_load_series = _forecast_historical_average(
+    base_load_series = _forecast_running_average(
         values=_history_values(household, "base_load"),
         horizon=horizon,
         default=float(household.base_load),
@@ -81,7 +80,7 @@ def predict_pv_gen(
         if t >= Config.PV_GENERATION_WINDOW_OBSERVED["earliest_start"]:
             values_since_sunlight.append(float(val))
 
-    pv_series = _forecast_historical_average(
+    pv_series = _forecast_running_average(
         values=values_since_sunlight,
         horizon=horizon,
         default=float(household.pv_gen),

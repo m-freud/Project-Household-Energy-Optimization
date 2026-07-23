@@ -122,7 +122,7 @@ def _predict_single_ev_status(
         elif ev_at_station_now:
             # ev is at station, update start 1 to first non-home timestep in history
             # and end 1 to last non-station timestep in history
-            start_1 = next((int(t) for t, at_home in ev_at_home_history.items() if at_home < 1), None)
+            start_1 = next((int(t) for t, at_home in ev_at_home_history.items() if at_home < 1), start_1) # fallback doesn't matter, we are already at station
             first_station_timestep = next((int(t) for t, at_station in ev_at_station_history.items() if at_station > 0), current_timestep)
             end_1 = first_station_timestep - 1
 
@@ -144,7 +144,7 @@ def _predict_single_ev_status(
         elif ev_at_home_now:
             # ev is back at home, update start 2 to first non-station timestep in history
             # and end 2 to last non-home timestep in history
-            start_2 = next((int(t) for t, at_station in ev_at_station_history.items() if t >= start_2_earliest and at_station < 1), None)
+            start_2 = next((int(t) for t, at_station in ev_at_station_history.items() if t >= start_2_earliest and at_station < 1), start_2) # fallback doesn't matter, we are already back home
             first_home_timestep = next((int(t) for t, at_home in ev_at_home_history.items() if t >= start_2_earliest and at_home > 0), current_timestep)
             end_2 = first_home_timestep - 1
     
