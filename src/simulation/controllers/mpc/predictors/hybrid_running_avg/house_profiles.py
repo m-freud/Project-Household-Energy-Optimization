@@ -95,31 +95,31 @@ def predict_pv_gen(
     }
 
 
-def predict_house_profiles(
-    household: Household,
-    horizon: int,
-    interval_width_fraction: float = 0.1,
-) -> dict[str, list[float]]:
-    """Predict household-level continuous profiles.
+# def predict_house_profiles(
+#     household: Household,
+#     horizon: int,
+#     interval_width_fraction: float = 0.1,
+# ) -> dict[str, list[float]]:
+#     """Predict household-level continuous profiles.
 
-    Current implementation:
-    - base_load, pv_gen: one-window flat moving average after persistence steps
-    - base_load/pv_gen forecast bands: simple percent envelope around point forecast
-    """
+#     Current implementation:
+#     - base_load, pv_gen: one-window flat moving average after persistence steps
+#     - base_load/pv_gen forecast bands: simple percent envelope around point forecast
+#     """
 
-    payload: dict[str, list[float]] = {}
-    payload.update(
-        predict_base_load(
-            household,
-            horizon,
-            interval_width_fraction=interval_width_fraction,
-        )
-    )
-    payload.update(
-        predict_pv_gen(
-            household,
-            horizon,
-            interval_width_fraction=interval_width_fraction,
-        )
-    )
-    return payload
+#     payload: dict[str, list[float]] = {}
+#     payload.update(
+#         predict_base_load(
+#             household,
+#             horizon,
+#             interval_width_fraction=interval_width_fraction,
+#         )
+#     )
+#     payload.update(
+#         predict_pv_gen(
+#             household,
+#             horizon,
+#             interval_width_fraction=interval_width_fraction,
+#         )
+#     )
+#     return payload
