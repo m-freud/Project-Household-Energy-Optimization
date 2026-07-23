@@ -73,7 +73,7 @@ def _worst_case_commute_times(
     return start_1, end_1, start_2, end_2
 
 
-def _predict_single_ev_status(
+def predict_single_ev_status(
         household: Household,
         ev_key: str,
         horizon: int,
@@ -179,8 +179,8 @@ def predict_ev_status(
 ) -> dict[str, list[float]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
     
-    ev1_at_home, ev1_at_charging_station = _predict_single_ev_status(household, "ev1", horizon)
-    ev2_at_home, ev2_at_charging_station = _predict_single_ev_status(household, "ev2", horizon)
+    ev1_at_home, ev1_at_charging_station = predict_single_ev_status(household, "ev1", horizon)
+    ev2_at_home, ev2_at_charging_station = predict_single_ev_status(household, "ev2", horizon)
 
     return {
         "ev1_at_home": ev1_at_home,

@@ -1,6 +1,5 @@
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 
-
 from src.simulation.controllers.mpc.predictors.xgboost import (
     predict_base_load,
     predict_pv_gen,
@@ -15,6 +14,7 @@ from src.simulation.controllers.mpc.predictors.hybrid_running_avg import (
     predict_sell_price_home,
 )
 from src.simulation.household import Household
+from xgboost import XGBClassifier, XGBRegressor
 
 class XGBPredictor(BasePredictor):
     """
@@ -32,23 +32,34 @@ class XGBPredictor(BasePredictor):
 
     def __init__(
             self,
+            base_load_regressor: XGBRegressor, # let simulation handle the model imports
+            pv_gen_regressor: XGBRegressor,
+            ev_status_classifier: XGBClassifier
     ):
-        pass
+        self.predictors = {
+            "base_load": base_load_regressor,
+            "pv_gen": pv_gen_regressor,
+            "ev_status": ev_status_classifier
+        }
+
 
     def predict(self, household: Household, horizon: int) -> dict:
         prediction: dict[str, list[float]] = {}
 
         base_load = predict_base_load(
-            household,
-            horizon,
+            model=self.predictors["base_load"],
+            household=household,
+            horizon=horizon,
         )
         pv_gen = predict_pv_gen(
-            household,
-            horizon,
+            model=self.predictors["pv_gen"],
+            household=household,
+            horizon=horizon,
         )
         ev_status = predict_ev_status(
-            household,
-            horizon,
+            model=self.predictors["ev_status"],
+            household=household,
+            horizon=horizon,
         )
         
         ev_load = predict_ev_load(household, horizon, ev_status)

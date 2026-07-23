@@ -4,6 +4,7 @@ from src.simulation.controllers.mpc.predictors.hybrid_running_avg.house_profiles
 )
 from src.simulation.controllers.mpc.predictors.hybrid_running_avg.ev_status import (
     predict_ev_status,
+    predict_single_ev_status,
 )
 from src.simulation.controllers.mpc.predictors.hybrid_running_avg.ev_profiles import (
     predict_ev_load,
@@ -23,6 +24,7 @@ __all__ = [
     "predict_pv_gen",
     "predict_ev_load",
     "predict_ev_status",
+    "predict_single_ev_status",
     "predict_ev_max_charge",
     "predict_buy_price_home",
     "predict_sell_price_home",
