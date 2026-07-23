@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.hybrid_ap import (
+from src.simulation.controllers.mpc.predictors.hybrid_running_avg import (
     predict_base_load,
     predict_pv_gen,
     predict_ev_status,
