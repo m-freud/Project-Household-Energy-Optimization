@@ -11,23 +11,25 @@ from src.config import Config
 
 def _has_been_observed_ev_at_station(household: Household, ev_key: str) -> bool:
     """
-    Checks if the household has been observed at the station.
+    Checks if the household has been observed at the charging station.
 
     Args:
         household (Household): The household to check.
         ev_key (str): The key identifying the EV.
     """
-    if getattr(household, f"{ev_key}_at_station", None):
+    if getattr(household, f"{ev_key}_at_charging_station", None):
         return True
-    
-    at_station_history = getattr(household, f"{ev_key}_at_station_history", None)
-    if at_station_history and any(at_station_history):
+
+    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
+    if at_station_history and any(at_station_history.values()):
         return True
-    
+
     return False
 
 
 def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
+    state_transitions = getattr(household, f"{ev_key}_state_transitions")
+
     ev_status_data = {
         # current time encoded cyclically -> reflect evening/morning proximity
         "current_time": encode_time_cyclic(household.current_timestep, Config.TOTAL_TIMESTEPS_DAY),
@@ -41,22 +43,29 @@ def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
         "max_unavailable_steps_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["max_unavailable_steps"],
 
         # current states
-        "at_station_now": getattr(household, f"{ev_key}_at_station", 0),
+        "at_station_now": getattr(household, f"{ev_key}_at_charging_station", 0),
         "at_home_now": getattr(household, f"{ev_key}_at_home", 0),
 
         # histories
-        "at_station_history": getattr(household.history, f"{ev_key}_at_charging_station", []),
-        "at_home_history": getattr(household.history, f"{ev_key}_at_home", []),
+        "at_station_history": household.history.get(f"{ev_key}_at_charging_station", {}),
+        "at_home_history": household.history.get(f"{ev_key}_at_home", {}),
 
         # observed state transitions
-        "start_1": ""
+        "start1": state_transitions["start1"],
+        "end1": state_transitions["end1"],
+        "start2": state_transitions["start2"],
+        "end2": state_transitions["end2"],
     }
+    
     return ev_status_data
 
 
 
-def _build_ev_status_features(household: Household, ev_key: str, horizon:int)-> dict:
+def _build_ev_status_features(ev_status_data)-> dict:
     features = {
+        "current_time_sin": ev_status_data["current_time"][0],
+        "current_time_cos": ev_status_data["current_time"][1],
+
     }
     return features
 
@@ -79,7 +88,8 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         return predict_ev_status_worst_case(household, ev_key, horizon)
     else:
         # Phase 2: Use XGBoost model for prediction
-        features = _build_ev_status_features(household, ev_key, horizon)
+        ev_status_data = _fetch_ev_status_data(household, ev_key)
+        features = _build_ev_status_features(ev_status_data)
         pred = model.predict(features)
         return pred[:, 0], pred[:, 1]
 
