@@ -365,16 +365,16 @@ class Household:
     def ev1_state_transitions(self):
         return {
             "start1": next((t for t, at_home in self.history["ev1_at_home"].items() if at_home < 1), None), # first non-home
-            "end1": next((t for t, at_station in self.history["ev1_at_charging_station"].items() if at_station > 0), None), # first at station
+            "end1": next((t-1 for t, at_station in self.history["ev1_at_charging_station"].items() if at_station > 0), None), # last before station (first at station - 1)
             "start2": next((t for t, at_station in self.history["ev1_at_charging_station"].items() if at_station < 1 and any(self.history["ev1_at_charging_station"].values())), None), # first non-station after station,
-            "end2": next((t for t, at_home in self.history["ev1_at_home"].items() if at_home > 0 and any(self.history["ev1_at_charging_station"].values())), None) # first at home after station
+            "end2": next((t-1 for t, at_home in self.history["ev1_at_home"].items() if at_home > 0 and any(self.history["ev1_at_charging_station"].values())), None) # last before home(first at home after station -1)
         }
 
     @property
     def ev2_state_transitions(self):
         return {
             "start1": next((t for t, at_home in self.history["ev2_at_home"].items() if at_home < 1), None), # first non-home
-            "end1": next((t for t, at_station in self.history["ev2_at_charging_station"].items() if at_station > 0), None), # first at station
+            "end1": next((t-1 for t, at_station in self.history["ev2_at_charging_station"].items() if at_station > 0), None), # last before station (first at station - 1)
             "start2": next((t for t, at_station in self.history["ev2_at_charging_station"].items() if at_station < 1 and any(self.history["ev2_at_charging_station"].values())), None), # first non-station after station,
-            "end2": next((t for t, at_home in self.history["ev2_at_home"].items() if at_home > 0 and any(self.history["ev2_at_charging_station"].values())), None) # first at home after station
+            "end2": next((t-1 for t, at_home in self.history["ev2_at_home"].items() if at_home > 0 and any(self.history["ev2_at_charging_station"].values())), None) # last before home(first at home after station -1)
         }
