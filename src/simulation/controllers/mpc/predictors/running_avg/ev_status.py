@@ -117,7 +117,7 @@ def predict_single_ev_status(
                 end_1 = min(end_1_latest, start_1 + max_commute_time_1 - 1)
         elif not ev_at_home_now and not ev_at_station_now:
             # ev is driving, update start 1 to first non-home timestep in history
-            start_1 = next((int(t) for t, at_home in ev_at_home_history.items() if at_home < 1), current_timestep)
+            start_1 = next((t for t, at_home in ev_at_home_history.items() if at_home < 1), current_timestep)
             end_1 = min(end_1_latest, start_1 + max_commute_time_1 - 1)
         elif ev_at_station_now:
             # ev is at station, update start 1 to first non-home timestep in history
