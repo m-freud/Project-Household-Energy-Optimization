@@ -360,3 +360,21 @@ class Household:
     @property
     def total_cost(self):
         return sum(self.history["net_cost"].values()) * 0.25 + self.base_cost
+
+    @property
+    def ev1_state_transitions(self):
+        return {
+            "start1": next((t for t, at_home in self.history["ev1_at_home"].items() if at_home < 1), None), # first non-home
+            "end1": next((t for t, at_station in self.history["ev1_at_charging_station"].items() if at_station > 0), None), # first at station
+            "start2": next((t for t, at_station in self.history["ev1_at_charging_station"].items() if at_station < 1 and any(self.history["ev1_at_charging_station"].values())), None), # first non-station after station,
+            "end2": next((t for t, at_home in self.history["ev1_at_home"].items() if at_home > 0 and any(self.history["ev1_at_charging_station"].values())), None) # first at home after station
+        }
+
+    @property
+    def ev2_state_transitions(self):
+        return {
+            "start1": next((t for t, at_home in self.history["ev2_at_home"].items() if at_home < 1), None), # first non-home
+            "end1": next((t for t, at_station in self.history["ev2_at_charging_station"].items() if at_station > 0), None), # first at station
+            "start2": next((t for t, at_station in self.history["ev2_at_charging_station"].items() if at_station < 1 and any(self.history["ev2_at_charging_station"].values())), None), # first non-station after station,
+            "end2": next((t for t, at_home in self.history["ev2_at_home"].items() if at_home > 0 and any(self.history["ev2_at_charging_station"].values())), None) # first at home after station
+        }
