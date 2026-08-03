@@ -1,7 +1,7 @@
 
 from src.simulation.household import Household
 
-from src.simulation.controllers.mpc.predictors.hybrid_running_avg import (
+from src.simulation.controllers.mpc.predictors.running_avg import (
     predict_single_ev_status as predict_ev_status_worst_case,
 )
 

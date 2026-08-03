@@ -10,7 +10,7 @@ import numpy as np
 import streamlit as st
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.hybrid_running_avg_predictor import HybridRunningAvgPredictor
+from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -22,7 +22,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
-    "hybrid_avg_persist": "hybrid_avg_persist_controller",
+    "running_avg": "running_avg",
 }
 
 PROFILE_OPTIONS = [
@@ -47,8 +47,8 @@ def _build_predictor(
     predictor_name: str,
     ma3_interval_width: float,
 ):
-    if predictor_name == "hybrid_avg_persist":
-        return HybridRunningAvgPredictor(
+    if predictor_name == "running_avg":
+        return RunningAvgPredictor(
             conf_interval_frct=ma3_interval_width,
         )
     return OraclePredictor()
@@ -127,8 +127,8 @@ def _build_default_policy_name(
     ma3_interval_width: float,
 ) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if predictor_name == "hybrid_avg_persist":
-        return f"mpc_hybrid_avg_persist_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
+    if predictor_name == "running_avg":
+        return f"mpc_running_avg_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
     return f"mpc_oracle_{timestamp}"
 
 
@@ -189,7 +189,7 @@ def render_prediction_explorer(
         selected_predictors = st.multiselect(
             "Predictors",
             options=list(PREDICTOR_OPTIONS.keys()),
-            default=["hybrid_avg_persist"],
+            default=["running_avg"],
             key="pred_predictors",
             format_func=lambda value: PREDICTOR_OPTIONS[value],
         )
@@ -310,7 +310,7 @@ def render_prediction_explorer(
                 label=f"pred ({predictor_name})",
             )
 
-            if predictor_name == "hybrid_avg_persist" and profile_name in {"base_load", "pv_gen"}:
+            if predictor_name == "running_avg" and profile_name in {"base_load", "pv_gen"}:
                 lb_key = f"{profile_name}_lb"
                 ub_key = f"{profile_name}_ub"
                 lb = predicted.get(lb_key, [])

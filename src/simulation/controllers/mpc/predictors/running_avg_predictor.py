@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.hybrid_running_avg import (
+from src.simulation.controllers.mpc.predictors.running_avg import (
     predict_base_load,
     predict_pv_gen,
     predict_ev_status,
@@ -14,8 +14,8 @@ from src.simulation.controllers.mpc.predictors.hybrid_running_avg import (
 from src.simulation.household import Household
 
 
-class HybridRunningAvgPredictor(BasePredictor):
-    """Hybrid average persist predictor assembled from profile-specific helper functions.
+class RunningAvgPredictor(BasePredictor):
+    """Running average predictor assembled from profile-specific helper functions.
 
     Tunables are intentionally small:
     - ``window_size``: moving-average window used for base load and PV
