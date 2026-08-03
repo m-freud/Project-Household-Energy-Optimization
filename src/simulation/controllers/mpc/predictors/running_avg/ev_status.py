@@ -19,7 +19,7 @@ def _worst_case_commute_times(
     """
     start_1, end_1, start_2, end_2 = 0, 0, 0, 0
 
-    allowed_commute_windows = Config.EV_UNAVAILABLE_WINDOWS_ALLOWED[ev_key]
+    allowed_commute_windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
 
     start_1_earliest = int(allowed_commute_windows[0]["earliest_start"])
     end_1_latest = int(allowed_commute_windows[0]["latest_end"])
@@ -83,7 +83,7 @@ def predict_single_ev_status(
     Uses list of state strings internally and translates to binary home/station profiles.
     """
     current_timestep = household.current_timestep
-    allowed_commute_windows = Config.EV_UNAVAILABLE_WINDOWS_ALLOWED[ev_key]
+    allowed_commute_windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
 
     end_1_latest = int(allowed_commute_windows[0]["latest_end"])
     max_commute_time_1 = allowed_commute_windows[0]["max_unavailable_steps"]

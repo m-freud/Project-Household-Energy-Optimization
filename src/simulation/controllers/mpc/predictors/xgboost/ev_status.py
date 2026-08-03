@@ -4,8 +4,9 @@ from src.simulation.controllers.mpc.predictors.running_avg import (
     predict_single_ev_status as predict_ev_status_worst_case,
 )
 
-
 from xgboost import XGBClassifier
+
+from src.config import Config
 
 
 def _has_been_observed_ev_at_station(household: Household, ev_key: str) -> bool:
@@ -27,9 +28,11 @@ def _has_been_observed_ev_at_station(household: Household, ev_key: str) -> bool:
 
 
 def _get_features_for_ev_status(household: Household, ev_key: str, horizon:int)-> list[list[float]]:
-    features = [[0.0] * 10 for _ in range(horizon)]  # Example: 10 features, all zeros
+    features = {
+        "current_timestep": household.current_timestep,
+        "earliest_start_1": Config
+    }
     return features
-
 
 
 def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int) -> tuple[list[float], list[float]]:
@@ -46,15 +49,13 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     """
     # If the household has been observed at the station, use worst-case prediction
     if not _has_been_observed_ev_at_station(household, ev_key):
-        # Phase 1
+        # Phase 1 - Use worst-case prediction based like in running average predictor
         return predict_ev_status_worst_case(household, ev_key, horizon)
     else:
+        # Phase 2: Use XGBoost model for prediction
         features = _get_features_for_ev_status(household, ev_key, horizon)
         pred = model.predict(features)
         return pred[:, 0], pred[:, 1]
-
-    
-
 
 
 def predict_ev_status(
