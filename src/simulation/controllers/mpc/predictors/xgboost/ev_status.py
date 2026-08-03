@@ -1,4 +1,3 @@
-
 from src.simulation.household import Household
 
 from src.simulation.controllers.mpc.predictors.running_avg import (
@@ -50,9 +49,9 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         # Phase 1
         return predict_ev_status_worst_case(household, ev_key, horizon)
     else:
-        features = _get_features_for_ev_status
+        features = _get_features_for_ev_status(household, ev_key, horizon)
         pred = model.predict(features)
-        return pred
+        return pred[:, 0], pred[:, 1]
 
     
 
