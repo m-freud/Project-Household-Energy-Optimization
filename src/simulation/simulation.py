@@ -4,7 +4,8 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from typing import Callable
-from simulation.controllers.mpc.predictors.running_avg_predictor import HybridRunningAvgPredictor
+from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
+from simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -22,6 +23,9 @@ from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.config import Config
+
+from xgboost import XGBClassifier, XGBRegressor
+
 
 
 DEFAULT_HISTORY_MEASUREMENTS = [
@@ -727,6 +731,25 @@ if __name__ == "__main__":
     # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
+    model_paths = {
+        "base_load": "ABC/xgb_base_load_model.json",
+        "pv_gen": "ABC/xgb_pv_gen_model.json",
+        "ev_status": "ABC/xgb_ev_status_model.json",
+    }
+
+    xgb_models = {
+        "base_load": XGBRegressor(),
+        "pv_gen": XGBRegressor(),
+        "ev_status": XGBClassifier(),
+    }
+
+    for model_name, model_path in model_paths.items():
+        try:
+            xgb_models[model_name].load_model(model_path)
+        except Exception as e:
+            print(f"Failed to load XGBoost model '{model_name}' from '{model_path}': {e}")
+            xgb_models[model_name] = None
+
     controller_factories_by_name = {
         # "no_control": make_function_controller("no_control", no_control),
         # "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
@@ -740,8 +763,17 @@ if __name__ == "__main__":
         "mpc_running_avg": make_mpc_controller(
             "mpc_running_avg",
             horizon=96,
-            predictor=HybridRunningAvgPredictor(
+            predictor=RunningAvgPredictor(
                 conf_interval_frct=0.0,
+            ),
+        ),
+        "mpc_xgb": make_mpc_controller(
+            "mpc_xgb",
+            horizon=96,
+            predictor=XGBPredictor(
+                base_load_regressor=xgb_models["base_load"],
+                pv_gen_regressor=xgb_models["pv_gen"],
+                ev_status_classifier=xgb_models["ev_status"],
             ),
         ),
     }
