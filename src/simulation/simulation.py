@@ -4,7 +4,7 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from typing import Callable
-from simulation.controllers.mpc.predictors.hybrid_running_avg_predictor import HybridRunningAvgPredictor
+from simulation.controllers.mpc.predictors.running_avg_predictor import HybridRunningAvgPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -737,8 +737,8 @@ if __name__ == "__main__":
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
         "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, predictor=OraclePredictor()),
-        "mpc_hybrid": make_mpc_controller(
-            "mpc_hybrid",
+        "mpc_running_avg": make_mpc_controller(
+            "mpc_running_avg",
             horizon=96,
             predictor=HybridRunningAvgPredictor(
                 conf_interval_frct=0.0,
