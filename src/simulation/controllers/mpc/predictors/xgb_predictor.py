@@ -6,7 +6,7 @@ from src.simulation.controllers.mpc.predictors.xgboost import (
     predict_ev_status,
 )
 
-from src.simulation.controllers.mpc.predictors.running_avg import (
+from src.simulation.controllers.mpc.predictors.shared import (
     predict_ev_load,
     predict_ev_max_charge,
     predict_ev_buy_price,
