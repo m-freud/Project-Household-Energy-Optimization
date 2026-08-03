@@ -18,7 +18,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 class XGBPredictor(BasePredictor):
     """
-    Part XGBoost, part helper functions like in HyRuAvg
+    Part XGBoost, part helper functions like in RuAvg
 
     base_load: xgboost
     pv_gen: xgboost
