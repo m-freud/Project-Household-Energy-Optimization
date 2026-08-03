@@ -14,6 +14,7 @@ class Config:
     SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy.db")))
 
     DURATION_TIMESTEP = 0.25 # 4 per hour
+    TOTAL_TIMESTEPS_DAY = int(24 / DURATION_TIMESTEP)
 
     # observed ev availabilities
     EV_COMMUTE_WINDOWS_OBSERVED = {

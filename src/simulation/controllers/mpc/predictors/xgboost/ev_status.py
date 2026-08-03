@@ -1,5 +1,5 @@
 from src.simulation.household import Household
-
+from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.running_avg import (
     predict_single_ev_status as predict_ev_status_worst_case,
 )
@@ -27,10 +27,36 @@ def _has_been_observed_ev_at_station(household: Household, ev_key: str) -> bool:
     return False
 
 
-def _get_features_for_ev_status(household: Household, ev_key: str, horizon:int)-> list[list[float]]:
+def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
+    ev_status_data = {
+        # current time encoded cyclically -> reflect evening/morning proximity
+        "current_time": encode_time_cyclic(household.current_timestep, Config.TOTAL_TIMESTEPS_DAY),
+
+        # config
+        "earliest_start_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["earliest_start"],
+        "latest_end_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["latest_end"],
+        "earliest_start_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["earliest_start"],
+        "latest_end_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["latest_end"],
+        "max_unavailable_steps_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["max_unavailable_steps"],
+        "max_unavailable_steps_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["max_unavailable_steps"],
+
+        # current states
+        "at_station_now": getattr(household, f"{ev_key}_at_station", 0),
+        "at_home_now": getattr(household, f"{ev_key}_at_home", 0),
+
+        # histories
+        "at_station_history": getattr(household.history, f"{ev_key}_at_charging_station", []),
+        "at_home_history": getattr(household.history, f"{ev_key}_at_home", []),
+
+        # observed state transitions
+        "start_1": ""
+    }
+    return ev_status_data
+
+
+
+def _build_ev_status_features(household: Household, ev_key: str, horizon:int)-> dict:
     features = {
-        "current_timestep": household.current_timestep,
-        "earliest_start_1": Config
     }
     return features
 
@@ -53,7 +79,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         return predict_ev_status_worst_case(household, ev_key, horizon)
     else:
         # Phase 2: Use XGBoost model for prediction
-        features = _get_features_for_ev_status(household, ev_key, horizon)
+        features = _build_ev_status_features(household, ev_key, horizon)
         pred = model.predict(features)
         return pred[:, 0], pred[:, 1]
 
