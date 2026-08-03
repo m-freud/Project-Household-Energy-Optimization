@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.config import Config
 from src.simulation.household import Household
+
 
 # Predictors for base_load, pv_gen
 
@@ -21,18 +23,6 @@ def _history_values(household: Household, key: str) -> list[float]:
     if not history:
         return []
     return [float(history[timestep]) for timestep in sorted(history)]
-
-
-def _make_band(series: list[float], width_fraction: float) -> tuple[list[float], list[float]]:
-    width_fraction = max(0.0, float(width_fraction))
-    lower = [max(0.0, value * (1.0 - width_fraction)) for value in series]
-    upper = [max(0.0, value * (1.0 + width_fraction)) for value in series]
-    # The first forecast point corresponds to a known current-state value,
-    # so its interval should have zero width.
-    if series:
-        lower[0] = float(series[0])
-        upper[0] = float(series[0])
-    return lower, upper
 
 
 def _apply_pv_window_mask(household: Household, series: list[float]) -> list[float]:
@@ -61,7 +51,7 @@ def predict_base_load(
         horizon=horizon,
         default=float(household.base_load),
     )
-    base_load_lb, base_load_ub = _make_band(base_load_series, interval_width_fraction)
+    base_load_lb, base_load_ub = make_band(base_load_series, interval_width_fraction)
 
     return {
         "base_load": base_load_series,
@@ -86,7 +76,7 @@ def predict_pv_gen(
         default=float(household.pv_gen),
     )
     pv_series = _apply_pv_window_mask(household, pv_series)
-    pv_lb, pv_ub = _make_band(pv_series, interval_width_fraction)
+    pv_lb, pv_ub = make_band(pv_series, interval_width_fraction)
 
     return {
         "pv_gen": pv_series,
