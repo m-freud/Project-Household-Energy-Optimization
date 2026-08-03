@@ -88,81 +88,62 @@ def predict_single_ev_status(
     end_1_latest = int(allowed_commute_windows[0]["latest_end"])
     max_commute_time_1 = allowed_commute_windows[0]["max_unavailable_steps"]
 
-    start_2_earliest = int(allowed_commute_windows[1]["earliest_start"])
     end_2_latest = int(allowed_commute_windows[1]["latest_end"])
     max_commute_time_2 = allowed_commute_windows[1]["max_unavailable_steps"]
 
-
     # Initialize forecasts with worst case assumption
-    start_1, end_1, start_2, end_2 = _worst_case_commute_times(household, ev_key)
+    start_1_pred, end_1_pred, start_2_pred, end_2_pred = _worst_case_commute_times(household, ev_key)
 
     # get status history and current status
-    ev_at_home_history = household.history[f"{ev_key}_at_home"]
-    ev_at_station_history = household.history[f"{ev_key}_at_charging_station"]
     ev_at_home_now = getattr(household, f"{ev_key}_at_home")
     ev_at_station_now = getattr(household, f"{ev_key}_at_charging_station")
 
-    # update prediction based on history and current status
+    # override worst-case predictions with observed state transitions if available
+    observed_state_transitions = getattr(household, f"{ev_key}_state_transitions")
+    start_1_pred = observed_state_transitions["start1"] or start_1_pred
+    end_1_pred = observed_state_transitions["end1"] or end_1_pred
+    start_2_pred = observed_state_transitions["start2"] or start_2_pred
+    end_2_pred = observed_state_transitions["end2"] or end_2_pred
 
-    # Phase 1
-    if current_timestep <= end_1_latest:
+    # update prediction based on history and current status
+    if not observed_state_transitions["start1"]:
         if ev_at_home_now:
             # ev is still at home
-            if current_timestep < start_1:
-                # like predicted
+            if current_timestep < start_1_pred: # like predicted
                 pass
             else:
-                # ev stays home longer than predicted, move prediction to next step
-                start_1 = current_timestep + 1
-                end_1 = min(end_1_latest, start_1 + max_commute_time_1 - 1)
-        elif not ev_at_home_now and not ev_at_station_now:
-            # ev is driving, update start 1 to first non-home timestep in history
-            start_1 = next((t for t, at_home in ev_at_home_history.items() if at_home < 1), current_timestep)
-            end_1 = min(end_1_latest, start_1 + max_commute_time_1 - 1)
-        elif ev_at_station_now:
-            # ev is at station, update start 1 to first non-home timestep in history
-            # and end 1 to last non-station timestep in history
-            start_1 = next((int(t) for t, at_home in ev_at_home_history.items() if at_home < 1), start_1) # fallback doesn't matter, we are already at station
-            first_station_timestep = next((int(t) for t, at_station in ev_at_station_history.items() if at_station > 0), current_timestep)
-            end_1 = first_station_timestep - 1
-
-    # Phase 2
-    if current_timestep >= start_2_earliest:
+                # ev stays home longer than predicted, move prediction to next step from now
+                # and update end 1 pred to respective worst case
+                start_1_pred = current_timestep + 1
+                end_1_pred = min(end_1_latest, start_1_pred + max_commute_time_1 - 1)
+    elif not observed_state_transitions["end1"]:
+        end_1_pred = min(end_1_latest, start_1_pred + max_commute_time_1 - 1)
+    elif not observed_state_transitions["start2"]:
         if ev_at_station_now:
             # ev is still at station
-            if current_timestep < start_2:
-                # like predicted
+            if current_timestep < start_2_pred: # like predicted
                 pass
-            else:
-                # ev stays at station longer than predicted, move prediction to next step
-                start_2 = current_timestep + 1
-                end_2 = min(end_2_latest, start_2 + max_commute_time_2 - 1)
-        elif not ev_at_home_now and not ev_at_station_now:
-            # ev is driving, update start 2 to first non-station timestep in history
-            start_2 = next((int(t) for t, at_station in ev_at_station_history.items() if t >= start_2_earliest and at_station < 1), current_timestep)
-            end_2 = min(end_2_latest, start_2 + max_commute_time_2 - 1)
-        elif ev_at_home_now:
-            # ev is back at home, update start 2 to first non-station timestep in history
-            # and end 2 to last non-home timestep in history
-            start_2 = next((int(t) for t, at_station in ev_at_station_history.items() if t >= start_2_earliest and at_station < 1), start_2) # fallback doesn't matter, we are already back home
-            first_home_timestep = next((int(t) for t, at_home in ev_at_home_history.items() if t >= start_2_earliest and at_home > 0), current_timestep)
-            end_2 = first_home_timestep - 1
-    
+            else: # ev stays at station longer than predicted, move prediction to next step from now
+                # and update end 2 pred to respective worst case
+                start_2_pred = current_timestep + 1
+                end_2_pred = min(end_2_latest, start_2_pred + max_commute_time_2 - 1)
+    elif not observed_state_transitions["end2"]:
+        end_2_pred = min(end_2_latest, start_2_pred + max_commute_time_2 - 1)
 
     # Generate predictions
     at_home_pred = []
     at_station_pred = []
     for t in range(current_timestep, current_timestep + horizon):
-        if t < start_1:
+        if t < start_1_pred:
             at_home_pred.append(1)
             at_station_pred.append(0)
-        elif start_1 <= t <= end_1:
+        elif start_1_pred <= t <= end_1_pred:
             at_home_pred.append(0)
             at_station_pred.append(0)
-        elif end_1 < t < start_2:
+        elif end_1_pred < t < start_2_pred:
             at_home_pred.append(0)
             at_station_pred.append(1)
-        elif start_2 <= t <= end_2:
+        elif start_2_pred <= t <= end_2_pred:
             at_home_pred.append(0)
             at_station_pred.append(0)
         else: # pad home to the right indefinetly. this only works because we dont care about day 2
@@ -171,7 +152,6 @@ def predict_single_ev_status(
         
     return at_home_pred, at_station_pred
     
-
 
 def predict_ev_status(
     household: Household,
