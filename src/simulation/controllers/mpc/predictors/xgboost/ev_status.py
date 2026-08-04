@@ -90,7 +90,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         # Phase 2: Use XGBoost model for prediction
         ev_status_data = _fetch_ev_status_data(household, ev_key)
         features = _build_ev_status_features(ev_status_data)
-        pred = model.predict(features)
+        pred = model.predict(features) #TODO this is wrong we need n timesteps
         return pred[:, 0], pred[:, 1]
 
 
