@@ -15,6 +15,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from xgboost import XGBClassifier
+from src.config import Config
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
 import pandas as pd
 import numpy as np
@@ -198,6 +199,138 @@ def _add_status_lag_features(
     return feature_df
 
 
+def _add_allowed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED
+
+    feature_df["start1_earliest"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][0]["earliest_start"]), "ev2": int(windows["ev2"][0]["earliest_start"])}
+    ).astype(int)
+    feature_df["end1_latest"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][0]["latest_end"]), "ev2": int(windows["ev2"][0]["latest_end"])}
+    ).astype(int)
+    feature_df["start2_earliest"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][1]["earliest_start"]), "ev2": int(windows["ev2"][1]["earliest_start"])}
+    ).astype(int)
+    feature_df["end2_latest"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][1]["latest_end"]), "ev2": int(windows["ev2"][1]["latest_end"])}
+    ).astype(int)
+    return feature_df
+
+
+def _add_max_commute_steps(feature_df: pd.DataFrame) -> pd.DataFrame:
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED
+
+    feature_df["max_commute_steps_1"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][0]["max_unavailable_steps"]), "ev2": int(windows["ev2"][0]["max_unavailable_steps"])}
+    ).astype(int)
+    feature_df["max_commute_steps_2"] = feature_df["ev_key"].map(
+        {"ev1": int(windows["ev1"][1]["max_unavailable_steps"]), "ev2": int(windows["ev2"][1]["max_unavailable_steps"])}
+    ).astype(int)
+    return feature_df
+
+
+def _add_times_to_boundary(feature_df: pd.DataFrame) -> pd.DataFrame:
+    boundary_columns = [
+        "start1_earliest",
+        "end1_latest",
+        "start2_earliest",
+        "end2_latest",
+    ]
+
+    missing = [column for column in boundary_columns if column not in feature_df.columns]
+    if missing:
+        raise ValueError(f"Missing boundary columns for time-to-boundary features: {missing}")
+
+    timestep = feature_df["timestep"].to_numpy()
+    for boundary_col in boundary_columns:
+        boundary = feature_df[boundary_col].to_numpy()
+        # Keep strictly non-zero values around the boundary: ... 2, 1, -1, -2, ...
+        values = np.where(timestep <= boundary, boundary - timestep + 1, boundary - timestep)
+        feature_df[f"steps_to_{boundary_col}"] = values.astype(int)
+
+    return feature_df
+
+
+def _add_observed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
+    group_cols = ["household_id", "ev_key"]
+
+    if "phase_id" not in feature_df.columns:
+        raise ValueError("phase_id is required. Call _add_phase_feature before observed boundaries.")
+
+    def _add_group_boundaries(group: pd.DataFrame) -> pd.DataFrame:
+        group = group.sort_values("timestep").copy()
+
+        drive1_timesteps = group.loc[group["phase_id"] == 1, "timestep"]
+        drive2_timesteps = group.loc[group["phase_id"] == 3, "timestep"]
+
+        start1_time = int(drive1_timesteps.iloc[0]) if not drive1_timesteps.empty else -1
+        end1_time = int(drive1_timesteps.iloc[-1]) if not drive1_timesteps.empty else -1
+        start2_time = int(drive2_timesteps.iloc[0]) if not drive2_timesteps.empty else -1
+        end2_time = int(drive2_timesteps.iloc[-1]) if not drive2_timesteps.empty else -1
+
+        phase_id = group["phase_id"].astype(int)
+
+        # Default unknown (-1). Unlock each observed boundary only after phase progression.
+        group["start1"] = np.where(phase_id > 0, start1_time, -1)
+        group["end1"] = np.where(phase_id > 1, end1_time, -1)
+        group["start2"] = np.where(phase_id > 2, start2_time, -1)
+        group["end2"] = np.where(phase_id > 3, end2_time, -1)
+
+        return group
+
+    feature_df = feature_df.groupby(group_cols, group_keys=False).apply(_add_group_boundaries)
+    feature_df[["start1", "end1", "start2", "end2"]] = feature_df[["start1", "end1", "start2", "end2"]].astype(int)
+    return feature_df
+
+
+def _add_observed_boundary_flags(feature_df: pd.DataFrame) -> pd.DataFrame:
+    for boundary in ("start1", "end1", "start2", "end2"):
+        feature_df[f"{boundary}_observed"] = (feature_df[boundary] != -1).astype(int)
+    return feature_df
+
+
+def _add_observed_window_length(feature_df: pd.DataFrame) -> pd.DataFrame:
+    feature_df["observed_window_length_1"] = np.where(
+        feature_df["end1_observed"] == 1,
+        feature_df["end1"] - feature_df["start1"] + 1,
+        -1,
+    ).astype(int)
+
+    feature_df["observed_window_length_2"] = np.where(
+        feature_df["end2_observed"] == 1,
+        feature_df["end2"] - feature_df["start2"] + 1,
+        -1,
+    ).astype(int)
+
+    return feature_df
+
+
+def _add_window_length_slack(feature_df: pd.DataFrame) -> pd.DataFrame:
+    feature_df["window_length_slack_1"] = np.where(
+        feature_df["observed_window_length_1"] != -1,
+        feature_df["max_commute_steps_1"] - feature_df["observed_window_length_1"],
+        -1,
+    ).astype(int)
+
+    feature_df["window_length_slack_2"] = np.where(
+        feature_df["observed_window_length_2"] != -1,
+        feature_df["max_commute_steps_2"] - feature_df["observed_window_length_2"],
+        -1,
+    ).astype(int)
+
+    return feature_df
+
+
+def _add_next_state(feature_df: pd.DataFrame) -> pd.DataFrame:
+    group_cols = ["household_id", "ev_key"]
+    feature_df["next_state"] = feature_df.groupby(group_cols)["status"].shift(-1)
+    feature_df["next_state"] = feature_df["next_state"].fillna(0).astype(int)
+    return feature_df
+
+
+
+
+
 # we train with H 101-250
 household_ids = list(range(101, 251))
 
@@ -211,8 +344,8 @@ raw_profiles = _fetch_raw_ev_status_profiles(household_ids)
 
 
 status_profiles_df = _standardize_status_profiles(raw_profiles=raw_profiles)
-print(f"Fetched {len(status_profiles_df)} EV rows.")
-print(status_profiles_df.head(3))
+# print(f"Fetched {len(status_profiles_df)} EV rows.")
+# print(status_profiles_df.head(3))
 
 # get features and labels for training -> one row per H-EV-timestep
 # household_id ev_key  timestep  status
@@ -237,7 +370,29 @@ feature_df = _add_phase_feature(feature_df)
 # lag features from status history
 feature_df = _add_status_lag_features(feature_df, lags=(1, 2, 3, 4, 8, 12))
 
+# allowed commute-window constraints (config priors)
+feature_df = _add_allowed_commute_window_boundaries(feature_df)
 
+# signed non-zero time to each allowed boundary
+feature_df = _add_times_to_boundary(feature_df)
+
+# # max unavailable steps per commute window
+feature_df = _add_max_commute_steps(feature_df)
+
+# # observed commute-window boundaries from realized profile (or -1 if absent)
+feature_df = _add_observed_commute_window_boundaries(feature_df)
+
+# # binary flags for observed boundaries
+feature_df = _add_observed_boundary_flags(feature_df)
+
+# observed commute-window lengths (else -1)
+feature_df = _add_observed_window_length(feature_df)
+
+# slack to configured max commute lengths (else -1)
+feature_df = _add_window_length_slack(feature_df)
+
+# target for one-step prediction; final row defaults to 0
+feature_df = _add_next_state(feature_df)
 
 
 # pd.set_option("display.max_columns", None)
@@ -245,16 +400,39 @@ pd.set_option("display.max_rows", None)
 pd.set_option("display.width", None)
 
 cols_to_print = [
-    # "household_id",
-    # "ev_key",
+    "household_id",
+    "ev_key",
     "timestep",
     "status",
+    "next_state",
+    "start1_earliest",
+    # "end1_latest",
+    # "start2_earliest",
+    # "end2_latest",
+    # "max_commute_steps_1",
+    # "max_commute_steps_2",
+    "start1",
+    # "end1",
+    # "start2",
+    # "end2",
+    "start1_observed",
+    # "end1_observed",
+    # "start2_observed",
+    # "end2_observed",
+    "observed_window_length_1",
+    # "observed_window_length_2",
+    # "window_length_slack_1",
+    # "window_length_slack_2",
+    "steps_to_start1_earliest",
+    # "steps_to_end1_latest",
+    # "steps_to_start2_earliest",
+    # "steps_to_end2_latest",
     # "steps_in_current_state",
-    # "phase",
-]  + [f"status_lag_{lag}" for lag in (2, 4, 8)] + [f"status_lag_{lag}_is_pad" for lag in (2, 4, 8)]
+    "phase",
+] # + [f"status_lag_{lag}" for lag in (2, 4, 8)] + [f"status_lag_{lag}_is_pad" for lag in (2, 4, 8)]
 
-i = 12
-print(feature_df.iloc[i*96:(i+1)*96][cols_to_print])  # print all timesteps for household i
+i = 1
+print(feature_df.iloc[i*96:(i+2)*96][cols_to_print])  # print all timesteps for household i
 
 
 # X_train, y_train =
