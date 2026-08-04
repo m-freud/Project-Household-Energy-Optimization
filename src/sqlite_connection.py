@@ -302,12 +302,12 @@ def load_household_result(
 
     return result
 
-
-def fetch_timeseries(sqlite_cursor, player_id, measurement):
+# TODO: just use the above cursor
+def fetch_timeseries(sqlite_cursor, player_id, table_name) -> list[float]:
     data = sqlite_cursor.execute(
         f'''
         SELECT "{player_id}" as value
-        FROM {measurement}
+        FROM {table_name}
         ''',
     ).fetchall()
 
