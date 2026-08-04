@@ -149,9 +149,36 @@ def clean_split(target_train_size: int = 150) -> dict[str, list[int]]:
     }
 
 
+def _print_duplicate_report(groups_by_profile: dict[str, list[list[int]]]) -> None:
+    profile_names = [name for name in groups_by_profile.keys() if name != "merged"]
+
+    print("Duplicate groups by profile:")
+    for profile_name in profile_names:
+        groups = groups_by_profile[profile_name]
+        if not groups:
+            print(f"- {profile_name}: no duplicate groups")
+            continue
+
+        print(f"- {profile_name}: {len(groups)} duplicate groups")
+        for idx, group in enumerate(groups, start=1):
+            print(f"  {profile_name} | group_{idx}: {group}")
+
+    merged_groups = groups_by_profile.get("merged", [])
+    print("Merged duplicate-safe household groups (used for splitting):")
+    for idx, group in enumerate(merged_groups, start=1):
+        print(f"  merged_group_{idx}: {group}")
+
+
 def main() -> None:
-    split = clean_split()
-    print(json.dumps(split, indent=4))
+    _, groups_by_profile = _build_duplicate_groups(_collect_all_profiles())
+    _print_duplicate_report(groups_by_profile)
+
+    training, testing = _split_groups(groups_by_profile["merged"], target_train_size=150)
+    split = {
+        "training": training,
+        "testing": testing,
+    }
+    # print(json.dumps(split, indent=4))
 
 
 if __name__ == "__main__":
