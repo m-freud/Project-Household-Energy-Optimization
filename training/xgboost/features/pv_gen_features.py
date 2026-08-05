@@ -163,6 +163,12 @@ def _add_steps_to_daylight_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
+def _add_next_pv_gen_target(feature_df: pd.DataFrame) -> pd.DataFrame:
+    feature_df["next_pv_gen"] = feature_df.groupby("household_id")["pv_gen"].shift(-1)
+    feature_df["next_pv_gen"] = feature_df["next_pv_gen"].fillna(0.0).astype(float)
+    return feature_df
+
+
 def _round_float_features(feature_df: pd.DataFrame, digits: int = 3) -> pd.DataFrame:
     float_columns = feature_df.select_dtypes(include=["float", "float32", "float64"]).columns
     if len(float_columns) > 0:
@@ -183,6 +189,7 @@ def get_pv_features(household_ids: list[int]) -> pd.DataFrame:
     feature_df = _add_pv_delta_features(feature_df)
     feature_df = _add_pv_accel_feature(feature_df)
     feature_df = _add_steps_to_daylight_boundaries(feature_df)
+    feature_df = _add_next_pv_gen_target(feature_df)
     feature_df = _round_float_features(feature_df, digits=3)
 
     return feature_df
@@ -210,6 +217,7 @@ if __name__ == "__main__":
     "pv_accel",
     "steps_to_daylight_start",
     "steps_to_daylight_end",
+    "next_pv_gen",
 ]
 
     pd.set_option("display.max_rows", None)
