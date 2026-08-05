@@ -9,24 +9,6 @@ from xgboost import XGBClassifier
 from src.config import Config
 
 
-def _has_been_observed_ev_at_station(household: Household, ev_key: str) -> bool:
-    """
-    Checks if the household has been observed at the charging station.
-
-    Args:
-        household (Household): The household to check.
-        ev_key (str): The key identifying the EV.
-    """
-    if getattr(household, f"{ev_key}_at_charging_station", None):
-        return True
-
-    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
-    if at_station_history and any(at_station_history.values()):
-        return True
-
-    return False
-
-
 def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
     state_transitions = getattr(household, f"{ev_key}_state_transitions")
 
