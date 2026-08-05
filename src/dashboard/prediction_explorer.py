@@ -3,14 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from functools import partial
 import math
+from pathlib import Path
 import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+from xgboost import XGBClassifier, XGBRegressor 
 
 from src.config import Config
 from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
+from simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -23,6 +26,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
     "running_avg": "running_avg",
+    "xgb": "xgb (ev status classifier)",
 }
 
 PROFILE_OPTIONS = [
@@ -43,6 +47,26 @@ PROFILE_OPTIONS = [
 ]
 
 
+class _ConstantRegressor(XGBRegressor):
+    def __init__(self, value: float = 0.0):
+        self.value = float(value)
+
+    def predict(self, features):
+        n_rows = len(features) if hasattr(features, "__len__") else 1
+        return np.full(int(n_rows), self.value, dtype=float)
+
+
+@st.cache_resource(show_spinner=False)
+def _load_xgb_ev_status_model() -> XGBClassifier:
+    model_path = Path(__file__).resolve().parents[2] / "ev_status_classifier.json"
+    if not model_path.exists():
+        raise FileNotFoundError(f"Missing model file: {model_path}")
+
+    model = XGBClassifier()
+    model.load_model(str(model_path))
+    return model
+
+
 def _build_predictor(
     predictor_name: str,
     ma3_interval_width: float,
@@ -50,6 +74,12 @@ def _build_predictor(
     if predictor_name == "running_avg":
         return RunningAvgPredictor(
             conf_interval_frct=ma3_interval_width,
+        )
+    if predictor_name == "xgb":
+        return XGBPredictor(
+            base_load_regressor=_ConstantRegressor(0.0),
+            pv_gen_regressor=_ConstantRegressor(0.0),
+            ev_status_classifier=_load_xgb_ev_status_model(),
         )
     return OraclePredictor()
 
@@ -129,6 +159,8 @@ def _build_default_policy_name(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if predictor_name == "running_avg":
         return f"mpc_running_avg_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
+    if predictor_name == "xgb":
+        return f"mpc_xgb_{timestamp}"
     return f"mpc_oracle_{timestamp}"
 
 

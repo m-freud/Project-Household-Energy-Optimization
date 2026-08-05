@@ -275,10 +275,11 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
 
     history_home_key = f"{ev_key}_at_home"
     history_station_key = f"{ev_key}_at_charging_station"
+    ev_obj = getattr(household, ev_key)
 
     original_timestep = int(household.current_timestep)
-    original_at_home = bool(getattr(household, history_home_key, False))
-    original_at_station = bool(getattr(household, history_station_key, False))
+    original_at_home = bool(getattr(ev_obj, "at_home", False))
+    original_at_station = bool(getattr(ev_obj, "at_charging_station", False))
     original_home_history = dict(household.history.get(history_home_key, {}))
     original_station_history = dict(household.history.get(history_station_key, {}))
 
@@ -297,8 +298,8 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
             household.current_timestep = current_timestep
             household.history[history_home_key] = sim_home_history
             household.history[history_station_key] = sim_station_history
-            setattr(household, history_home_key, bool(current_home))
-            setattr(household, history_station_key, bool(current_station))
+            ev_obj.at_home = bool(current_home)
+            ev_obj.at_charging_station = bool(current_station)
 
             ev_status_data = _fetch_ev_status_data(household, ev_key)
             features = _build_ev_status_features(ev_status_data)
@@ -322,8 +323,8 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         household.current_timestep = original_timestep
         household.history[history_home_key] = original_home_history
         household.history[history_station_key] = original_station_history
-        setattr(household, history_home_key, original_at_home)
-        setattr(household, history_station_key, original_at_station)
+        ev_obj.at_home = bool(original_at_home)
+        ev_obj.at_charging_station = bool(original_at_station)
 
     return at_home_pred, at_station_pred
     
