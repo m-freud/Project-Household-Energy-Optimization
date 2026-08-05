@@ -1,3 +1,11 @@
+from pathlib import Path
+import sys
+import math
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from xgboost import XGBRegressor
 from src.config import Config
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
@@ -11,7 +19,7 @@ def _fetch_pv_profiles(household_ids: list[int])->dict:
     profiles = {}
 
     for household_id in household_ids:
-        pv_gen = fetch_timeseries(sqlite_cursor, "pv_gen", household_id)
+        pv_gen = fetch_timeseries(sqlite_cursor, household_id, "pv_gen")
         profiles[household_id] = pv_gen
 
     return profiles
@@ -69,5 +77,10 @@ def get_pv_features(household_ids: list[int]) -> pd.DataFrame:
 
     feature_df = _add_trig_time_features(feature_df)
 
-
     return feature_df
+
+
+if __name__ == "__main__":
+    household_ids = list(range(1, 3))
+    feature_df = get_pv_features(household_ids)
+    print(feature_df.head())
