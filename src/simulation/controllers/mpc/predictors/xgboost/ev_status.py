@@ -2,6 +2,7 @@
 # paste this to enable src. imports
 from pathlib import Path
 import sys
+import pandas as pd
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -14,6 +15,46 @@ from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import
 from xgboost import XGBClassifier
 
 from src.config import Config
+
+
+MODEL_FEATURE_COLUMNS = [
+    "timestep",
+    "status",
+    "time_sin",
+    "time_cos",
+    "steps_in_current_state",
+    "phase_id",
+    "status_lag_1",
+    "status_lag_1_is_pad",
+    "status_lag_2",
+    "status_lag_2_is_pad",
+    "status_lag_4",
+    "status_lag_4_is_pad",
+    "status_lag_8",
+    "status_lag_8_is_pad",
+    "start1_earliest",
+    "end1_latest",
+    "start2_earliest",
+    "end2_latest",
+    "max_commute_steps_1",
+    "max_commute_steps_2",
+    "steps_to_start1_earliest",
+    "steps_to_end1_latest",
+    "steps_to_start2_earliest",
+    "steps_to_end2_latest",
+    "start1",
+    "end1",
+    "start2",
+    "end2",
+    "start1_observed",
+    "end1_observed",
+    "start2_observed",
+    "end2_observed",
+    "observed_window_length_1",
+    "observed_window_length_2",
+    "window_length_slack_1",
+    "window_length_slack_2",
+]
 
 
 def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
@@ -205,7 +246,7 @@ def _build_ev_status_features(ev_status_data) -> dict:
     return features
 
 
-def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int) -> tuple[list[float], list[float]]:
+def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int=96) -> tuple[list[float], list[float]]:
     """
     Predicts the status of a single EV (at_home, at_charging_station) for the given household and horizon.
 
@@ -217,11 +258,74 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     Returns:
         tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
-    # note: it is possible to use worst-case pred until start1 but we try full xgb for now.
-    ev_status_data = _fetch_ev_status_data(household, ev_key)
-    features = _build_ev_status_features(ev_status_data)
-    pred = model.predict(features) #TODO this is wrong we need n timesteps
-    return pred[:, 0], pred[:, 1]
+    if horizon <= 0:
+        return [], []
+
+    def _status_to_home_station(status: int) -> tuple[int, int]:
+        if status == 0:
+            return 1, 0
+        if status == 1:
+            return 0, 0
+        if status == 2:
+            return 0, 1
+        raise ValueError(f"Unexpected EV status class: {status}")
+
+    at_home_pred: list[float] = []
+    at_station_pred: list[float] = []
+
+    history_home_key = f"{ev_key}_at_home"
+    history_station_key = f"{ev_key}_at_charging_station"
+
+    original_timestep = int(household.current_timestep)
+    original_at_home = bool(getattr(household, history_home_key, False))
+    original_at_station = bool(getattr(household, history_station_key, False))
+    original_home_history = dict(household.history.get(history_home_key, {}))
+    original_station_history = dict(household.history.get(history_station_key, {}))
+
+    sim_home_history = dict(original_home_history)
+    sim_station_history = dict(original_station_history)
+
+    current_status = int(1 - int(original_at_home) + int(original_at_station))
+    current_timestep = original_timestep
+
+    current_home, current_station = _status_to_home_station(current_status)
+    at_home_pred.append(float(current_home))
+    at_station_pred.append(float(current_station))
+
+    try:
+        for _ in range(horizon - 1):
+            household.current_timestep = current_timestep
+            household.history[history_home_key] = sim_home_history
+            household.history[history_station_key] = sim_station_history
+            setattr(household, history_home_key, bool(current_home))
+            setattr(household, history_station_key, bool(current_station))
+
+            ev_status_data = _fetch_ev_status_data(household, ev_key)
+            features = _build_ev_status_features(ev_status_data)
+
+            feature_row = pd.DataFrame([features])
+            model_input = feature_row[MODEL_FEATURE_COLUMNS]
+
+            predicted_status = int(model.predict(model_input)[0])
+
+            # Move the current status into history before advancing time.
+            sim_home_history[current_timestep] = int(current_home)
+            sim_station_history[current_timestep] = int(current_station)
+
+            current_status = predicted_status
+            current_timestep += 1
+            current_home, current_station = _status_to_home_station(current_status)
+
+            at_home_pred.append(float(current_home))
+            at_station_pred.append(float(current_station))
+    finally:
+        household.current_timestep = original_timestep
+        household.history[history_home_key] = original_home_history
+        household.history[history_station_key] = original_station_history
+        setattr(household, history_home_key, original_at_home)
+        setattr(household, history_station_key, original_at_station)
+
+    return at_home_pred, at_station_pred
     
 
 def predict_ev_status(
