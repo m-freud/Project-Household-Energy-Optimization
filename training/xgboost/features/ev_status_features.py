@@ -1,6 +1,8 @@
 import math
 from pathlib import Path
 import re
+import pandas as pd
+import numpy as np
 import sys
 
 # find the repository root that contains 'src'
@@ -10,10 +12,9 @@ sys.path.insert(0, str(repo_root))
 from xgboost import XGBClassifier
 from src.config import Config
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
-import pandas as pd
-import numpy as np
 
 
+from ._shared import _add_trig_time_features
 
 
 def _fetch_raw_ev_status_profiles(household_ids: list[int])->dict:
@@ -36,6 +37,11 @@ def _fetch_raw_ev_status_profiles(household_ids: list[int])->dict:
 
 
 def _standardize_status_profiles(raw_profiles: dict) -> pd.DataFrame:
+    '''
+    returns wide df with columns: household_id, ev_key, s1..s96
+    where s1..s96 are the status values for each timestep
+    encoded as 0=at_home, 1=commuting, 2=at_station
+    '''
     raw_data = raw_profiles
 
     status_profiles_dict = {}
@@ -110,14 +116,6 @@ def _encode_time_cyclic(timestep: int, total_timesteps: int) -> tuple[float, flo
     """
     angle = 2 * math.pi * (timestep / total_timesteps)
     return math.sin(angle), math.cos(angle)
-
-
-def _add_trig_time_features(feature_df: pd.DataFrame) -> pd.DataFrame:
-    n_timesteps = int(feature_df["timestep"].max())
-    angle = 2.0 * np.pi * (feature_df["timestep"].to_numpy() / n_timesteps)
-    feature_df["time_sin"] = np.sin(angle)
-    feature_df["time_cos"] = np.cos(angle)
-    return feature_df
 
 
 def _add_steps_in_current_state(feature_df: pd.DataFrame) -> pd.DataFrame:
