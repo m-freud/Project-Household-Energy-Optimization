@@ -1,8 +1,5 @@
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import encode_time_cyclic
-from src.simulation.controllers.mpc.predictors.running_avg import (
-    predict_single_ev_status as predict_ev_status_worst_case,
-)
 
 from xgboost import XGBClassifier
 
@@ -10,44 +7,190 @@ from src.config import Config
 
 
 def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
-    state_transitions = getattr(household, f"{ev_key}_state_transitions")
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    current_timestep = int(household.current_timestep)
 
-    ev_status_data = {
-        # current time encoded cyclically -> reflect evening/morning proximity
-        "current_time": encode_time_cyclic(household.current_timestep, Config.TOTAL_TIMESTEPS_DAY),
+    at_home_history = household.history.get(f"{ev_key}_at_home", {})
+    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
 
-        # config
-        "earliest_start_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["earliest_start"],
-        "latest_end_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["latest_end"],
-        "earliest_start_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["earliest_start"],
-        "latest_end_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["latest_end"],
-        "max_unavailable_steps_1": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][0]["max_unavailable_steps"],
-        "max_unavailable_steps_2": Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key][1]["max_unavailable_steps"],
+    # Histories are keyed by timestep in the simulator; keep temporal order for lag features.
+    ordered_steps = [
+        int(step)
+        for step in sorted(set(at_home_history.keys()) | set(at_station_history.keys()))
+        if int(step) < current_timestep
+    ]
+    status_history = [
+        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
+        for step in ordered_steps
+    ]
 
-        # current states
-        "at_station_now": getattr(household, f"{ev_key}_at_charging_station", 0),
-        "at_home_now": getattr(household, f"{ev_key}_at_home", 0),
+    status_now = int(
+        1
+        - int(getattr(household, f"{ev_key}_at_home", 0))
+        + int(getattr(household, f"{ev_key}_at_charging_station", 0))
+    )
 
-        # histories
-        "at_station_history": household.history.get(f"{ev_key}_at_charging_station", {}),
-        "at_home_history": household.history.get(f"{ev_key}_at_home", {}),
+    status_seq = status_history + [status_now]
+    timestep_seq = ordered_steps + [current_timestep]
 
-        # observed state transitions
-        "start1": state_transitions["start1"],
-        "end1": state_transitions["end1"],
-        "start2": state_transitions["start2"],
-        "end2": state_transitions["end2"],
+    phase_ids: list[int] = []
+    seen_station = False
+    for state in status_seq:
+        state_i = int(state)
+        if state_i == 2:
+            phase_ids.append(2)
+            seen_station = True
+        elif state_i == 1 and not seen_station:
+            phase_ids.append(1)
+        elif state_i == 1 and seen_station:
+            phase_ids.append(3)
+        elif state_i == 0 and not seen_station:
+            phase_ids.append(0)
+        else:
+            phase_ids.append(4)
+
+    drive1_steps = [t for t, phase_id in zip(timestep_seq, phase_ids) if phase_id == 1]
+    drive2_steps = [t for t, phase_id in zip(timestep_seq, phase_ids) if phase_id == 3]
+
+    start1_time = int(min(drive1_steps)) if drive1_steps else -1
+    end1_time = int(max(drive1_steps)) if drive1_steps else -1
+    start2_time = int(min(drive2_steps)) if drive2_steps else -1
+    end2_time = int(max(drive2_steps)) if drive2_steps else -1
+
+    current_phase_id = int(phase_ids[-1]) if phase_ids else 0
+
+    # Match training semantics: reveal boundaries only after entering later phases.
+    start1 = int(start1_time) if current_phase_id > 0 else -1
+    end1 = int(end1_time) if current_phase_id > 1 else -1
+    start2 = int(start2_time) if current_phase_id > 2 else -1
+    end2 = int(end2_time) if current_phase_id > 3 else -1
+
+    return {
+        "timestep": int(current_timestep),
+        "status": int(status_now),
+        "status_history": status_history,
+        "start1_earliest": int(windows[0]["earliest_start"]),
+        "end1_latest": int(windows[0]["latest_end"]),
+        "start2_earliest": int(windows[1]["earliest_start"]),
+        "end2_latest": int(windows[1]["latest_end"]),
+        "max_commute_steps_1": int(windows[0]["max_unavailable_steps"]),
+        "max_commute_steps_2": int(windows[1]["max_unavailable_steps"]),
+        "start1": int(start1),
+        "end1": int(end1),
+        "start2": int(start2),
+        "end2": int(end2),
     }
-    
-    return ev_status_data
 
 
 
-def _build_ev_status_features(ev_status_data)-> dict:
+def _build_ev_status_features(ev_status_data) -> dict:
+    timestep = int(ev_status_data["timestep"])
+    status = int(ev_status_data["status"])
+    status_history = list(ev_status_data.get("status_history", []))
+    status_seq = status_history + [status]
+
+    def _lag(lag: int) -> tuple[int, int]:
+        idx = len(status_seq) - 1 - lag
+        if idx >= 0:
+            return int(status_seq[idx]), 0
+        return -1, 1
+
+    def _steps_in_current_state() -> int:
+        steps = 1
+        for previous in reversed(status_seq[:-1]):
+            if int(previous) == status:
+                steps += 1
+            else:
+                break
+        return int(steps)
+
+    seen_station = any(int(s) == 2 for s in status_seq)
+    if status == 2:
+        phase = "station"
+    elif status == 1 and not seen_station:
+        phase = "drive1"
+    elif status == 1 and seen_station:
+        phase = "drive2"
+    elif status == 0 and not seen_station:
+        phase = "home1"
+    else:
+        phase = "home2"
+
+    phase_to_id = {
+        "home1": 0,
+        "drive1": 1,
+        "station": 2,
+        "drive2": 3,
+        "home2": 4,
+    }
+    phase_id = int(phase_to_id[phase])
+
+    start1 = int(ev_status_data["start1"])
+    end1 = int(ev_status_data["end1"])
+    start2 = int(ev_status_data["start2"])
+    end2 = int(ev_status_data["end2"])
+
+    start1_observed = int(start1 != -1)
+    end1_observed = int(end1 != -1)
+    start2_observed = int(start2 != -1)
+    end2_observed = int(end2 != -1)
+
+    observed_window_length_1 = int(end1 - start1 + 1) if end1_observed else -1
+    observed_window_length_2 = int(end2 - start2 + 1) if end2_observed else -1
+
+    max_commute_steps_1 = int(ev_status_data["max_commute_steps_1"])
+    max_commute_steps_2 = int(ev_status_data["max_commute_steps_2"])
+
+    window_length_slack_1 = int(max_commute_steps_1 - observed_window_length_1) if observed_window_length_1 != -1 else -1
+    window_length_slack_2 = int(max_commute_steps_2 - observed_window_length_2) if observed_window_length_2 != -1 else -1
+
+    def _steps_to_boundary(boundary: int) -> int:
+        if timestep <= boundary:
+            return int(boundary - timestep + 1)
+        return int(boundary - timestep)
+
+    status_lag_1, status_lag_1_is_pad = _lag(1)
+    status_lag_2, status_lag_2_is_pad = _lag(2)
+    status_lag_4, status_lag_4_is_pad = _lag(4)
+    status_lag_8, status_lag_8_is_pad = _lag(8)
+
     features = {
-        "current_time_sin": ev_status_data["current_time"][0],
-        "current_time_cos": ev_status_data["current_time"][1],
-
+        "timestep": int(timestep),
+        "status": int(status),
+        "time_sin": float(encode_time_cyclic(timestep, Config.TOTAL_TIMESTEPS_DAY)[0]),
+        "time_cos": float(encode_time_cyclic(timestep, Config.TOTAL_TIMESTEPS_DAY)[1]),
+        "steps_in_current_state": _steps_in_current_state(),
+        "phase_id": int(phase_id),
+        "status_lag_1": int(status_lag_1),
+        "status_lag_1_is_pad": int(status_lag_1_is_pad),
+        "status_lag_2": int(status_lag_2),
+        "status_lag_2_is_pad": int(status_lag_2_is_pad),
+        "status_lag_4": int(status_lag_4),
+        "status_lag_4_is_pad": int(status_lag_4_is_pad),
+        "status_lag_8": int(status_lag_8),
+        "status_lag_8_is_pad": int(status_lag_8_is_pad),
+        "start1_earliest": int(ev_status_data["start1_earliest"]),
+        "end1_latest": int(ev_status_data["end1_latest"]),
+        "start2_earliest": int(ev_status_data["start2_earliest"]),
+        "end2_latest": int(ev_status_data["end2_latest"]),
+        "max_commute_steps_1": int(max_commute_steps_1),
+        "max_commute_steps_2": int(max_commute_steps_2),
+        "steps_to_start1_earliest": _steps_to_boundary(int(ev_status_data["start1_earliest"])),
+        "steps_to_end1_latest": _steps_to_boundary(int(ev_status_data["end1_latest"])),
+        "steps_to_start2_earliest": _steps_to_boundary(int(ev_status_data["start2_earliest"])),
+        "steps_to_end2_latest": _steps_to_boundary(int(ev_status_data["end2_latest"])),
+        "start1": int(start1),
+        "end1": int(end1),
+        "start2": int(start2),
+        "end2": int(end2),
+        "start1_observed": int(start1_observed),
+        "end1_observed": int(end1_observed),
+        "start2_observed": int(start2_observed),
+        "end2_observed": int(end2_observed),
+        "observed_window_length_1": int(observed_window_length_1),
+        "observed_window_length_2": int(observed_window_length_2),
+        "window_length_slack_1": int(window_length_slack_1),
+        "window_length_slack_2": int(window_length_slack_2),
     }
     return features
 
@@ -70,7 +213,6 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     pred = model.predict(features) #TODO this is wrong we need n timesteps
     return pred[:, 0], pred[:, 1]
     
-
 
 def predict_ev_status(
     model: XGBClassifier,

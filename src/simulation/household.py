@@ -84,6 +84,8 @@ class Household:
     def apply_controls(self, controls, duration_hours=0.25):
         if controls is not None:
             self.controls = controls
+        else:
+            raise ValueError("Controls cannot be None. Please provide a valid controls dictionary.")
 
         # apply controls to controllable participants
         if self.bess and "bess_power" in controls:
