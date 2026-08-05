@@ -3,5 +3,6 @@ dotenv
 matplotlib
 openpyxl
 pandas
+scikit-learn
 streamlit
 xgboost
