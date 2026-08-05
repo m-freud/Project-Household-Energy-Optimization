@@ -16,11 +16,14 @@ from xgboost import XGBClassifier
 from src.config import Config
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
 from training.xgboost.features.ev_status_features import get_ev_status_features
+from training.split import distinct_set_strict, distinct_set_ignore_ev_status
 
 import pandas as pd
 import numpy as np
 
-household_ids = list(range(1, 251))
+household_ids = distinct_set_ignore_ev_status
+
+print(f"Household IDs for training: {household_ids}")
 
 feature_df = get_ev_status_features(household_ids)
 
