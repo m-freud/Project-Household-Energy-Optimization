@@ -1,4 +1,14 @@
+
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from src.simulation.household import Household
+from src.simulation.devices.ev import EV
 from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import encode_time_cyclic
 
 from xgboost import XGBClassifier
@@ -230,3 +240,57 @@ def predict_ev_status(
         "ev2_at_home": ev2_at_home,
         "ev2_at_charging_station": ev2_at_charging_station,
     }
+
+
+if __name__ == "__main__":
+    from pprint import pprint
+    from training.xgboost.features.ev_status_features import get_ev_status_features
+
+    household_id = 1
+    timestep = 42
+    ev_key = "ev1"
+
+    feature_df = get_ev_status_features([household_id])
+    ev_rows = (
+        feature_df[
+            (feature_df["household_id"] == household_id)
+            & (feature_df["ev_key"] == ev_key)
+        ]
+        .sort_values("timestep")
+        .reset_index(drop=True)
+    )
+
+    ev1 = EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name="ev1")
+    ev2 = EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name="ev2")
+    household = Household(player_id=household_id, start_time=timestep, ev1=ev1, ev2=ev2)
+    household.current_timestep = timestep
+
+    status_history_rows = ev_rows[ev_rows["timestep"] < timestep]
+    for _, row in status_history_rows.iterrows():
+        t = int(row["timestep"])
+        status = int(row["status"])
+        if status == 0:
+            at_home, at_station = 1, 0
+        elif status == 1:
+            at_home, at_station = 0, 0
+        else:
+            at_home, at_station = 0, 1
+        household.history["ev1_at_home"][t] = at_home
+        household.history["ev1_at_charging_station"][t] = at_station
+
+    status_now = int(ev_rows.loc[ev_rows["timestep"] == timestep, "status"].iloc[0])
+    if status_now == 0:
+        ev1.at_home, ev1.at_charging_station = True, False
+    elif status_now == 1:
+        ev1.at_home, ev1.at_charging_station = False, False
+    else:
+        ev1.at_home, ev1.at_charging_station = False, True
+
+    data = _fetch_ev_status_data(household, ev_key)
+    features = _build_ev_status_features(data)
+
+    print(f"EV status test snapshot: household={household_id}, ev={ev_key}, timestep={timestep}")
+    print("\n_fetch_ev_status_data output:")
+    pprint(data, sort_dicts=False)
+    print("\n_build_ev_status_features output:")
+    pprint(features, sort_dicts=False)
