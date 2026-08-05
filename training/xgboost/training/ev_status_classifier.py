@@ -23,14 +23,20 @@ import numpy as np
 
 household_ids = distinct_set_ignore_ev_status
 
-print(f"Household IDs for training: {household_ids}")
+train = get_ev_status_features(household_ids[:int(len(household_ids) * 0.8)])
+test = get_ev_status_features(household_ids[int(len(household_ids) * 0.8):])
 
-feature_df = get_ev_status_features(household_ids)
 
-# X_train, y_train =
 
-# model.fit
+X_train, y_train = train.drop(columns=["next_state"]), train["next_state"]
+X_test, y_test = test.drop(columns=["next_state"]), test["next_state"]
+
+model = XGBClassifier()
+model.fit(X_train, y_train)
 
 # test model
+accuracy = model.score(X_test, y_test)
+print(f"Test accuracy: {accuracy}")
 
 # save model
+model.save_model("ev_status_classifier.model")
