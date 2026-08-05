@@ -3,7 +3,9 @@
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
+from pathlib import Path
 from typing import Callable
+import numpy as np
 from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
 from simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
 from src.simulation.run_context import RunContext
@@ -40,6 +42,17 @@ DEFAULT_HISTORY_MEASUREMENTS = [
     "ev2_soc",
     "ev2_power",
 ]
+
+
+class ConstantRegressor:
+    """Simple fallback regressor for smoke runs when no trained model exists."""
+
+    def __init__(self, value: float = 0.0):
+        self.value = float(value)
+
+    def predict(self, features):
+        n_rows = len(features) if hasattr(features, "__len__") else 1
+        return np.full(int(n_rows), self.value, dtype=float)
 
 
 def build_function_controller(
@@ -731,24 +744,23 @@ if __name__ == "__main__":
     # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
-    model_paths = {
-        "base_load": "ABC/xgb_base_load_model.json",
-        "pv_gen": "ABC/xgb_pv_gen_model.json",
-        "ev_status": "ABC/xgb_ev_status_model.json",
-    }
+    repo_root = Path(__file__).resolve().parents[2]
+    ev_status_model_path = repo_root / "ev_status_classifier.json"
 
     xgb_models = {
-        "base_load": XGBRegressor(),
-        "pv_gen": XGBRegressor(),
+        "base_load": ConstantRegressor(0.0),
+        "pv_gen": ConstantRegressor(0.0),
         "ev_status": XGBClassifier(),
     }
 
-    for model_name, model_path in model_paths.items():
-        try:
-            xgb_models[model_name].load_model(model_path)
-        except Exception as e:
-            print(f"Failed to load XGBoost model '{model_name}' from '{model_path}': {e}")
-            xgb_models[model_name] = None
+    try:
+        xgb_models["ev_status"].load_model(str(ev_status_model_path))
+        print(f"Loaded EV status classifier: {ev_status_model_path}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load EV status classifier from '{ev_status_model_path}'. "
+            "Train/export it first in repo root."
+        ) from e
 
     controller_factories_by_name = {
         # "no_control": make_function_controller("no_control", no_control),
