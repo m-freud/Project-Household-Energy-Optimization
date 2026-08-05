@@ -23,12 +23,6 @@ n_train = int(len(distinct_ids) * 0.8)
 train_household_ids = distinct_ids[:n_train]
 test_household_ids = distinct_ids[n_train:]
 
-print(f"Total distinct household IDs: {len(distinct_ids)}")
-
-print(f"Train household IDs: {train_household_ids}")
-print(f"Test household IDs: {test_household_ids}")
-print(f"Using curated distinct set size: {len(distinct_ids)}")
-
 train = get_ev_status_features(train_household_ids)
 test = get_ev_status_features(test_household_ids)
 
