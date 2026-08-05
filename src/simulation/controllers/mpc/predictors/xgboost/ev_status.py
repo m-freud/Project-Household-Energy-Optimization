@@ -82,16 +82,12 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     Returns:
         tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
-    # If the household has been observed at the station, use worst-case prediction
-    if not _has_been_observed_ev_at_station(household, ev_key):
-        # Phase 1 - Use worst-case prediction based like in running average predictor
-        return predict_ev_status_worst_case(household, ev_key, horizon)
-    else:
-        # Phase 2: Use XGBoost model for prediction
-        ev_status_data = _fetch_ev_status_data(household, ev_key)
-        features = _build_ev_status_features(ev_status_data)
-        pred = model.predict(features) #TODO this is wrong we need n timesteps
-        return pred[:, 0], pred[:, 1]
+    # note: it is possible to use worst-case pred until start1 but we try full xgb for now.
+    ev_status_data = _fetch_ev_status_data(household, ev_key)
+    features = _build_ev_status_features(ev_status_data)
+    pred = model.predict(features) #TODO this is wrong we need n timesteps
+    return pred[:, 0], pred[:, 1]
+    
 
 
 def predict_ev_status(
