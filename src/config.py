@@ -45,3 +45,5 @@ class Config:
         "earliest_start": 32,
         "latest_end": 71,
     }
+
+    PV_GENERATION_WINDOW_ALLOWED = PV_GENERATION_WINDOW_OBSERVED
