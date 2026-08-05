@@ -137,6 +137,24 @@ def _add_steps_in_current_state(feature_df: pd.DataFrame) -> pd.DataFrame:
 def _add_phase_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ["household_id", "ev_key"]
 
+    # Per profile, mark if we already reached station (status==2) at or before this timestep.
+    seen_station = (
+        feature_df["status"].eq(2)
+        .groupby([feature_df[col] for col in group_cols])
+        .cummax()
+    )
+
+    phase = np.select(
+        [
+            feature_df["status"].eq(2),
+            feature_df["status"].eq(1) & (~seen_station),
+            feature_df["status"].eq(1) & seen_station,
+            feature_df["status"].eq(0) & (~seen_station),
+        ],
+        ["station", "drive1", "drive2", "home1"],
+        default="home2",
+    )
+
     phase_to_id = {
         "home1": 0,
         "drive1": 1,
@@ -145,31 +163,8 @@ def _add_phase_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
         "home2": 4,
     }
 
-    def _phase_for_group(group: pd.DataFrame) -> pd.DataFrame:
-        statuses = group["status"].astype(int).tolist()
-        phases: list[str] = []
-        seen_station = False
-
-        for idx, current_status in enumerate(statuses):
-            _ = idx
-            if current_status == 2:
-                phase = "station"
-                seen_station = True
-            elif current_status == 1:
-                phase = "drive2" if seen_station else "drive1"
-            elif current_status == 0:
-                phase = "home2" if seen_station else "home1"
-            else:
-                phase = "home2" if seen_station else "home1"
-
-            phases.append(phase)
-
-        group = group.copy()
-        group["phase"] = phases
-        group["phase_id"] = group["phase"].map(phase_to_id).astype(int)
-        return group
-
-    feature_df = feature_df.groupby(group_cols, group_keys=False).apply(_phase_for_group)
+    feature_df["phase"] = phase
+    feature_df["phase_id"] = pd.Series(phase, index=feature_df.index).map(phase_to_id).astype(int)
     return feature_df
 
 
@@ -252,29 +247,28 @@ def _add_observed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.Data
     if "phase_id" not in feature_df.columns:
         raise ValueError("phase_id is required. Call _add_phase_feature before observed boundaries.")
 
-    def _add_group_boundaries(group: pd.DataFrame) -> pd.DataFrame:
-        group = group.sort_values("timestep").copy()
+    grouping_keys = [feature_df[col] for col in group_cols]
 
-        drive1_timesteps = group.loc[group["phase_id"] == 1, "timestep"]
-        drive2_timesteps = group.loc[group["phase_id"] == 3, "timestep"]
+    t_drive1 = feature_df["timestep"].where(feature_df["phase_id"] == 1)
+    t_drive2 = feature_df["timestep"].where(feature_df["phase_id"] == 3)
 
-        start1_time = int(drive1_timesteps.iloc[0]) if not drive1_timesteps.empty else -1
-        end1_time = int(drive1_timesteps.iloc[-1]) if not drive1_timesteps.empty else -1
-        start2_time = int(drive2_timesteps.iloc[0]) if not drive2_timesteps.empty else -1
-        end2_time = int(drive2_timesteps.iloc[-1]) if not drive2_timesteps.empty else -1
+    start1_time = t_drive1.groupby(grouping_keys).transform("min")
+    end1_time = t_drive1.groupby(grouping_keys).transform("max")
+    start2_time = t_drive2.groupby(grouping_keys).transform("min")
+    end2_time = t_drive2.groupby(grouping_keys).transform("max")
 
-        phase_id = group["phase_id"].astype(int)
+    start1_time = start1_time.fillna(-1).astype(int)
+    end1_time = end1_time.fillna(-1).astype(int)
+    start2_time = start2_time.fillna(-1).astype(int)
+    end2_time = end2_time.fillna(-1).astype(int)
 
-        # Default unknown (-1). Unlock each observed boundary only after phase progression.
-        group["start1"] = np.where(phase_id > 0, start1_time, -1)
-        group["end1"] = np.where(phase_id > 1, end1_time, -1)
-        group["start2"] = np.where(phase_id > 2, start2_time, -1)
-        group["end2"] = np.where(phase_id > 3, end2_time, -1)
+    phase_id = feature_df["phase_id"].astype(int)
 
-        return group
+    feature_df["start1"] = np.where(phase_id > 0, start1_time, -1).astype(int)
+    feature_df["end1"] = np.where(phase_id > 1, end1_time, -1).astype(int)
+    feature_df["start2"] = np.where(phase_id > 2, start2_time, -1).astype(int)
+    feature_df["end2"] = np.where(phase_id > 3, end2_time, -1).astype(int)
 
-    feature_df = feature_df.groupby(group_cols, group_keys=False).apply(_add_group_boundaries)
-    feature_df[["start1", "end1", "start2", "end2"]] = feature_df[["start1", "end1", "start2", "end2"]].astype(int)
     return feature_df
 
 
