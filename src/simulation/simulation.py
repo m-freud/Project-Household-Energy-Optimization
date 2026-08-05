@@ -745,13 +745,23 @@ if __name__ == "__main__":
     sim = Simulation(sqlite_conn)
 
     repo_root = Path(__file__).resolve().parents[2]
+    pv_gen_model_path = repo_root / "pv_gen_regressor.json"
     ev_status_model_path = repo_root / "ev_status_classifier.json"
 
     xgb_models = {
         "base_load": ConstantRegressor(0.0),
-        "pv_gen": ConstantRegressor(0.0),
+        "pv_gen": XGBRegressor(),
         "ev_status": XGBClassifier(),
     }
+
+    try:
+        xgb_models["pv_gen"].load_model(str(pv_gen_model_path))
+        print(f"Loaded PV regressor: {pv_gen_model_path}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load PV regressor from '{pv_gen_model_path}'. "
+            "Train/export it first in repo root."
+        ) from e
 
     try:
         xgb_models["ev_status"].load_model(str(ev_status_model_path))
