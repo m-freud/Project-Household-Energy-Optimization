@@ -26,7 +26,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
     "running_avg": "running_avg",
-    "xgb": "xgb (ev status classifier)",
+    "xgb": "xgb (ev status + pv gen)",
 }
 
 PROFILE_OPTIONS = [
@@ -67,6 +67,17 @@ def _load_xgb_ev_status_model() -> XGBClassifier:
     return model
 
 
+@st.cache_resource(show_spinner=False)
+def _load_xgb_pv_gen_model() -> XGBRegressor:
+    model_path = Path(__file__).resolve().parents[2] / "pv_gen_regressor.json"
+    if not model_path.exists():
+        raise FileNotFoundError(f"Missing model file: {model_path}")
+
+    model = XGBRegressor()
+    model.load_model(str(model_path))
+    return model
+
+
 def _build_predictor(
     predictor_name: str,
     ma3_interval_width: float,
@@ -78,7 +89,7 @@ def _build_predictor(
     if predictor_name == "xgb":
         return XGBPredictor(
             base_load_regressor=_ConstantRegressor(0.0),
-            pv_gen_regressor=_ConstantRegressor(0.0),
+            pv_gen_regressor=_load_xgb_pv_gen_model(),
             ev_status_classifier=_load_xgb_ev_status_model(),
         )
     return OraclePredictor()
