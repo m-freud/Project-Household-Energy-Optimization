@@ -8,7 +8,7 @@ sys.path.insert(0, str(repo_root))
 
 
 from xgboost import XGBRegressor
-from training.xgboost.features.pv_gen_features import get_pv_features
+from training.xgboost.features.base_load_features import get_base_load_features
 from training.split import distinct_set_ignore_ev_status
 from src.config import Config
 import numpy as np
@@ -18,19 +18,17 @@ n_train = int(len(distinct_ids) * 0.8)
 train_household_ids = distinct_ids[:n_train]
 test_household_ids = distinct_ids[n_train:]
 
-train = get_pv_features(train_household_ids)
-test = get_pv_features(test_household_ids)
+train = get_base_load_features(train_household_ids)
+test = get_base_load_features(test_household_ids)
 
 drop_columns = ["household_id", "next_value"]
 
 X_train, y_train = train.drop(columns=drop_columns), train["next_value"]
 X_test, y_test = test.drop(columns=drop_columns), test["next_value"]
 
-
 model = XGBRegressor()
 
 model.fit(X_train, y_train)
-
 
 def _r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 	y_true = np.asarray(y_true, dtype=float)
@@ -58,44 +56,13 @@ r2 = _r2_score(y_test.to_numpy(), y_pred_test)
 mae = _mae(y_test.to_numpy(), y_pred_test)
 rmse = _rmse(y_test.to_numpy(), y_pred_test)
 
-pv_window = getattr(Config, "PV_GENERATION_WINDOW_ALLOWED", None)
-if pv_window is None:
-	pv_window = getattr(Config, "PV_GENERATION_WINDOW_OBSERVED", None)
-
-if pv_window is None:
-	raise ValueError("Config must define PV_GENERATION_WINDOW_ALLOWED or PV_GENERATION_WINDOW_OBSERVED")
-
-daylight_start = int(pv_window["earliest_start"])
-daylight_end = int(pv_window["latest_end"])
-
-daylight_mask = (test["timestep"] >= daylight_start) & (test["timestep"] <= daylight_end)
-daylight_count = int(daylight_mask.sum())
-
-if daylight_count > 0:
-	y_test_day = y_test.loc[daylight_mask].to_numpy()
-	y_pred_day = y_pred_test[daylight_mask.to_numpy()]
-	r2_day = _r2_score(y_test_day, y_pred_day)
-	mae_day = _mae(y_test_day, y_pred_day)
-	rmse_day = _rmse(y_test_day, y_pred_day)
-else:
-	r2_day = math.nan
-	mae_day = math.nan
-	rmse_day = math.nan
-
-
-print(f"Test R2: {r2:.6f}")
-print(f"Test MAE: {mae:.6f}")
-print(f"Test RMSE: {rmse:.6f}")
-print(f"Daylight window: [{daylight_start}, {daylight_end}] | Test daylight rows: {daylight_count}")
-print(f"Daylight Test R2: {r2_day:.6f}")
-print(f"Daylight Test MAE: {mae_day:.6f}")
-print(f"Daylight Test RMSE: {rmse_day:.6f}")
+print(f"R2: {r2}, MAE: {mae}, RMSE: {rmse}")    
 print(f"Train rows: {len(train)} | Test rows: {len(test)}")
 print(f"Train households: {train_household_ids}")
 print(f"Test households: {test_household_ids}")
 
 # save model
 root = Config.ROOT_DIR
-model_path = root / "training" / "xgboost" / "models" / "pv_gen_regressor.json"
+model_path = root / "training" / "xgboost" / "models" / "base_load_regressor.json"
 model_path = Path(model_path)
 model.save_model(model_path)
