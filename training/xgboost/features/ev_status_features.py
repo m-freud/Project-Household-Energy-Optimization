@@ -9,15 +9,14 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from xgboost import XGBClassifier
-from src.config import Config
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.config import Config  # noqa: E402
+from src.sqlite_connection import fetch_timeseries, sqlite_cursor  # noqa: E402
 
 
-from ._shared import _add_trig_time_features
+from training.xgboost.features._shared import _add_trig_time_features, _add_lag_features, _add_next_value_target  # noqa: E402
 
 
-def _fetch_raw_ev_status_profiles(household_ids: list[int])->dict:
+def _fetch_ev_status_profiles(household_ids: list[int])->dict:
     data = {}
     for household_id in household_ids:
         ev1_at_home = fetch_timeseries(sqlite_cursor, table_name="ev1_at_home", player_id=household_id)
@@ -79,7 +78,7 @@ def _standardize_status_profiles(raw_profiles: dict) -> pd.DataFrame:
     return df
 
 
-def _init_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
+def _init_status_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
     status_columns = sorted(
         [column for column in profiles_df.columns if re.fullmatch(r"s\d+", str(column))],
         key=lambda name: int(name[1:]),
@@ -163,27 +162,6 @@ def _add_phase_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
 
     feature_df["phase"] = phase
     feature_df["phase_id"] = pd.Series(phase, index=feature_df.index).map(phase_to_id).astype(int)
-    return feature_df
-
-
-def _add_status_lag_features(
-    feature_df: pd.DataFrame,
-    lags: tuple[int, ...] = (1, 2, 4, 8),
-    pad_value: int = -1,
-    add_pad_flags: bool = True,
-) -> pd.DataFrame:
-    group_cols = ["household_id", "ev_key"]
-    grouped_status = feature_df.groupby(group_cols)["status"]
-
-    for lag in lags:
-        lag_col = f"status_lag_{lag}"
-        feature_df[lag_col] = grouped_status.shift(lag)
-        lag_missing = feature_df[lag_col].isna()
-        feature_df[lag_col] = feature_df[lag_col].fillna(pad_value).astype(int)
-
-        if add_pad_flags:
-            feature_df[f"status_lag_{lag}_is_pad"] = lag_missing.astype(int)
-
     return feature_df
 
 
@@ -308,22 +286,24 @@ def _add_window_length_slack(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _add_next_state(feature_df: pd.DataFrame) -> pd.DataFrame:
-    group_cols = ["household_id", "ev_key"]
-    feature_df["next_state"] = feature_df.groupby(group_cols)["status"].shift(-1)
-    feature_df["next_state"] = feature_df["next_state"].fillna(0).astype(int)
-    return feature_df
-
-
 def get_ev_status_features(household_ids: list[int]) -> pd.DataFrame:
-    raw_profiles = _fetch_raw_ev_status_profiles(household_ids)
+    raw_profiles = _fetch_ev_status_profiles(household_ids)
     profiles_df = _standardize_status_profiles(raw_profiles)
-    feature_df = _init_feature_df(profiles_df)
+    feature_df = _init_status_feature_df(profiles_df)
 
     feature_df = _add_trig_time_features(feature_df)
     feature_df = _add_steps_in_current_state(feature_df)
     feature_df = _add_phase_feature(feature_df)
-    feature_df = _add_status_lag_features(feature_df, lags=(1, 2, 4, 8), pad_value=-1, add_pad_flags=True)
+    feature_df = _add_lag_features(
+        feature_df,
+        source_column="status",
+        group_cols=("household_id", "ev_key"),
+        lags=(1, 2, 4, 8),
+        pad_value=-1,
+        add_pad_flags=True,
+        output_prefix="status_lag",
+        dtype=int,
+    )
     feature_df = _add_allowed_commute_window_boundaries(feature_df)
     feature_df = _add_max_commute_steps(feature_df)
     feature_df = _add_times_to_boundary(feature_df)
@@ -331,7 +311,14 @@ def get_ev_status_features(household_ids: list[int]) -> pd.DataFrame:
     feature_df = _add_observed_boundary_flags(feature_df)
     feature_df = _add_observed_window_length(feature_df)
     feature_df = _add_window_length_slack(feature_df)
-    feature_df = _add_next_state(feature_df)
+    feature_df = _add_next_value_target(
+        feature_df,
+        source_column="status",
+        group_cols=("household_id", "ev_key"),
+        target_column="next_state",
+        fill_value=0,
+        dtype=int,
+    )
 
     return feature_df
 
