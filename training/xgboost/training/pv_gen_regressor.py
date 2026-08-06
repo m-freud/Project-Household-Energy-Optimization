@@ -7,16 +7,13 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from xgboost import XGBRegressor
-from training.xgboost.features.pv_gen_features import get_pv_features
-from training.split import distinct_set_ignore_ev_status
-from src.config import Config
-import numpy as np
+from xgboost import XGBRegressor  # noqa: E402
+from training.xgboost.features.pv_gen_features import get_pv_features  # noqa: E402
+from src.config import Config  # noqa: E402
+import numpy as np  # noqa: E402
 
-distinct_ids = sorted(distinct_set_ignore_ev_status)
-n_train = int(len(distinct_ids) * 0.8)
-train_household_ids = distinct_ids[:n_train]
-test_household_ids = distinct_ids[n_train:]
+train_household_ids = list(Config.H_SET_TRAINING)
+test_household_ids = list(Config.H_SET_TESTING)
 
 train = get_pv_features(train_household_ids)
 test = get_pv_features(test_household_ids)
