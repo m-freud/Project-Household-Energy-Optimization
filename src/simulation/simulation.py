@@ -839,6 +839,8 @@ if __name__ == "__main__":
 
     if args.households == "all":
         selected_household_ids = None
+    elif args.households == "test_set":
+        selected_household_ids = Config.H_SET_TESTING
     else:
         selected_household_ids = [
             int(token.strip()) for token in args.households.split(",") if token.strip()

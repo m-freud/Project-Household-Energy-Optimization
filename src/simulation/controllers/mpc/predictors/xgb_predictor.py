@@ -46,18 +46,19 @@ class XGBPredictor(BasePredictor):
     def predict(self, household: Household, horizon: int) -> dict:
         prediction: dict[str, list[float]] = {}
 
+        ev_status = predict_ev_status(
+            model=self.predictors["ev_status"],
+            household=household,
+            horizon=horizon,
+        )
         base_load = predict_base_load(
             model=self.predictors["base_load"],
             household=household,
             horizon=horizon,
+            predicted_ev_status=ev_status,
         )
         pv_gen = predict_pv_gen(
             model=self.predictors["pv_gen"],
-            household=household,
-            horizon=horizon,
-        )
-        ev_status = predict_ev_status(
-            model=self.predictors["ev_status"],
             household=household,
             horizon=horizon,
         )
