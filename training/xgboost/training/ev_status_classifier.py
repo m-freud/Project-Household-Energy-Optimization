@@ -13,6 +13,8 @@ import math
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
+from src.config import Config
+
 from xgboost import XGBClassifier
 from training.xgboost.features.ev_status_features import get_ev_status_features
 from training.split import distinct_set_ignore_ev_status
@@ -50,4 +52,6 @@ print(f"Test accuracy: {accuracy}")
 print(f"Train rows: {len(train)} | Test rows: {len(test)}")
 
 # save model
-model.save_model("ev_status_classifier.json")
+model_path = Config.ROOT_DIR / "training" / "xgboost" / "models" / "ev_status_classifier.json"
+model_path = Path(model_path)
+model.save_model(model_path)
