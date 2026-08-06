@@ -6,6 +6,11 @@ load_dotenv()
 
 class Config:
     ROOT_DIR = Path(__file__).parent.parent
+    XGB_MODEL_DIR = Path(ROOT_DIR / "training" / "xgboost" / "models")
+
+    XGB_BASE_LOAD_MODEL_PATH = Path(XGB_MODEL_DIR / "base_load_regressor.json")
+    XGB_PV_GEN_MODEL_PATH = Path(XGB_MODEL_DIR / "pv_gen_regressor.json")
+    XGB_EV_STATUS_MODEL_PATH = Path(XGB_MODEL_DIR / "ev_status_classifier.json")
 
     # data source
     EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))

@@ -744,15 +744,24 @@ if __name__ == "__main__":
     # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
-    repo_root = Path(__file__).resolve().parents[2]
-    pv_gen_model_path = repo_root / "pv_gen_regressor.json"
-    ev_status_model_path = repo_root / "ev_status_classifier.json"
+    base_load_model_path = Config.XGB_BASE_LOAD_MODEL_PATH
+    pv_gen_model_path = Config.XGB_PV_GEN_MODEL_PATH
+    ev_status_model_path = Config.XGB_EV_STATUS_MODEL_PATH
 
     xgb_models = {
-        "base_load": ConstantRegressor(0.0),
+        "base_load": XGBRegressor(),
         "pv_gen": XGBRegressor(),
         "ev_status": XGBClassifier(),
     }
+
+    try:
+        xgb_models["base_load"].load_model(str(base_load_model_path))
+        print(f"Loaded base-load regressor: {base_load_model_path}")
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to load base-load regressor from '{base_load_model_path}'. "
+            "Train/export it first in repo root."
+        ) from e
 
     try:
         xgb_models["pv_gen"].load_model(str(pv_gen_model_path))
