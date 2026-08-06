@@ -2,7 +2,7 @@
 # paste this to enable src. imports
 from pathlib import Path
 import sys
-import pandas as pd
+import numpy as np
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -304,8 +304,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
             ev_status_data = _fetch_ev_status_data(household, ev_key)
             features = _build_ev_status_features(ev_status_data)
 
-            feature_row = pd.DataFrame([features])
-            model_input = feature_row[MODEL_FEATURE_COLUMNS]
+            model_input = np.asarray([[features[column] for column in MODEL_FEATURE_COLUMNS]], dtype=float)
 
             predicted_status = int(model.predict(model_input)[0])
 
