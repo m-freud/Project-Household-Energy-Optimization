@@ -229,14 +229,21 @@ def render_prediction_explorer(
 ) -> None:
     st.header("Prediction Explorer")
 
+    only_show_test_ids = st.checkbox("Only show test ids", value=False)
+    available_household_ids = list(Config.H_SET_TESTING) if only_show_test_ids else list(household_ids)
+    if not available_household_ids:
+        st.warning("No household ids available for the selected filter.")
+        return
+
     c1, c2, c3 = st.columns([1, 2, 3], gap="large")
 
     with c1:
+        household_key = "pred_household_test" if only_show_test_ids else "pred_household_all"
         selected_household_id = st.selectbox(
             "Household",
-            options=household_ids,
+            options=available_household_ids,
             index=0,
-            key="pred_household",
+            key=household_key,
         )
     with c2:
         selected_predictors = st.multiselect(
@@ -431,12 +438,12 @@ def render_prediction_explorer(
     effective_policy_name = _slugify_name(run_name_input) or generated_policy_name
 
     st.caption(f"Will run policy: {effective_policy_name}")
-    st.caption(f"Scenarios: {len(scenario_catalog)} | Households: {len(household_ids)}")
+    st.caption(f"Scenarios: {len(scenario_catalog)} | Households: {len(available_household_ids)}")
 
     run_button_label = "Run MPC With This Predictor"
     if st.button(run_button_label, type="primary", width="stretch"):
         total_scenarios = len(scenario_catalog)
-        household_id_list = [int(player_id) for player_id in household_ids]
+        household_id_list = [int(player_id) for player_id in available_household_ids]
         total_households = len(household_id_list)
         total_jobs = total_scenarios * total_households
         if total_scenarios <= 0 or total_households <= 0:
