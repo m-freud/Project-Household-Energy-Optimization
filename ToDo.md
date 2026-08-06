@@ -1,38 +1,63 @@
-# Project ToDo
+# XGB MPC — To-Do
 
-## 1) Hybrid MA Tuning abschliessen
-- [x] Hybrid MA Tuning als abgeschlossen markieren (kein weiterer Parameter-Sweep)
-- [x] Aktuellen Stand und Entscheidung im Kopf behalten: Fokus auf robuste, einfache MPC-Variante
-- [x] Spasseshalber noch einen Persistence-Sweep fahren, bei Defaults: long window 96, alles andere 0, persistence mode constant
+## 1  Performance: make XGBPredictor fast enough to use
 
-## 2) Umfassende Code Review
-- [ ] End-to-end Review der Simulation, Predictor-Logik, MPC-Constraints und Fallbacks
-- [ ] Off-by-one / Zeitachsen-Pruefung (Status, Prices, Max-Charge, Horizon)
-- [ ] EV-Status/Availability und Max-Charge-Pfade auf Konsistenz pruefen
-- [ ] Kritische Findings priorisieren und sauber fixen
+The recursive rollout (96 steps × one `pd.DataFrame` + `model.predict` call each) is the main bottleneck.
 
-## 3) Re-Validation mit 250x6 Run (0/96)
-- [ ] Voller Run: 250 Haushalte x 6 Szenarien mit 0/96-Setup
-- [ ] Target-Hit-Rates und Miss-Pattern auswerten (insb. EV2)
-- [ ] Vergleich gegen letzten stabilen Stand dokumentieren
+- [ ] Profile a single household end-to-end to find the dominant cost (DataFrame construction vs. predict vs. other)
+- [ ] Build the full feature matrix for all horizon steps at once and call `model.predict` once per predictor, not 96 times
+- [ ] If per-step recursion is unavoidable (base-load depends on previous predictions), batch what can be batched (time features, lag arrays) and only iterate over the truly sequential part
+- [ ] Benchmark before/after; target sub-second per household per horizon
 
-## 4) Safety Fix nur falls noetig
-- [ ] Wenn nach Review/Run noch Misses auftreten: kleinen Charge-Buffer ueber Ziel setzen
-- [ ] Buffer so klein wie moeglich halten (minimal invasiv)
-- [ ] Nochmal kurz revalidieren, dass Misses weg sind und Kosten nicht unnoetig steigen
+---
 
-## 5) Gscheide Auswertung + README
-- [ ] Finale Auswertung zusammenfassen (Metriken, Trade-offs, verbleibende Grenzen)
-- [ ] README auf finalen technischen Stand bringen
-- [ ] Klarer Storyflow: Waterfall < einfacher MPC < Oracle, mit sauberem Fazit
+## 2  Full review: training scripts and runtime predictors
 
-## 6) UI aufhuebschen (optional)
-- [ ] Dashboard/Plots visuell aufraeumen und konsistenter machen
-- [ ] Kleine UX-Verbesserungen, solange sie den Scope nicht aufblasen
+Make sure training and inference are exactly aligned and the code is clean.
 
-## 7) XGBoost Pilot fuer Forecasting
-- [ ] Minimalen XGBoost-Forecast-Pilot bauen (vermutlich base_load + pv_gen, bei EV wäre das eher overfitting)
-- [ ] Haushalts-Split umsetzen (z. B. 100/100/50: train/val/test)
-- [ ] Gegen MA-Baseline benchmarken (MAE/RMSE + Auswirkungen im MPC)
-- [ ] Wenn besser als MA: als optionalen Predictor integrieren
-- [ ] Kurz dokumentieren: Setup, Ergebnis, naechste Iteration
+- [ ] Verify `MODEL_FEATURE_COLUMNS` in every runtime predictor matches the training DataFrame column order exactly (already tested by parity script — keep that test green)
+- [ ] Check that `n_evs_at_home` in the base-load runtime predictor uses the EV-status classifier output, not the frozen household state (already patched — confirm end-to-end)
+- [ ] Confirm the EV-status recursive prediction index alignment (off-by-one risk between `prediction_index` and the returned at-home sequences)
+- [ ] Review `_regression.py` helper names vs. what `base_load_features.py` and `pv_gen_features.py` actually import — resolve any alias confusion
+- [ ] Remove dead code in training scripts (unused imports, old `root`-based path constructions)
+- [ ] Ensure all three `train_all.py` paths use `Config.H_SET_TRAINING` / `Config.H_SET_TESTING` consistently
+
+---
+
+## 3  Model tuning
+
+Train better models; don't change the feature set until tuning is done.
+
+### All three models
+- [ ] Grid-search `max_depth` (4, 6, 8), `learning_rate` (0.01, 0.05, 0.1), `n_estimators` (200, 500, 1000) with early stopping on a held-out validation fold
+- [ ] Use `Config.H_SET_TESTING` strictly as the final holdout — tune on `Config.H_SET_TRAINING` only
+
+### PV generation regressor
+- [ ] Apply a daylight-window mask to predictions at inference time: force `next_pv_gen = 0` for any timestep outside `Config.PV_GENERATION_WINDOW_ALLOWED`
+- [ ] Evaluate whether a separate model for the daylight window vs. outside improves accuracy
+
+### Base-load regressor
+- [ ] Check whether `n_evs_at_home` is actually used by the tree (feature importance) — remove if it adds noise without signal
+- [ ] Consider a rolling-window cross-validation over the 96-step day profile rather than a random train/test split
+
+### EV-status classifier
+- [ ] Evaluate per-class accuracy (home / commuting / station) — the classifier may be systematically wrong on the `station` class
+- [ ] Try `subsample` and `colsample_bytree` sweeps to reduce overfitting on the small household set
+
+---
+
+## 4  Pre-presentation state & README
+
+Get to a clean, demonstrable checkpoint before the presentation.
+
+- [ ] Run the full test-set benchmark for all scenarios (`default_scenario`, `stressed_low_start`, remaining) with both `mpc_xgb` and `mpc_hybrid` so the dashboard shows a complete side-by-side
+- [ ] Write a concise **README summary** covering:
+  - Project goal (household energy cost minimisation with MPC)
+  - Data: 250 households, 96 timesteps/day, EV + BESS + PV + base load
+  - Architecture: simulation engine → MPC controller → XGBoost predictors (base load, PV, EV status)
+  - Key result: XGB-MPC beats hybrid moving-average MPC on 6/8 test households, v1 models, no tuning
+  - How to run: `train_all.py`, `simulation.py --controllers mpc_xgb --households test_set`, dashboard
+- [ ] Draw a one-page **system diagram** showing:
+  - Data layer (SQLite) → Simulation → MPC Controller → Predictor (XGBPredictor) → three sub-models
+  - Training pipeline (feature builders → XGBoost → saved `.json` models → runtime loaders)
+  - Feedback loop: EV-status prediction feeds base-load prediction feeds MPC optimisation
