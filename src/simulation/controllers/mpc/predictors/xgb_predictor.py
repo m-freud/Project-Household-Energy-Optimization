@@ -64,11 +64,14 @@ class XGBPredictor(BasePredictor):
         )
         
         ev_load = predict_ev_load(household, horizon, ev_status)
-        ev_buy_price = predict_ev_buy_price(household, horizon, ev_status)
-        ev_max_charge = predict_ev_max_charge(household, horizon, ev_status)
-
         buy_price = predict_buy_price_home(household, horizon)
         sell_price = predict_sell_price_home(household, horizon)
+        grid_prices = {
+            "buy_price": buy_price["buy_price"],
+            "sell_price": sell_price["sell_price"],
+        }
+        ev_buy_price = predict_ev_buy_price(household, horizon, ev_status, grid_prices=grid_prices)
+        ev_max_charge = predict_ev_max_charge(household, horizon, ev_status)
 
 
         prediction.update(base_load)
