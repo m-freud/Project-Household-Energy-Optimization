@@ -89,8 +89,10 @@ def predict_ev_buy_price(
     household: Household,
     horizon: int,
     ev_status: dict[str, list[float]],
+    grid_prices: dict[str, list[float]] | None = None,
 ) -> dict[str, list[float]]:
-    grid_prices = predict_grid_prices(household, horizon)
+    if grid_prices is None:
+        grid_prices = predict_grid_prices(household, horizon)
     station_prices = {
         "ev1": household.ev1_station_buy_price,
         "ev2": household.ev2_station_buy_price,

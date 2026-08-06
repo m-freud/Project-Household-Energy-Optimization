@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pandas as pd
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -168,7 +169,8 @@ def _predict_base_load(
             n_evs_at_home=n_evs_at_home,
         )
 
-        model_input = np.asarray([[features[column] for column in MODEL_FEATURE_COLUMNS]], dtype=float)
+        feature_row = pd.DataFrame([features])
+        model_input = feature_row[MODEL_FEATURE_COLUMNS]
 
         next_base_load = float(model.predict(model_input)[0])
         next_base_load = max(0.0, next_base_load)

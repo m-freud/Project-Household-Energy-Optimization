@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import pandas as pd
 import numpy as np
 
 # find the repository root that contains 'src'
@@ -160,7 +161,8 @@ def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96
         )
         features = _build_pv_gen_features(pv_data)
 
-        model_input = np.asarray([[features[column] for column in MODEL_FEATURE_COLUMNS]], dtype=float)
+        feature_row = pd.DataFrame([features])
+        model_input = feature_row[MODEL_FEATURE_COLUMNS]
 
         next_pv_gen = float(model.predict(model_input)[0])
         next_pv_gen = max(0.0, next_pv_gen)
