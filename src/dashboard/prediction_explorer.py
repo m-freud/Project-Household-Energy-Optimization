@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime
 from functools import partial
 import math
-from pathlib import Path
 import re
 
 import matplotlib.pyplot as plt
@@ -26,7 +25,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
     "running_avg": "running_avg",
-    "xgb": "xgb (ev status + pv gen)",
+    "xgb": "xgb (base load + pv gen + ev status)",
 }
 
 PROFILE_OPTIONS = [
@@ -57,8 +56,19 @@ class _ConstantRegressor(XGBRegressor):
 
 
 @st.cache_resource(show_spinner=False)
+def _load_xgb_base_load_model() -> XGBRegressor:
+    model_path = Config.XGB_BASE_LOAD_MODEL_PATH
+    if not model_path.exists():
+        raise FileNotFoundError(f"Missing model file: {model_path}")
+
+    model = XGBRegressor()
+    model.load_model(str(model_path))
+    return model
+
+
+@st.cache_resource(show_spinner=False)
 def _load_xgb_ev_status_model() -> XGBClassifier:
-    model_path = Path(__file__).resolve().parents[2] / "ev_status_classifier.json"
+    model_path = Config.XGB_EV_STATUS_MODEL_PATH
     if not model_path.exists():
         raise FileNotFoundError(f"Missing model file: {model_path}")
 
@@ -69,7 +79,7 @@ def _load_xgb_ev_status_model() -> XGBClassifier:
 
 @st.cache_resource(show_spinner=False)
 def _load_xgb_pv_gen_model() -> XGBRegressor:
-    model_path = Path(__file__).resolve().parents[2] / "pv_gen_regressor.json"
+    model_path = Config.XGB_PV_GEN_MODEL_PATH
     if not model_path.exists():
         raise FileNotFoundError(f"Missing model file: {model_path}")
 
@@ -88,7 +98,7 @@ def _build_predictor(
         )
     if predictor_name == "xgb":
         return XGBPredictor(
-            base_load_regressor=_ConstantRegressor(0.0),
+            base_load_regressor=_load_xgb_base_load_model(),
             pv_gen_regressor=_load_xgb_pv_gen_model(),
             ev_status_classifier=_load_xgb_ev_status_model(),
         )

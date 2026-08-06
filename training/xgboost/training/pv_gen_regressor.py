@@ -96,6 +96,5 @@ print(f"Test households: {test_household_ids}")
 
 # save model
 root = Config.ROOT_DIR
-model_path = root / "training" / "xgboost" / "models" / "pv_gen_regressor.json"
-model_path = Path(model_path)
+model_path = Config.XGB_PV_GEN_MODEL_PATH
 model.save_model(model_path)

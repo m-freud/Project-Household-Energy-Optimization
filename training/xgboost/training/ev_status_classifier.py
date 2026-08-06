@@ -52,6 +52,5 @@ print(f"Test accuracy: {accuracy}")
 print(f"Train rows: {len(train)} | Test rows: {len(test)}")
 
 # save model
-model_path = Config.ROOT_DIR / "training" / "xgboost" / "models" / "ev_status_classifier.json"
-model_path = Path(model_path)
+model_path = Config.XGB_EV_STATUS_MODEL_PATH
 model.save_model(model_path)
