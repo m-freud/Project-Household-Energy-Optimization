@@ -52,7 +52,19 @@ def _history_values(household: Household, key: str, current_timestep: int) -> li
     return [float(history[step]) for step in ordered_steps]
 
 
-def _count_evs_at_home(household: Household) -> int:
+def _count_evs_at_home(
+    household: Household,
+    predicted_ev_status: dict[str, list[float]] | None = None,
+    prediction_index: int | None = None,
+) -> int:
+    if predicted_ev_status is not None and prediction_index is not None:
+        ev1_home_seq = predicted_ev_status.get("ev1_at_home", [])
+        ev2_home_seq = predicted_ev_status.get("ev2_at_home", [])
+
+        ev1_at_home = int(float(ev1_home_seq[prediction_index])) if prediction_index < len(ev1_home_seq) else 0
+        ev2_at_home = int(float(ev2_home_seq[prediction_index])) if prediction_index < len(ev2_home_seq) else 0
+        return int(ev1_at_home + ev2_at_home)
+
     ev1_at_home = int(bool(getattr(household.ev1, "at_home", False))) if getattr(household, "ev1", None) else 0
     ev2_at_home = int(bool(getattr(household.ev2, "at_home", False))) if getattr(household, "ev2", None) else 0
     return int(ev1_at_home + ev2_at_home)
@@ -63,6 +75,7 @@ def _build_base_load_features(
     current_timestep: int,
     current_base_load: float,
     base_load_history: list[float],
+    n_evs_at_home: int,
 ) -> dict:
     pv_seq = list(base_load_history) + [float(current_base_load)]
 
@@ -93,7 +106,7 @@ def _build_base_load_features(
     features = {
         "timestep": int(current_timestep),
         "base_load": float(current_base_load),
-        "n_evs_at_home": int(_count_evs_at_home(household)),
+        "n_evs_at_home": int(n_evs_at_home),
         "time_sin": float(time_sin),
         "time_cos": float(time_cos),
         "base_load_lag_1": float(lag_1),
@@ -124,7 +137,12 @@ def _build_base_load_features(
     return features
 
 
-def _predict_base_load(model: XGBRegressor, household: Household, horizon: int = 96) -> list[float]:
+def _predict_base_load(
+    model: XGBRegressor,
+    household: Household,
+    horizon: int = 96,
+    predicted_ev_status: dict[str, list[float]] | None = None,
+) -> list[float]:
     if horizon <= 0:
         return []
 
@@ -136,12 +154,19 @@ def _predict_base_load(model: XGBRegressor, household: Household, horizon: int =
 
     base_load_history = _history_values(household, "base_load", current_timestep)
 
-    for _ in range(horizon - 1):
+    for prediction_index in range(horizon - 1):
+        n_evs_at_home = _count_evs_at_home(
+            household,
+            predicted_ev_status=predicted_ev_status,
+            prediction_index=prediction_index,
+        )
+
         features = _build_base_load_features(
             household=household,
             current_timestep=current_timestep,
             current_base_load=current_base_load,
             base_load_history=base_load_history,
+            n_evs_at_home=n_evs_at_home,
         )
 
         feature_row = pd.DataFrame([features])
@@ -162,9 +187,15 @@ def predict_base_load(
     model: XGBRegressor,
     household: Household,
     horizon: int,
+    predicted_ev_status: dict[str, list[float]] | None = None,
     interval_width_frct: float = 0.0,
 ) -> dict[str, list[float]]:
-    base_load = _predict_base_load(model=model, household=household, horizon=horizon)
+    base_load = _predict_base_load(
+        model=model,
+        household=household,
+        horizon=horizon,
+        predicted_ev_status=predicted_ev_status,
+    )
     base_load_lb, base_load_ub = make_band(base_load, interval_width_frct)
 
     return {
