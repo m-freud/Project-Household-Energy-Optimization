@@ -95,6 +95,12 @@ def _build_base_load_features(
     return features
 
 
+def _try_bypass(current_timestep: int) -> float | None:
+    if current_timestep >= 96:
+        return 0.0
+    return None
+
+
 def _predict_base_load(
     model: XGBRegressor,
     household: Household,
@@ -113,6 +119,13 @@ def _predict_base_load(
     base_load_pred: list[float] = [current_base_load]
 
     for prediction_index in range(horizon - 1):
+        bypass = _try_bypass(current_timestep)
+        if bypass is not None:
+            current_base_load = bypass
+            base_load_pred.append(current_base_load)
+            current_timestep += 1
+            continue
+
         n_evs_at_home = _count_evs_at_home( # predictions are 0-indexed so we can just use this range
             predicted_ev_status=predicted_ev_status,
             prediction_index=prediction_index,

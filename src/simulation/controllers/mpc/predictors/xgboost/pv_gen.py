@@ -87,7 +87,19 @@ def _build_pv_gen_features(
     return features
 
 
-def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96) -> list[float]:
+def _try_bypass(current_time: int) -> float | None:
+    # post-midnight bypass is implied
+    if current_time < Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"] \
+       or current_time > Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]:
+        return 0.0
+    return None
+
+
+def _predict_pv_gen(
+        model: XGBRegressor,
+        household: Household,
+        horizon: int = 96
+        ) -> list[float]:
     daylight_start = Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"]
     daylight_end = Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]
 
@@ -102,6 +114,14 @@ def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96
     pv_pred: list[float] = [current_pv_gen]
 
     for _ in range(horizon - 1):
+        bypass = _try_bypass(current_timestep)
+        if bypass is not None:
+            current_pv_gen = float(bypass)
+            pv_pred.append(current_pv_gen)
+            current_timestep += 1
+            continue
+
+
         features = _build_pv_gen_features(
             current_timestep=current_timestep,
             current_pv_gen=current_pv_gen,
@@ -121,7 +141,6 @@ def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96
         # update sim hist before next prediction
         sim_pv_history.append(float(current_pv_gen))
 
-        # get prediction and append
         current_pv_gen = model.predict([model_input])[0]
         pv_pred.append(current_pv_gen)
 
