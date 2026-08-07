@@ -102,7 +102,7 @@ def _build_pv_gen_features(pv_data: dict) -> dict:
     steps_to_daylight_start = int(daylight_start - timestep + 1) if timestep <= daylight_start else int(daylight_start - timestep)
     steps_to_daylight_end = int(daylight_end - timestep + 1) if timestep <= daylight_end else int(daylight_end - timestep)
 
-    time_sin, time_cos = encode_time_cyclic(timestep, Config.TOTAL_TIMESTEPS_DAY)
+    time_sin, time_cos = encode_time_cyclic(timestep)
 
     features = {
         "timestep": int(timestep),
