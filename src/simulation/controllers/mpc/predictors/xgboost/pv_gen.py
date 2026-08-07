@@ -14,35 +14,6 @@ from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 
 
-MODEL_FEATURE_COLUMNS = [
-    "timestep",
-    "pv_gen",
-    "time_sin",
-    "time_cos",
-    "pv_lag_1",
-    "pv_lag_1_is_pad",
-    "pv_lag_2",
-    "pv_lag_2_is_pad",
-    "pv_lag_4",
-    "pv_lag_4_is_pad",
-    "pv_lag_8",
-    "pv_lag_8_is_pad",
-    "pv_lag_12",
-    "pv_lag_12_is_pad",
-    "pv_ma_2",
-    "pv_ma_4",
-    "pv_ma_8",
-    "pv_ma_16",
-    "pv_std_4",
-    "pv_std_8",
-    "pv_delta_1",
-    "pv_delta_2",
-    "pv_accel",
-    "steps_to_daylight_start",
-    "steps_to_daylight_end",
-]
-
-
 def _fetch_pv_gen_profiles(
     household: Household,
     current_timestep: int,
