@@ -74,7 +74,7 @@ def get_pv_features(household_ids: list[int]) -> pd.DataFrame:
         dtype=float,
     )
     feature_df = _round_float_features(feature_df, digits=3)
-
+    
     return feature_df
 
 

@@ -89,8 +89,8 @@ def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
 
 
 def _build_ev_status_features(ev_status_data) -> dict:
-    timestep = int(ev_status_data["timestep"])
-    status = int(ev_status_data["status"])
+    timestep = ev_status_data["timestep"]
+    status = ev_status_data["status"]
     status_history = list(ev_status_data.get("status_history", []))
     status_seq = status_history + [status]
 
