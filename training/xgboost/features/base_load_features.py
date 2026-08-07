@@ -67,7 +67,7 @@ def _add_n_evs_at_home(feature_df: pd.DataFrame, household_ids: list[int]) -> pd
 	return feature_df
 
 
-def get_base_load_features(household_ids: list[int]) -> pd.DataFrame:
+def get_base_load_features(household_ids: list[int], round_values: bool = False) -> pd.DataFrame:
 	raw_profiles = _fetch_profiles(household_ids, "base_load")
 	standardized_df = _get_profiles_df(raw_profiles)
 	feature_df = _init_feature_df(standardized_df, value_name="base_load")
@@ -110,7 +110,8 @@ def get_base_load_features(household_ids: list[int]) -> pd.DataFrame:
 		fill_value=0.0,
 		dtype=float,
 	)
-	feature_df = _round_float_features(feature_df, digits=3)
+	if round_values:
+		feature_df = _round_float_features(feature_df, digits=3)
 
 	return feature_df
 
