@@ -223,17 +223,18 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     ev_home_key = f"{ev_key}_at_home"
     ev_station_key = f"{ev_key}_at_charging_station"
 
-    current_at_home = int(getattr(household, ev_home_key, 0))
-    current_at_station = int(getattr(household, ev_station_key, 0))
-    current_status = 1 - int(current_at_home) + int(current_at_station)  # 012 conversion
+    current_at_home = int(getattr(household, ev_home_key, 0)) # bool to int
+    current_at_station = int(getattr(household, ev_station_key, 0)) # bool to int
+    current_status = 1 - current_at_home + current_at_station  # 012 conversion
     current_timestep = household.current_timestep
 
     # init sim history for prediction
     at_home_history = household.history.get(f"{ev_key}_at_home", {})
     at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
+
     # we use list here for convenience
     sim_status_history = [ # combine to single 012
-        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
+        1 - at_home_history[step] + at_station_history[step]
         for step in range(1, current_timestep)
     ]
 
@@ -244,12 +245,12 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
             "timestep": current_timestep,
             "status": current_status,
             "status_history": sim_status_history,
-            "start1_earliest": int(windows[0]["earliest_start"]),
-            "end1_latest": int(windows[0]["latest_end"]),
-            "start2_earliest": int(windows[1]["earliest_start"]),
-            "end2_latest": int(windows[1]["latest_end"]),
-            "max_commute_steps_1": int(windows[0]["max_unavailable_steps"]),
-            "max_commute_steps_2": int(windows[1]["max_unavailable_steps"]),
+            "start1_earliest": windows[0]["earliest_start"],
+            "end1_latest": windows[0]["latest_end"],
+            "start2_earliest": windows[1]["earliest_start"],
+            "end2_latest": windows[1]["latest_end"],
+            "max_commute_steps_1": windows[0]["max_unavailable_steps"],
+            "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         }
 
         features = _build_ev_status_features(ev_status_data)

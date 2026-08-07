@@ -14,31 +14,6 @@ from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 
 
-def _fetch_pv_gen_profiles(
-    household: Household,
-    current_timestep: int,
-    current_pv_gen: float,
-    pv_history: dict[int, float],
-) -> dict:
-    pv_window = getattr(Config, "PV_GENERATION_WINDOW_ALLOWED", None)
-    if pv_window is None:
-        pv_window = getattr(Config, "PV_GENERATION_WINDOW_OBSERVED", None)
-    if pv_window is None:
-        raise ValueError("Config must define PV_GENERATION_WINDOW_ALLOWED or PV_GENERATION_WINDOW_OBSERVED")
-
-    ordered_steps = sorted(int(step) for step in pv_history.keys() if int(step) < int(current_timestep))
-    pv_series_history = [float(pv_history[step]) for step in ordered_steps]
-
-    return {
-        "household_id": int(household.player_id),
-        "timestep": int(current_timestep),
-        "pv_gen": float(current_pv_gen),
-        "pv_history": pv_series_history,
-        "daylight_start": int(pv_window["earliest_start"]),
-        "daylight_end": int(pv_window["latest_end"]),
-    }
-
-
 def _build_pv_gen_features(
     current_timestep: int,
     current_pv_gen: float,
@@ -66,41 +41,41 @@ def _build_pv_gen_features(
     lag_8, lag_8_pad = _lag(8)
     lag_12, lag_12_pad = _lag(12)
 
-    pv_delta_1 = float(current_pv_gen - lag_1) if lag_1_pad == 0 else 0.0
-    pv_delta_2 = float(lag_1 - lag_2) if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
-    pv_accel = float(pv_delta_1 - pv_delta_2)
+    pv_delta_1 = current_pv_gen - lag_1 if lag_1_pad == 0 else 0.0
+    pv_delta_2 = lag_1 - lag_2 if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
+    pv_accel = pv_delta_1 - pv_delta_2
 
-    steps_to_daylight_start = int(daylight_start - current_timestep + 1) if current_timestep <= daylight_start else int(daylight_start - current_timestep)
-    steps_to_daylight_end = int(daylight_end - current_timestep + 1) if current_timestep <= daylight_end else int(daylight_end - current_timestep)
+    steps_to_daylight_start = daylight_start - current_timestep + 1 if current_timestep <= daylight_start else daylight_start - current_timestep
+    steps_to_daylight_end = daylight_end - current_timestep + 1 if current_timestep <= daylight_end else daylight_end - current_timestep
 
     time_sin, time_cos = encode_time_cyclic(current_timestep)
 
     features = {
-        "timestep": int(current_timestep),
-        "pv_gen": float(current_pv_gen),
-        "time_sin": float(time_sin),
-        "time_cos": float(time_cos),
-        "pv_lag_1": float(lag_1),
-        "pv_lag_1_is_pad": int(lag_1_pad),
-        "pv_lag_2": float(lag_2),
-        "pv_lag_2_is_pad": int(lag_2_pad),
-        "pv_lag_4": float(lag_4),
-        "pv_lag_4_is_pad": int(lag_4_pad),
-        "pv_lag_8": float(lag_8),
-        "pv_lag_8_is_pad": int(lag_8_pad),
-        "pv_lag_12": float(lag_12),
-        "pv_lag_12_is_pad": int(lag_12_pad),
+        "timestep": current_timestep,
+        "pv_gen": current_pv_gen,
+        "time_sin": time_sin,
+        "time_cos": time_cos,
+        "pv_lag_1": lag_1,
+        "pv_lag_1_is_pad": lag_1_pad,
+        "pv_lag_2": lag_2,
+        "pv_lag_2_is_pad": lag_2_pad,
+        "pv_lag_4": lag_4,
+        "pv_lag_4_is_pad": lag_4_pad,
+        "pv_lag_8": lag_8,
+        "pv_lag_8_is_pad": lag_8_pad,
+        "pv_lag_12": lag_12,
+        "pv_lag_12_is_pad": lag_12_pad,
         "pv_ma_2": _rolling_mean(2),
         "pv_ma_4": _rolling_mean(4),
         "pv_ma_8": _rolling_mean(8),
         "pv_ma_16": _rolling_mean(16),
         "pv_std_4": _rolling_std(4),
         "pv_std_8": _rolling_std(8),
-        "pv_delta_1": float(pv_delta_1),
-        "pv_delta_2": float(pv_delta_2),
-        "pv_accel": float(pv_accel),
-        "steps_to_daylight_start": int(steps_to_daylight_start),
-        "steps_to_daylight_end": int(steps_to_daylight_end),
+        "pv_delta_1": pv_delta_1,
+        "pv_delta_2": pv_delta_2,
+        "pv_accel": pv_accel,
+        "steps_to_daylight_start": steps_to_daylight_start,
+        "steps_to_daylight_end": steps_to_daylight_end,
     }
 
     # Keep inference numerics aligned with rounded training features.
@@ -146,8 +121,8 @@ def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96
         sim_pv_history.append(float(current_pv_gen))
 
         # get prediction and append
-        current_pv_gen = float(model.predict([model_input])[0])
-        pv_pred.append(float(current_pv_gen))
+        current_pv_gen = model.predict([model_input])[0]
+        pv_pred.append(current_pv_gen)
 
         # incr time
         current_timestep += 1

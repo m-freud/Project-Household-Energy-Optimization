@@ -62,9 +62,9 @@ def _build_base_load_features(
     lag_8, lag_8_pad = _lag(8)
     lag_12, lag_12_pad = _lag(12)
 
-    base_load_delta_1 = float(current_base_load - lag_1) if lag_1_pad == 0 else 0.0
-    base_load_delta_2 = float(lag_1 - lag_2) if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
-    base_load_accel = float(base_load_delta_1 - base_load_delta_2)
+    base_load_delta_1 = current_base_load - lag_1 if lag_1_pad == 0 else 0.0
+    base_load_delta_2 = lag_1 - lag_2 if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
+    base_load_accel = base_load_delta_1 - base_load_delta_2
 
     time_sin, time_cos = encode_time_cyclic(current_timestep)
 
@@ -72,8 +72,8 @@ def _build_base_load_features(
         "timestep": current_timestep,
         "base_load": current_base_load,
         "n_evs_at_home": n_evs_at_home,
-        "time_sin": float(time_sin),
-        "time_cos": float(time_cos),
+        "time_sin": time_sin,
+        "time_cos": time_cos,
         "base_load_lag_1": lag_1,
         "base_load_lag_1_is_pad": lag_1_pad,
         "base_load_lag_2": lag_2,
@@ -141,11 +141,11 @@ def _predict_base_load(
         model_input = [features[f] for f in Config.XGB_FEATURES["BASE_LOAD"]]
 
         # update sim hist before next prediction
-        sim_base_load_history.append(float(current_base_load))
+        sim_base_load_history.append(current_base_load)
 
         # get prediction and append
-        current_base_load = float(model.predict([model_input])[0])
-        base_load_pred.append(float(current_base_load))
+        current_base_load = model.predict([model_input])[0]
+        base_load_pred.append(current_base_load)
 
         # incr time
         current_timestep += 1
