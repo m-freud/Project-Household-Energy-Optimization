@@ -217,29 +217,29 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         if status == 2:
             return 0, 1
         raise ValueError(f"Unexpected EV status class: {status}")
+
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
     
     ev_home_key = f"{ev_key}_at_home"
     ev_station_key = f"{ev_key}_at_charging_station"
 
     current_at_home = int(getattr(household, ev_home_key, 0))
     current_at_station = int(getattr(household, ev_station_key, 0))
-
+    current_status = 1 - int(current_at_home) + int(current_at_station)  # 012 conversion
     current_timestep = household.current_timestep
 
+    # init sim history for prediction
     at_home_history = household.history.get(f"{ev_key}_at_home", {})
     at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
-
+    # we use list here for convenience
     sim_status_history = [ # combine to single 012
         int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
         for step in range(1, current_timestep)
     ]
 
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
-
-    current_status = 1 - int(current_at_home) + int(current_at_station)  # 012 conversion
     at_home_pred, at_station_pred = [current_at_home], [current_at_station]
 
-    for _ in range(1, horizon):
+    for _ in range(horizon - 1):
         ev_status_data = {
             "timestep": current_timestep,
             "status": current_status,

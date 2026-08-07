@@ -39,11 +39,14 @@ def _fetch_pv_gen_profiles(
     }
 
 
-def _build_pv_gen_features(pv_data: dict) -> dict:
-    timestep = int(pv_data["timestep"])
-    pv_now = float(pv_data["pv_gen"])
-    pv_history = list(pv_data.get("pv_history", []))
-    pv_seq = pv_history + [pv_now]
+def _build_pv_gen_features(
+    current_timestep: int,
+    current_pv_gen: float,
+    pv_history: list[float],
+    daylight_start: int,
+    daylight_end: int,
+) -> dict:
+    pv_seq = pv_history + [current_pv_gen]
 
     def _lag(lag: int) -> tuple[float, int]:
         idx = len(pv_seq) - 1 - lag
@@ -63,21 +66,18 @@ def _build_pv_gen_features(pv_data: dict) -> dict:
     lag_8, lag_8_pad = _lag(8)
     lag_12, lag_12_pad = _lag(12)
 
-    pv_delta_1 = float(pv_now - lag_1) if lag_1_pad == 0 else 0.0
+    pv_delta_1 = float(current_pv_gen - lag_1) if lag_1_pad == 0 else 0.0
     pv_delta_2 = float(lag_1 - lag_2) if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
     pv_accel = float(pv_delta_1 - pv_delta_2)
 
-    daylight_start = int(pv_data["daylight_start"])
-    daylight_end = int(pv_data["daylight_end"])
+    steps_to_daylight_start = int(daylight_start - current_timestep + 1) if current_timestep <= daylight_start else int(daylight_start - current_timestep)
+    steps_to_daylight_end = int(daylight_end - current_timestep + 1) if current_timestep <= daylight_end else int(daylight_end - current_timestep)
 
-    steps_to_daylight_start = int(daylight_start - timestep + 1) if timestep <= daylight_start else int(daylight_start - timestep)
-    steps_to_daylight_end = int(daylight_end - timestep + 1) if timestep <= daylight_end else int(daylight_end - timestep)
-
-    time_sin, time_cos = encode_time_cyclic(timestep)
+    time_sin, time_cos = encode_time_cyclic(current_timestep)
 
     features = {
-        "timestep": int(timestep),
-        "pv_gen": float(pv_now),
+        "timestep": int(current_timestep),
+        "pv_gen": float(current_pv_gen),
         "time_sin": float(time_sin),
         "time_cos": float(time_cos),
         "pv_lag_1": float(lag_1),
@@ -112,39 +112,45 @@ def _build_pv_gen_features(pv_data: dict) -> dict:
 
 
 def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96) -> list[float]:
-    if horizon <= 0:
-        return []
+    daylight_start = Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"]
+    daylight_end = Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]
 
-    original_timestep = int(household.current_timestep)
-    current_timestep = int(original_timestep)
+    # current values
+    current_timestep = household.current_timestep
+    current_pv_gen = household.pv_gen
 
-    current_pv_gen = float(household.pv_gen)
+    # init sim history
+    sim_pv_history = list(household.history["pv_gen"].values())
+
+    # init prediciton
     pv_pred: list[float] = [current_pv_gen]
 
-    pv_history = dict(household.history.get("pv_gen", {}))
-
     for _ in range(horizon - 1):
-        pv_data = _fetch_pv_gen_profiles(
-            household=household,
+        features = _build_pv_gen_features(
             current_timestep=current_timestep,
             current_pv_gen=current_pv_gen,
-            pv_history=pv_history,
+            pv_history=sim_pv_history,
+            daylight_start=daylight_start,
+            daylight_end=daylight_end,
         )
-        features = _build_pv_gen_features(pv_data)
 
+        # ensure completness of features for the model
         for f in Config.XGB_FEATURES["PV_GEN"]:
                 if f not in features:
                     raise ValueError(f"Missing feature '{f}' in features dictionary.")
 
+        # ensure correct order of features
         model_input = [features[f] for f in Config.XGB_FEATURES["PV_GEN"]]
 
-        next_pv_gen = float(model.predict(model_input)[0])
-        next_pv_gen = max(0.0, next_pv_gen)
+        # update sim hist before next prediction
+        sim_pv_history.append(float(current_pv_gen))
 
-        pv_history[current_timestep] = float(current_pv_gen)
-        current_timestep += 1
-        current_pv_gen = float(next_pv_gen)
+        # get prediction and append
+        current_pv_gen = float(model.predict([model_input])[0])
         pv_pred.append(float(current_pv_gen))
+
+        # incr time
+        current_timestep += 1
 
     return pv_pred
 
