@@ -33,26 +33,50 @@ def _generate_phase_ids(status_seq: list[int]) -> list[int]:
             phase_ids.append(0)
         else:
             phase_ids.append(4)
+    return phase_ids
 
-    drive1_steps = [t for t, phase_id in zip(timestep_seq, phase_ids) if phase_id == 1]
-    drive2_steps = [t for t, phase_id in zip(timestep_seq, phase_ids) if phase_id == 3]
 
-    start1_time = int(min(drive1_steps)) if drive1_steps else -1
-    end1_time = int(max(drive1_steps)) if drive1_steps else -1
-    start2_time = int(min(drive2_steps)) if drive2_steps else -1
-    end2_time = int(max(drive2_steps)) if drive2_steps else -1
+def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, int, int]:
+    """
+    given phase ids: 000111222333444
+    returns the observed start and end of the first and second commute phases (1 and 3)
 
-    current_phase_id = int(phase_ids[-1]) if phase_ids else 0
+    strat: cycle through and update depending on how far we got
+    """
+    start1 = end1 = start2 = end2 = -1
+    for i, phase_id in enumerate(phase_ids):
+        if phase_id == 1 and start1 == -1:
+            start1 = i
+        if phase_id == 2 and end1 == -1:
+            end1 = i - 1
+        if phase_id == 3 and start2 == -1:
+            start2 = i
+        if phase_id == 4 and end2 == -1:
+            end2 = i - 1
+    return start1, end1, start2, end2
 
-    # Match training semantics: reveal boundaries only after entering later phases.
-    start1 = int(start1_time) if current_phase_id > 0 else -1
-    end1 = int(end1_time) if current_phase_id > 1 else -1
-    start2 = int(start2_time) if current_phase_id > 2 else -1
-    end2 = int(end2_time) if current_phase_id > 3 else -1
+
+def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    current_timestep = household.current_timestep
+
+    at_home_history = household.history.get(f"{ev_key}_at_home", {})
+    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
+
+    status_history = [
+        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
+        for step in range(1, current_timestep)
+    ]
+
+    current_status = int(
+        1
+        - int(getattr(household, f"{ev_key}_at_home", 0))
+        + int(getattr(household, f"{ev_key}_at_charging_station", 0))
+    )
 
     return {
         "timestep": int(current_timestep),
-        "status": int(status_now),
+        "status": int(current_status),
         "status_history": status_history,
         "start1_earliest": int(windows[0]["earliest_start"]),
         "end1_latest": int(windows[0]["latest_end"]),
@@ -60,10 +84,6 @@ def _generate_phase_ids(status_seq: list[int]) -> list[int]:
         "end2_latest": int(windows[1]["latest_end"]),
         "max_commute_steps_1": int(windows[0]["max_unavailable_steps"]),
         "max_commute_steps_2": int(windows[1]["max_unavailable_steps"]),
-        "start1": int(start1),
-        "end1": int(end1),
-        "start2": int(start2),
-        "end2": int(end2),
     }
 
 
@@ -89,31 +109,9 @@ def _build_ev_status_features(ev_status_data) -> dict:
                 break
         return int(steps)
 
-    seen_station = any(int(s) == 2 for s in status_seq)
-    if status == 2:
-        phase = "station"
-    elif status == 1 and not seen_station:
-        phase = "drive1"
-    elif status == 1 and seen_station:
-        phase = "drive2"
-    elif status == 0 and not seen_station:
-        phase = "home1"
-    else:
-        phase = "home2"
+    phase_ids = _generate_phase_ids(status_seq)
 
-    phase_to_id = {
-        "home1": 0,
-        "drive1": 1,
-        "station": 2,
-        "drive2": 3,
-        "home2": 4,
-    }
-    phase_id = int(phase_to_id[phase])
-
-    start1 = int(ev_status_data["start1"])
-    end1 = int(ev_status_data["end1"])
-    start2 = int(ev_status_data["start2"])
-    end2 = int(ev_status_data["end2"])
+    start1, end1, start2, end2 = _get_observed_commute_boundaries(phase_ids)
 
     start1_observed = int(start1 != -1)
     end1_observed = int(end1 != -1)
@@ -140,43 +138,44 @@ def _build_ev_status_features(ev_status_data) -> dict:
     status_lag_8, status_lag_8_is_pad = _lag(8)
 
     features = {
-        "timestep": int(timestep),
-        "status": int(status),
-        "time_sin": float(encode_time_cyclic(timestep, Config.TOTAL_TIMESTEPS_DAY)[0]),
-        "time_cos": float(encode_time_cyclic(timestep, Config.TOTAL_TIMESTEPS_DAY)[1]),
+        "timestep": timestep,
+        "status": status,
+        "time_sin": float(encode_time_cyclic(timestep)[0]),
+        "time_cos": float(encode_time_cyclic(timestep)[1]),
         "steps_in_current_state": _steps_in_current_state(),
-        "phase_id": int(phase_id),
-        "status_lag_1": int(status_lag_1),
-        "status_lag_1_is_pad": int(status_lag_1_is_pad),
-        "status_lag_2": int(status_lag_2),
-        "status_lag_2_is_pad": int(status_lag_2_is_pad),
-        "status_lag_4": int(status_lag_4),
-        "status_lag_4_is_pad": int(status_lag_4_is_pad),
-        "status_lag_8": int(status_lag_8),
-        "status_lag_8_is_pad": int(status_lag_8_is_pad),
-        "start1_earliest": int(ev_status_data["start1_earliest"]),
-        "end1_latest": int(ev_status_data["end1_latest"]),
-        "start2_earliest": int(ev_status_data["start2_earliest"]),
-        "end2_latest": int(ev_status_data["end2_latest"]),
-        "max_commute_steps_1": int(max_commute_steps_1),
-        "max_commute_steps_2": int(max_commute_steps_2),
-        "steps_to_start1_earliest": _steps_to_boundary(int(ev_status_data["start1_earliest"])),
-        "steps_to_end1_latest": _steps_to_boundary(int(ev_status_data["end1_latest"])),
-        "steps_to_start2_earliest": _steps_to_boundary(int(ev_status_data["start2_earliest"])),
-        "steps_to_end2_latest": _steps_to_boundary(int(ev_status_data["end2_latest"])),
-        "start1": int(start1),
-        "end1": int(end1),
-        "start2": int(start2),
-        "end2": int(end2),
-        "start1_observed": int(start1_observed),
-        "end1_observed": int(end1_observed),
-        "start2_observed": int(start2_observed),
-        "end2_observed": int(end2_observed),
-        "observed_window_length_1": int(observed_window_length_1),
-        "observed_window_length_2": int(observed_window_length_2),
-        "window_length_slack_1": int(window_length_slack_1),
-        "window_length_slack_2": int(window_length_slack_2),
+        "phase_id": phase_ids[-1],
+        "status_lag_1": status_lag_1,
+        "status_lag_1_is_pad": status_lag_1_is_pad,
+        "status_lag_2": status_lag_2,
+        "status_lag_2_is_pad": status_lag_2_is_pad,
+        "status_lag_4": status_lag_4,
+        "status_lag_4_is_pad": status_lag_4_is_pad,
+        "status_lag_8": status_lag_8,
+        "status_lag_8_is_pad": status_lag_8_is_pad,
+        "start1_earliest": ev_status_data["start1_earliest"],
+        "end1_latest": ev_status_data["end1_latest"],
+        "start2_earliest": ev_status_data["start2_earliest"],
+        "end2_latest": ev_status_data["end2_latest"],
+        "max_commute_steps_1": max_commute_steps_1,
+        "max_commute_steps_2": max_commute_steps_2,
+        "steps_to_start1_earliest": _steps_to_boundary(ev_status_data["start1_earliest"]),
+        "steps_to_end1_latest": _steps_to_boundary(ev_status_data["end1_latest"]),
+        "steps_to_start2_earliest": _steps_to_boundary(ev_status_data["start2_earliest"]),
+        "steps_to_end2_latest": _steps_to_boundary(ev_status_data["end2_latest"]),
+        "start1": start1,
+        "end1": end1,
+        "start2": start2,
+        "end2": end2,
+        "start1_observed": start1_observed,
+        "end1_observed": end1_observed,
+        "start2_observed": start2_observed,
+        "end2_observed": end2_observed,
+        "observed_window_length_1": observed_window_length_1,
+        "observed_window_length_2": observed_window_length_2,
+        "window_length_slack_1": window_length_slack_1,
+        "window_length_slack_2": window_length_slack_2,
     }
+
     return features
 
 
@@ -192,9 +191,6 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     Returns:
         tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
-    if horizon <= 0:
-        return [], []
-
     def _status_to_home_station(status: int) -> tuple[int, int]:
         if status == 0:
             return 1, 0
@@ -207,33 +203,35 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     at_home_pred: list[float] = []
     at_station_pred: list[float] = []
 
-    history_home_key = f"{ev_key}_at_home"
-    history_station_key = f"{ev_key}_at_charging_station"
+    ev_home_key = f"{ev_key}_at_home"
+    ev_station_key = f"{ev_key}_at_charging_station"
     ev_obj = getattr(household, ev_key)
 
-    original_timestep = int(household.current_timestep)
-    original_at_home = bool(getattr(ev_obj, "at_home", False))
-    original_at_station = bool(getattr(ev_obj, "at_charging_station", False))
-    original_home_history = dict(household.history.get(history_home_key, {}))
-    original_station_history = dict(household.history.get(history_station_key, {}))
+    # save backup to recreate household after prediction
+    original_timestep = household.current_timestep
+    original_at_home = getattr(ev_obj, "at_home", False)
+    original_at_station = getattr(ev_obj, "at_charging_station", False)
+    original_home_history = household.history.get(ev_home_key, {})
+    original_station_history = household.history.get(ev_station_key, {})
 
-    sim_home_history = dict(original_home_history)
-    sim_station_history = dict(original_station_history)
+    # create simulated histories to populate in the prediction loop
+    sim_home_history = original_home_history
+    sim_station_history = original_station_history
 
-    current_status = int(1 - int(original_at_home) + int(original_at_station))
+    current_status = 1 - original_at_home + original_at_station # 012 conversion
     current_timestep = original_timestep
 
-    current_home, current_station = _status_to_home_station(current_status)
-    at_home_pred.append(float(current_home))
-    at_station_pred.append(float(current_station))
+    current_at_home, current_at_station = original_at_home, original_at_station
+    at_home_pred.append(float(current_at_home))
+    at_station_pred.append(float(current_at_station))
 
     try:
         for _ in range(horizon - 1):
             household.current_timestep = current_timestep
-            household.history[history_home_key] = sim_home_history
-            household.history[history_station_key] = sim_station_history
-            ev_obj.at_home = bool(current_home)
-            ev_obj.at_charging_station = bool(current_station)
+            household.history[ev_home_key] = sim_home_history
+            household.history[ev_station_key] = sim_station_history
+            ev_obj.at_home = bool(current_at_home)
+            ev_obj.at_charging_station = bool(current_at_station)
 
             ev_status_data = _fetch_ev_status_data(household, ev_key)
             features = _build_ev_status_features(ev_status_data)
@@ -244,19 +242,19 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
             predicted_status = int(model.predict(model_input)[0])
 
             # Move the current status into history before advancing time.
-            sim_home_history[current_timestep] = int(current_home)
-            sim_station_history[current_timestep] = int(current_station)
+            sim_home_history[current_timestep] = int(current_at_home)
+            sim_station_history[current_timestep] = int(current_at_station)
 
             current_status = predicted_status
             current_timestep += 1
-            current_home, current_station = _status_to_home_station(current_status)
+            current_at_home, current_at_station = _status_to_home_station(current_status)
 
-            at_home_pred.append(float(current_home))
-            at_station_pred.append(float(current_station))
+            at_home_pred.append(float(current_at_home))
+            at_station_pred.append(float(current_at_station))
     finally:
         household.current_timestep = original_timestep
-        household.history[history_home_key] = original_home_history
-        household.history[history_station_key] = original_station_history
+        household.history[ev_home_key] = original_home_history
+        household.history[ev_station_key] = original_station_history
         ev_obj.at_home = bool(original_at_home)
         ev_obj.at_charging_station = bool(original_at_station)
 
@@ -286,7 +284,7 @@ if __name__ == "__main__":
     from training.xgboost.features.ev_status_features import get_ev_status_features
 
     household_id = 1
-    timestep = 42
+    timestep = 1
     ev_key = "ev1"
 
     feature_df = get_ev_status_features([household_id])
@@ -333,3 +331,10 @@ if __name__ == "__main__":
     pprint(data, sort_dicts=False)
     print("\n_build_ev_status_features output:")
     pprint(features, sort_dicts=False)
+
+    model = XGBClassifier()
+    model.load_model(Config.XGB_EV_STATUS_MODEL_PATH)
+
+    predictions = predict_ev_status(model, household, horizon=96)
+
+    print(predictions)
