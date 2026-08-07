@@ -7,6 +7,14 @@ The recursive rollout (96 steps × one `pd.DataFrame` + `model.predict` call eac
 - [ ] Profile a single household end-to-end to find the dominant cost (DataFrame construction vs. predict vs. other)
 - [ ] Build the full feature matrix for all horizon steps at once and call `model.predict` once per predictor, not 96 times
 - [ ] If per-step recursion is unavoidable (base-load depends on previous predictions), batch what can be batched (time features, lag arrays) and only iterate over the truly sequential part
+- [ ] Add inference-time shortcuts before the model call where the answer is effectively deterministic:
+  - PV: outside the daylight window, skip `model.predict` and force `pv_gen = 0`
+  - EV status: outside commute windows / stable phases, persist the last known state instead of re-predicting
+  - Base load: look for similarly stable periods or fallback rules that can skip the regressor on obvious steps
+- [ ] Stop predicting beyond the useful horizon when the tail is synthetic; pad defaults after timestep 96 instead of extending expensive recursive rollout
+- [ ] Consider a hybrid horizon strategy: use XGB only for the near-term steps and switch to a cheaper running-average or cached baseline further out, where long-horizon XGB is highly speculative anyway
+- [ ] Reduce per-step object churn in the recursive path by precomputing reusable feature rows / arrays and avoiding repeated dict-to-list projection where possible
+- [ ] Move feature-schema validation out of the hot loop: validate required columns once, then reuse the fixed feature order without re-checking every timestep
 - [ ] Benchmark before/after; target sub-second per household per horizon
 
 ---

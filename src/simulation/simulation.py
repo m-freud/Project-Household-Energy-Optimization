@@ -1,4 +1,10 @@
-# paste this to enable src. imports
+# paste this to enable src. imports# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
 
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -6,8 +12,8 @@ from functools import partial
 from pathlib import Path
 from typing import Callable
 import numpy as np
-from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
-from simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
+from src.simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
+from src.simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household

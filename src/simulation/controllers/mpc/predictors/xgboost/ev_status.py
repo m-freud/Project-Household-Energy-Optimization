@@ -199,6 +199,22 @@ def _build_ev_status_features(ev_status_data) -> dict:
     return features
 
 
+def _try_bypass(current_time: int, features: dict) -> int | None:
+    """
+    bypass the model if we are past the last timestep
+    """
+    if current_time >= 96:
+        return 0 # at home
+
+    if current_time < features["start1_earliest"] or features["end2_observed"]:
+        return 0 # at home
+
+    if (features["end1_observed"] or current_time > features["end1_latest"]) and current_time < features["start2_earliest"]:
+        return 2 # at station
+
+    return None
+
+
 def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int=96) -> tuple[list[int], list[int]]:
     """
     Predicts the status of a single EV (at_home, at_charging_station) for the given household and horizon.
@@ -222,6 +238,10 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         raise ValueError(f"Unexpected EV status class: {status}")
 
     windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    start1_earliest = windows[0]["earliest_start"]
+    end1_latest = windows[0]["latest_end"]
+    start2_earliest = windows[1]["earliest_start"]
+    end2_latest = windows[1]["latest_end"]
     
     ev_home_key = f"{ev_key}_at_home"
     ev_station_key = f"{ev_key}_at_charging_station"
@@ -244,19 +264,30 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     at_home_pred, at_station_pred = [current_at_home], [current_at_station]
 
     for _ in range(horizon - 1):
+
         ev_status_data = {
             "timestep": current_timestep,
             "status": current_status,
             "status_history": sim_status_history,
-            "start1_earliest": windows[0]["earliest_start"],
-            "end1_latest": windows[0]["latest_end"],
-            "start2_earliest": windows[1]["earliest_start"],
-            "end2_latest": windows[1]["latest_end"],
+            "start1_earliest": start1_earliest,
+            "end1_latest": end1_latest,
+            "start2_earliest": start2_earliest,
+            "end2_latest": end2_latest,
             "max_commute_steps_1": windows[0]["max_unavailable_steps"],
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         }
 
         features = _build_ev_status_features(ev_status_data)
+
+        # bypass model if possible
+        bypass = _try_bypass(current_timestep, features)
+        if bypass is not None:
+            current_status = bypass
+            current_at_home, current_at_station = _status_to_home_station(current_status)
+            at_home_pred.append(current_at_home)
+            at_station_pred.append(current_at_station)
+            current_timestep += 1
+            continue
 
         # ensure completeness of features for the model
         for f in Config.XGB_FEATURES["EV_STATUS"]:
@@ -271,6 +302,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
 
         # predict next value, save as split into at_home and at_station
         current_status = int(model.predict([model_input])[0])
+        
         current_at_home, current_at_station = _status_to_home_station(current_status)
         at_home_pred.append(current_at_home)
         at_station_pred.append(current_at_station)
@@ -287,7 +319,7 @@ def predict_ev_status(
     horizon: int,
 ) -> dict[str, list[int]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
-    
+
     ev1_at_home, ev1_at_charging_station = _predict_single_ev_status(model, household, "ev1", horizon)
     ev2_at_home, ev2_at_charging_station = _predict_single_ev_status(model, household, "ev2", horizon)
 
