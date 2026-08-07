@@ -33,6 +33,11 @@ def _get_profiles_df(profiles_dict: dict) -> pd.DataFrame:
 
 
 def _init_feature_df(profiles_df: pd.DataFrame, value_name: str) -> pd.DataFrame:
+	'''
+	create initial feature df that is then populated with derived features.
+	init columns: household_id, timestep, value_name
+	'''
+
 	columns = sorted(
 		[column for column in profiles_df.columns if str(column).startswith("s")],
 		key=lambda name: int(str(name)[1:]),
@@ -80,9 +85,9 @@ def _add_running_average_features(
 
 def _add_std_features(
 	feature_df: pd.DataFrame,
-	windows: tuple[int, ...] = (4, 8),
-	value_column: str = "pv_gen",
-	prefix: str = "pv",
+	windows: tuple[int, ...], # 4, 8
+	value_column: str,
+	prefix: str,
 ) -> pd.DataFrame:
 	grouped_values = feature_df.groupby("household_id")[value_column]
 
@@ -101,8 +106,8 @@ def _add_std_features(
 
 def _add_delta_features(
 	feature_df: pd.DataFrame,
-	value_column: str = "pv_gen",
-	prefix: str = "pv",
+	value_column: str,
+	prefix: str,
 ) -> pd.DataFrame:
 	grouped_values = feature_df.groupby("household_id")[value_column]
 
@@ -117,7 +122,7 @@ def _add_delta_features(
 
 def _add_accel_feature(
 	feature_df: pd.DataFrame,
-	prefix: str = "pv",
+	prefix: str,
 ) -> pd.DataFrame:
 	delta_1_column = f"{prefix}_delta_1"
 	delta_2_column = f"{prefix}_delta_2"

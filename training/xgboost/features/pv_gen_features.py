@@ -61,9 +61,9 @@ def get_pv_features(household_ids: list[int], round_values: bool = False) -> pd.
         dtype=float,
     )
     feature_df = _add_running_average_features(feature_df, windows=(2, 4, 8, 16))
-    feature_df = _add_std_features(feature_df, windows=(4, 8))
-    feature_df = _add_delta_features(feature_df)
-    feature_df = _add_accel_feature(feature_df)
+    feature_df = _add_std_features(feature_df, windows=(4, 8), value_column="pv_gen", prefix="pv")
+    feature_df = _add_delta_features(feature_df, value_column="pv_gen", prefix="pv")
+    feature_df = _add_accel_feature(feature_df, prefix="pv")
     feature_df = _add_steps_to_daylight_boundaries(feature_df)
     feature_df = _add_next_value_target(
         feature_df,
