@@ -2,7 +2,6 @@ from pathlib import Path
 import sys
 
 import numpy as np
-import pandas as pd
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -25,43 +24,37 @@ def _history_values(household: Household, key: str, current_timestep: int) -> li
 
 
 def _count_evs_at_home(
-    household: Household,
-    predicted_ev_status: dict[str, list[float]] | None = None,
-    prediction_index: int | None = None,
+    predicted_ev_status: dict[str, list[int]],
+    prediction_index: int,
 ) -> int:
-    if predicted_ev_status is not None and prediction_index is not None:
-        ev1_home_seq = predicted_ev_status.get("ev1_at_home", [])
-        ev2_home_seq = predicted_ev_status.get("ev2_at_home", [])
+    ev1_home_seq = predicted_ev_status.get("ev1_at_home", [])
+    ev2_home_seq = predicted_ev_status.get("ev2_at_home", [])
 
-        ev1_at_home = int(float(ev1_home_seq[prediction_index])) if prediction_index < len(ev1_home_seq) else 0
-        ev2_at_home = int(float(ev2_home_seq[prediction_index])) if prediction_index < len(ev2_home_seq) else 0
-        return int(ev1_at_home + ev2_at_home)
-
-    ev1_at_home = int(bool(getattr(household.ev1, "at_home", False))) if getattr(household, "ev1", None) else 0
-    ev2_at_home = int(bool(getattr(household.ev2, "at_home", False))) if getattr(household, "ev2", None) else 0
-    return int(ev1_at_home + ev2_at_home)
+    ev1_at_home = ev1_home_seq[prediction_index]
+    ev2_at_home = ev2_home_seq[prediction_index]
+    
+    return ev1_at_home + ev2_at_home
 
 
 def _build_base_load_features(
-    household: Household,
     current_timestep: int,
     current_base_load: float,
-    base_load_history: list[float],
+    base_load_history: list[float], # dict is converted to list for calculations
     n_evs_at_home: int,
 ) -> dict:
-    pv_seq = list(base_load_history) + [float(current_base_load)]
+    base_load_seq = base_load_history + [current_base_load]
 
     def _lag(lag: int) -> tuple[float, int]:
-        idx = len(pv_seq) - 1 - lag
+        idx = len(base_load_seq) - 1 - lag
         if idx >= 0:
-            return float(pv_seq[idx]), 0
+            return float(base_load_seq[idx]), 0
         return -1.0, 1
 
     def _rolling_mean(window: int) -> float:
-        return float(np.mean(np.asarray(pv_seq[-window:], dtype=float)))
+        return float(np.mean(np.asarray(base_load_seq[-window:], dtype=float)))
 
     def _rolling_std(window: int) -> float:
-        return float(np.std(np.asarray(pv_seq[-window:], dtype=float), ddof=0))
+        return float(np.std(np.asarray(base_load_seq[-window:], dtype=float), ddof=0))
 
     lag_1, lag_1_pad = _lag(1)
     lag_2, lag_2_pad = _lag(2)
@@ -76,30 +69,30 @@ def _build_base_load_features(
     time_sin, time_cos = encode_time_cyclic(current_timestep)
 
     features = {
-        "timestep": int(current_timestep),
-        "base_load": float(current_base_load),
-        "n_evs_at_home": int(n_evs_at_home),
+        "timestep": current_timestep,
+        "base_load": current_base_load,
+        "n_evs_at_home": n_evs_at_home,
         "time_sin": float(time_sin),
         "time_cos": float(time_cos),
-        "base_load_lag_1": float(lag_1),
-        "base_load_lag_1_is_pad": int(lag_1_pad),
-        "base_load_lag_2": float(lag_2),
-        "base_load_lag_2_is_pad": int(lag_2_pad),
-        "base_load_lag_4": float(lag_4),
-        "base_load_lag_4_is_pad": int(lag_4_pad),
-        "base_load_lag_8": float(lag_8),
-        "base_load_lag_8_is_pad": int(lag_8_pad),
-        "base_load_lag_12": float(lag_12),
-        "base_load_lag_12_is_pad": int(lag_12_pad),
+        "base_load_lag_1": lag_1,
+        "base_load_lag_1_is_pad": lag_1_pad,
+        "base_load_lag_2": lag_2,
+        "base_load_lag_2_is_pad": lag_2_pad,
+        "base_load_lag_4": lag_4,
+        "base_load_lag_4_is_pad": lag_4_pad,
+        "base_load_lag_8": lag_8,
+        "base_load_lag_8_is_pad": lag_8_pad,
+        "base_load_lag_12": lag_12,
+        "base_load_lag_12_is_pad": lag_12_pad,
         "base_load_ma_2": _rolling_mean(2),
         "base_load_ma_4": _rolling_mean(4),
         "base_load_ma_8": _rolling_mean(8),
         "base_load_ma_16": _rolling_mean(16),
         "base_load_std_4": _rolling_std(4),
         "base_load_std_8": _rolling_std(8),
-        "base_load_delta_1": float(base_load_delta_1),
-        "base_load_delta_2": float(base_load_delta_2),
-        "base_load_accel": float(base_load_accel),
+        "base_load_delta_1": base_load_delta_1,
+        "base_load_delta_2": base_load_delta_2,
+        "base_load_accel": base_load_accel,
     }
 
     for key, value in list(features.items()):
@@ -112,48 +105,50 @@ def _build_base_load_features(
 def _predict_base_load(
     model: XGBRegressor,
     household: Household,
-    horizon: int = 96,
-    predicted_ev_status: dict[str, list[float]] | None = None,
+    horizon: int,
+    predicted_ev_status: dict[str, list[int]],
 ) -> list[float]:
-    if horizon <= 0:
-        return []
+    # current values
+    current_timestep = household.current_timestep
+    current_base_load = household.base_load
 
-    original_timestep = int(household.current_timestep)
-    current_timestep = int(original_timestep)
+    # init sim history
+    # we use a list here for convenience
+    sim_base_load_history = list(household.history["base_load"].values())
 
-    current_base_load = float(household.base_load)
+    # init pred
     base_load_pred: list[float] = [current_base_load]
 
-    base_load_history = _history_values(household, "base_load", current_timestep)
-
     for prediction_index in range(horizon - 1):
-        n_evs_at_home = _count_evs_at_home(
-            household,
+        n_evs_at_home = _count_evs_at_home( # predictions are 0-indexed so we can just use this range
             predicted_ev_status=predicted_ev_status,
             prediction_index=prediction_index,
         )
 
         features = _build_base_load_features(
-            household=household,
             current_timestep=current_timestep,
             current_base_load=current_base_load,
-            base_load_history=base_load_history,
+            base_load_history=sim_base_load_history,
             n_evs_at_home=n_evs_at_home,
         )
 
+        # ensure completness of features for the model
         for f in Config.XGB_FEATURES["BASE_LOAD"]:
             if f not in features:
                 raise ValueError(f"Missing required feature: {f}")
 
+        # ensure correct order of features
         model_input = [features[f] for f in Config.XGB_FEATURES["BASE_LOAD"]]
 
-        next_base_load = float(model.predict([model_input])[0])
-        next_base_load = max(0.0, next_base_load)
+        # update sim hist before next prediction
+        sim_base_load_history.append(float(current_base_load))
 
-        base_load_history.append(float(current_base_load))
-        current_timestep += 1
-        current_base_load = float(next_base_load)
+        # get prediction and append
+        current_base_load = float(model.predict([model_input])[0])
         base_load_pred.append(float(current_base_load))
+
+        # incr time
+        current_timestep += 1
 
     return base_load_pred
 
@@ -162,7 +157,7 @@ def predict_base_load(
     model: XGBRegressor,
     household: Household,
     horizon: int,
-    predicted_ev_status: dict[str, list[float]] | None = None,
+    predicted_ev_status: dict[str, list[int]],
     interval_width_frct: float = 0.0,
 ) -> dict[str, list[float]]:
     base_load = _predict_base_load(
