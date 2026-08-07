@@ -15,34 +15,6 @@ from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import
 from xgboost import XGBRegressor
 
 
-MODEL_FEATURE_COLUMNS = [
-    "timestep",
-    "base_load",
-    "n_evs_at_home",
-    "time_sin",
-    "time_cos",
-    "base_load_lag_1",
-    "base_load_lag_1_is_pad",
-    "base_load_lag_2",
-    "base_load_lag_2_is_pad",
-    "base_load_lag_4",
-    "base_load_lag_4_is_pad",
-    "base_load_lag_8",
-    "base_load_lag_8_is_pad",
-    "base_load_lag_12",
-    "base_load_lag_12_is_pad",
-    "base_load_ma_2",
-    "base_load_ma_4",
-    "base_load_ma_8",
-    "base_load_ma_16",
-    "base_load_std_4",
-    "base_load_std_8",
-    "base_load_delta_1",
-    "base_load_delta_2",
-    "base_load_accel",
-]
-
-
 def _history_values(household: Household, key: str, current_timestep: int) -> list[float]:
     history = household.history.get(key, {})
     if not history:
