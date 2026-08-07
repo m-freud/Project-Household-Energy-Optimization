@@ -58,5 +58,3 @@ def _add_next_value_target(
         feature_df[target_column] = feature_df[target_column].astype(dtype)
 
     return feature_df
-
-

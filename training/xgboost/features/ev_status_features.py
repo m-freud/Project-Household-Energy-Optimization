@@ -102,21 +102,6 @@ def _init_status_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _encode_time_cyclic(timestep: int, total_timesteps: int) -> tuple[float, float]:
-    """
-    Encode a timestep as cyclic features (sine and cosine).
-
-    Args:
-        timestep (int): The current timestep to encode.
-        total_timesteps (int): The total number of timesteps in the cycle.
-
-    Returns:
-        tuple[float, float]: A tuple containing the sine and cosine values for the encoded timestep.
-    """
-    angle = 2 * math.pi * (timestep / total_timesteps)
-    return math.sin(angle), math.cos(angle)
-
-
 def _add_steps_in_current_state(feature_df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ["household_id", "ev_key"]
 
@@ -195,7 +180,7 @@ def _add_max_commute_steps(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _add_times_to_boundary(feature_df: pd.DataFrame) -> pd.DataFrame:
+def _add_steps_to_boundary_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
     boundary_columns = [
         "start1_earliest",
         "end1_latest",
@@ -306,7 +291,7 @@ def get_ev_status_features(household_ids: list[int]) -> pd.DataFrame:
     )
     feature_df = _add_allowed_commute_window_boundaries(feature_df)
     feature_df = _add_max_commute_steps(feature_df)
-    feature_df = _add_times_to_boundary(feature_df)
+    feature_df = _add_steps_to_boundary_feature(feature_df)
     feature_df = _add_observed_commute_window_boundaries(feature_df)
     feature_df = _add_observed_boundary_flags(feature_df)
     feature_df = _add_observed_window_length(feature_df)

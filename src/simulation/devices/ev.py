@@ -18,8 +18,8 @@ class EV:
         self.efficiency = efficiency  # as a decimal
         self._soc = soc  # state of charge in kWh
         self.load = load  # current load in kW
-        self.at_home = at_home  # boolean
-        self.at_charging_station = at_charging_station  # boolean
+        self.at_home: bool = at_home  # boolean
+        self.at_charging_station: bool = at_charging_station  # boolean
         self.buy_price = 0.0  # current (white) power price for charging
         self.name = name
         self.default_drive_load = 0.0  # default load when driving (kW), used for prediction when no history is available
