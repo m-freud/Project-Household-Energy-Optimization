@@ -132,8 +132,11 @@ def _predict_pv_gen(model: XGBRegressor, household: Household, horizon: int = 96
         )
         features = _build_pv_gen_features(pv_data)
 
-        feature_row = pd.DataFrame([features])
-        model_input = feature_row[MODEL_FEATURE_COLUMNS]
+        for f in Config.XGB_FEATURES["PV_GEN"]:
+                if f not in features:
+                    raise ValueError(f"Missing feature '{f}' in features dictionary.")
+
+        model_input = [features[f] for f in Config.XGB_FEATURES["PV_GEN"]]
 
         next_pv_gen = float(model.predict(model_input)[0])
         next_pv_gen = max(0.0, next_pv_gen)
