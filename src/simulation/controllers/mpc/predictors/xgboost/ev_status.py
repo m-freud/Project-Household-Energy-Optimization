@@ -3,6 +3,8 @@
 from pathlib import Path
 import sys
 
+import pandas as pd
+
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
@@ -58,7 +60,7 @@ def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, in
         if phase_id == 1 and start1 == -1:
             start1 = i + 1 # convert to timestep
         if phase_id == 2 and end1 == -1:
-            end1 = i - 1
+            end1 = (i - 1) + 1 # convert to timestep 
         if phase_id == 3 and start2 == -1:
             start2 = i + 1 # convert to timestep
         if phase_id == 4 and end2 == -1:
@@ -210,7 +212,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
     def _status_to_home_station(status: int) -> tuple[int, int]:
-        # prediction has shape of at_home, at_station, so we convert back for pr
+        # prediction has shape of at_home, at_station, so we convert back for pred
         if status == 0:
             return 1, 0
         if status == 1:
@@ -298,11 +300,9 @@ def predict_ev_status(
 
 
 if __name__ == "__main__":
-    from pprint import pprint
     from training.xgboost.features.ev_status_features import get_ev_status_features
 
     household_id = 1
-    timestep = 1
     ev_key = "ev1"
 
     feature_df = get_ev_status_features([household_id])
@@ -315,44 +315,52 @@ if __name__ == "__main__":
         .reset_index(drop=True)
     )
 
-    ev1 = EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name="ev1")
-    ev2 = EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name="ev2")
-    household = Household(player_id=household_id, start_time=timestep, ev1=ev1, ev2=ev2)
-    household.current_timestep = timestep
+    training_boundary_df = ev_rows[["timestep", "status", "start1", "end1", "start2", "end2"]].copy()
 
-    status_history_rows = ev_rows[ev_rows["timestep"] < timestep]
-    for _, row in status_history_rows.iterrows():
-        t = int(row["timestep"])
+    ev1 = EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name=ev_key)
+    household = Household(player_id=household_id, start_time=1, ev1=ev1, ev2=EV(capacity=1.0, max_charge=1.0, max_discharge=1.0, efficiency=1.0, name="ev2"))
+    household.current_timestep = 1
+    household.history["ev1_at_home"] = {}
+    household.history["ev1_at_charging_station"] = {}
+
+    runtime_boundary_rows = []
+    for _, row in ev_rows.iterrows():
+        timestep = int(row["timestep"])
         status = int(row["status"])
+
         if status == 0:
-            at_home, at_station = 1, 0
+            ev1.at_home, ev1.at_charging_station = True, False
         elif status == 1:
-            at_home, at_station = 0, 0
+            ev1.at_home, ev1.at_charging_station = False, False
         else:
-            at_home, at_station = 0, 1
-        household.history["ev1_at_home"][t] = at_home
-        household.history["ev1_at_charging_station"][t] = at_station
+            ev1.at_home, ev1.at_charging_station = False, True
 
-    status_now = int(ev_rows.loc[ev_rows["timestep"] == timestep, "status"].iloc[0])
-    if status_now == 0:
-        ev1.at_home, ev1.at_charging_station = True, False
-    elif status_now == 1:
-        ev1.at_home, ev1.at_charging_station = False, False
-    else:
-        ev1.at_home, ev1.at_charging_station = False, True
+        household.current_timestep = timestep
+        household.history["ev1_at_home"][timestep] = 1 if status == 0 else 0
+        household.history["ev1_at_charging_station"][timestep] = 1 if status == 2 else 0
 
-    data = _fetch_ev_status_data(household, ev_key)
-    features = _build_ev_status_features(data)
+        data = _fetch_ev_status_data(household, ev_key)
+        phase_ids = _get_phase_id_seq(data["status_history"] + [data["status"]])
+        start1, end1, start2, end2 = _get_observed_commute_boundaries(phase_ids)
+        runtime_boundary_rows.append(
+            {
+                "timestep": timestep,
+                "status": status,
+                "start1": start1,
+                "end1": end1,
+                "start2": start2,
+                "end2": end2,
+            }
+        )
 
-    print(f"EV status test snapshot: household={household_id}, ev={ev_key}, timestep={timestep}")
-    print("\n_fetch_ev_status_data output:")
-    pprint(data, sort_dicts=False)
-    print("\n_build_ev_status_features output:")
-    pprint(features, sort_dicts=False)
+    runtime_boundary_df = pd.DataFrame(runtime_boundary_rows)
 
-    model = XGBClassifier()
-    model.load_model(Config.XGB_EV_STATUS_MODEL_PATH)
+    pd.set_option("display.max_rows", None)
+    pd.set_option("display.max_columns", None)
+    pd.set_option("display.width", None)
+    pd.set_option("display.max_colwidth", None)
 
-    predictions = predict_ev_status(model, household, horizon=96)
-
-    print(predictions)
+    print("training boundaries")
+    print(training_boundary_df)
+    print("\nruntime boundaries")
+    print(runtime_boundary_df)
