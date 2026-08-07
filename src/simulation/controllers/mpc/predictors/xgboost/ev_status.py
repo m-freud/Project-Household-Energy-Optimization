@@ -2,7 +2,6 @@
 # paste this to enable src. imports
 from pathlib import Path
 import sys
-import numpy as np
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -17,9 +16,18 @@ from xgboost import XGBClassifier
 from src.config import Config
 
 
-def _generate_phase_ids(status_seq: list[int]) -> list[int]:
+def _get_phase_id_seq(status_seq: list[int]) -> list[int]:
+    """
+    turn 012 state sequence into 01234 phase sequence
+    0: at home, before first commute
+    1: first commute, before first station visit
+    2: first station visit
+    3: second commute, before second station visit
+    4: second station visit
+    """
     phase_ids: list[int] = []
     seen_station = False
+
     for state in status_seq:
         state_i = int(state)
         if state_i == 2:
@@ -33,6 +41,7 @@ def _generate_phase_ids(status_seq: list[int]) -> list[int]:
             phase_ids.append(0)
         else:
             phase_ids.append(4)
+
     return phase_ids
 
 
@@ -41,7 +50,7 @@ def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, in
     given phase ids: 000111222333444
     returns the observed start and end of the first and second commute phases (1 and 3)
 
-    strat: cycle through and update depending on how far we got
+    strategy: cycle through and update depending on how far we got
     """
     start1 = end1 = start2 = end2 = -1
     for i, phase_id in enumerate(phase_ids):
@@ -53,10 +62,16 @@ def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, in
             start2 = i
         if phase_id == 4 and end2 == -1:
             end2 = i - 1
+
     return start1, end1, start2, end2
 
 
 def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
+    """
+    fetch ev data used for feature building
+    we mostly separate fetching from building
+    status is converted to 012 format
+    """
     windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
     current_timestep = household.current_timestep
 
@@ -68,7 +83,7 @@ def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
         for step in range(1, current_timestep)
     ]
 
-    current_status = int(
+    current_status = int( # home, station to 012 conversion
         1
         - int(getattr(household, f"{ev_key}_at_home", 0))
         + int(getattr(household, f"{ev_key}_at_charging_station", 0))
@@ -87,8 +102,10 @@ def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
     }
 
 
-
 def _build_ev_status_features(ev_status_data) -> dict:
+    """
+    build features ready to be used in classification model
+    """
     timestep = ev_status_data["timestep"]
     status = ev_status_data["status"]
     status_history = list(ev_status_data.get("status_history", []))
@@ -109,7 +126,7 @@ def _build_ev_status_features(ev_status_data) -> dict:
                 break
         return int(steps)
 
-    phase_ids = _generate_phase_ids(status_seq)
+    phase_ids = _get_phase_id_seq(status_seq)
 
     start1, end1, start2, end2 = _get_observed_commute_boundaries(phase_ids)
 
@@ -179,7 +196,7 @@ def _build_ev_status_features(ev_status_data) -> dict:
     return features
 
 
-def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int=96) -> tuple[list[float], list[float]]:
+def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key: str, horizon: int=96) -> tuple[list[int], list[int]]:
     """
     Predicts the status of a single EV (at_home, at_charging_station) for the given household and horizon.
 
@@ -192,6 +209,7 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
     def _status_to_home_station(status: int) -> tuple[int, int]:
+        # prediction has shape of at_home, at_station, so we convert back for pr
         if status == 0:
             return 1, 0
         if status == 1:
@@ -199,67 +217,62 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
         if status == 2:
             return 0, 1
         raise ValueError(f"Unexpected EV status class: {status}")
-
-    at_home_pred: list[float] = []
-    at_station_pred: list[float] = []
-
+    
     ev_home_key = f"{ev_key}_at_home"
     ev_station_key = f"{ev_key}_at_charging_station"
-    ev_obj = getattr(household, ev_key)
 
-    # save backup to recreate household after prediction
-    original_timestep = household.current_timestep
-    original_at_home = getattr(ev_obj, "at_home", False)
-    original_at_station = getattr(ev_obj, "at_charging_station", False)
-    original_home_history = household.history.get(ev_home_key, {})
-    original_station_history = household.history.get(ev_station_key, {})
+    current_at_home = int(getattr(household, ev_home_key, 0))
+    current_at_station = int(getattr(household, ev_station_key, 0))
 
-    # create simulated histories to populate in the prediction loop
-    sim_home_history = original_home_history
-    sim_station_history = original_station_history
+    current_timestep = household.current_timestep
 
-    current_status = 1 - original_at_home + original_at_station # 012 conversion
-    current_timestep = original_timestep
+    at_home_history = household.history.get(f"{ev_key}_at_home", {})
+    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
 
-    current_at_home, current_at_station = original_at_home, original_at_station
-    at_home_pred.append(float(current_at_home))
-    at_station_pred.append(float(current_at_station))
+    sim_status_history = [ # combine to single 012
+        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
+        for step in range(1, current_timestep)
+    ]
 
-    try:
-        for _ in range(horizon - 1):
-            household.current_timestep = current_timestep
-            household.history[ev_home_key] = sim_home_history
-            household.history[ev_station_key] = sim_station_history
-            ev_obj.at_home = bool(current_at_home)
-            ev_obj.at_charging_station = bool(current_at_station)
+    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
 
-            ev_status_data = _fetch_ev_status_data(household, ev_key)
-            features = _build_ev_status_features(ev_status_data)
+    current_status = 1 - int(current_at_home) + int(current_at_station)  # 012 conversion
+    at_home_pred, at_station_pred = [current_at_home], [current_at_station]
 
-            for f in Config.XGB_FEATURES["EV_STATUS"]:
-                if f not in features:
-                    raise ValueError(f"Missing feature '{f}' in features dictionary.")
+    for _ in range(1, horizon):
+        ev_status_data = {
+            "timestep": current_timestep,
+            "status": current_status,
+            "status_history": sim_status_history,
+            "start1_earliest": int(windows[0]["earliest_start"]),
+            "end1_latest": int(windows[0]["latest_end"]),
+            "start2_earliest": int(windows[1]["earliest_start"]),
+            "end2_latest": int(windows[1]["latest_end"]),
+            "max_commute_steps_1": int(windows[0]["max_unavailable_steps"]),
+            "max_commute_steps_2": int(windows[1]["max_unavailable_steps"]),
+        }
 
-            model_input = [features[f] for f in Config.XGB_FEATURES["EV_STATUS"]]
+        features = _build_ev_status_features(ev_status_data)
 
-            predicted_status = int(model.predict([model_input])[0])
+        # ensure completeness of features for the model
+        for f in Config.XGB_FEATURES["EV_STATUS"]:
+            if f not in features:
+                raise ValueError(f"Missing feature '{f}' in features dictionary.")
 
-            # Move the current status into history before advancing time.
-            sim_home_history[current_timestep] = int(current_at_home)
-            sim_station_history[current_timestep] = int(current_at_station)
+        # ensure correct order of features for the model
+        model_input = [features[f] for f in Config.XGB_FEATURES["EV_STATUS"]]
 
-            current_status = predicted_status
-            current_timestep += 1
-            current_at_home, current_at_station = _status_to_home_station(current_status)
+        # update history before predicting next value
+        sim_status_history.append(current_status)
 
-            at_home_pred.append(float(current_at_home))
-            at_station_pred.append(float(current_at_station))
-    finally:
-        household.current_timestep = original_timestep
-        household.history[ev_home_key] = original_home_history
-        household.history[ev_station_key] = original_station_history
-        ev_obj.at_home = bool(original_at_home)
-        ev_obj.at_charging_station = bool(original_at_station)
+        # predict next value, save as split into at_home and at_station
+        current_status = int(model.predict([model_input])[0])
+        current_at_home, current_at_station = _status_to_home_station(current_status)
+        at_home_pred.append(current_at_home)
+        at_station_pred.append(current_at_station)
+
+        # increment time
+        current_timestep += 1
 
     return at_home_pred, at_station_pred
     
@@ -268,7 +281,7 @@ def predict_ev_status(
     model: XGBClassifier,
     household: Household,
     horizon: int,
-) -> dict[str, list[float]]:
+) -> dict[str, list[int]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
     
     ev1_at_home, ev1_at_charging_station = _predict_single_ev_status(model, household, "ev1", horizon)
