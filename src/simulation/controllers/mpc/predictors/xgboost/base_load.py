@@ -95,9 +95,10 @@ def _build_base_load_features(
         "base_load_accel": base_load_accel,
     }
 
-    for key, value in list(features.items()):
-        if isinstance(value, float):
-            features[key] = round(value, 3)
+    if round_values:
+        for key, value in list(features.items()):
+            if isinstance(value, float):
+                features[key] = round(value, 3)
 
     return features
 

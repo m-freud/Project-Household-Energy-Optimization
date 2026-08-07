@@ -20,6 +20,7 @@ def _build_pv_gen_features(
     pv_history: list[float],
     daylight_start: int,
     daylight_end: int,
+    round_values: bool = False,
 ) -> dict:
     pv_seq = pv_history + [current_pv_gen]
 
@@ -78,10 +79,10 @@ def _build_pv_gen_features(
         "steps_to_daylight_end": steps_to_daylight_end,
     }
 
-    # Keep inference numerics aligned with rounded training features.
-    for key, value in list(features.items()):
-        if isinstance(value, float):
-            features[key] = round(value, 3)
+    if round_values:
+        for key, value in list(features.items()):
+            if isinstance(value, float):
+                features[key] = round(value, 3)
 
     return features
 
