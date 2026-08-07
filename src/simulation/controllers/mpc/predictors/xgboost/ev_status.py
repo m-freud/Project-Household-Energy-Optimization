@@ -53,15 +53,16 @@ def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, in
     strategy: cycle through and update depending on how far we got
     """
     start1 = end1 = start2 = end2 = -1
+
     for i, phase_id in enumerate(phase_ids):
         if phase_id == 1 and start1 == -1:
-            start1 = i
+            start1 = i + 1 # convert to timestep
         if phase_id == 2 and end1 == -1:
             end1 = i - 1
         if phase_id == 3 and start2 == -1:
-            start2 = i
+            start2 = i + 1 # convert to timestep
         if phase_id == 4 and end2 == -1:
-            end2 = i - 1
+            end2 = (i - 1) + 1 # convert to timestep
 
     return start1, end1, start2, end2
 
