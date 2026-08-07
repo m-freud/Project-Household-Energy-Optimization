@@ -236,10 +236,13 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
             ev_status_data = _fetch_ev_status_data(household, ev_key)
             features = _build_ev_status_features(ev_status_data)
 
-            feature_row = pd.DataFrame([features])
-            model_input = feature_row[MODEL_FEATURE_COLUMNS]
+            for f in Config.XGB_FEATURES["EV_STATUS"]:
+                if f not in features:
+                    raise ValueError(f"Missing feature '{f}' in features dictionary.")
 
-            predicted_status = int(model.predict(model_input)[0])
+            model_input = [features[f] for f in Config.XGB_FEATURES["EV_STATUS"]]
+
+            predicted_status = int(model.predict([model_input])[0])
 
             # Move the current status into history before advancing time.
             sim_home_history[current_timestep] = int(current_at_home)

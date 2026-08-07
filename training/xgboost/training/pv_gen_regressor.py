@@ -18,10 +18,14 @@ test_household_ids = list(Config.H_SET_TESTING)
 train = get_pv_features(train_household_ids)
 test = get_pv_features(test_household_ids)
 
-drop_columns = ["household_id", "next_value"]
+feature_columns = Config.XGB_FEATURES["PV_GEN"]
 
-X_train, y_train = train.drop(columns=drop_columns), train["next_value"]
-X_test, y_test = test.drop(columns=drop_columns), test["next_value"]
+for f in feature_columns:
+	if f not in train.columns or f not in test.columns:
+		raise ValueError(f"Missing feature '{f}' in features df.")
+
+X_train, y_train = train[feature_columns], train["next_value"]
+X_test, y_test = test[feature_columns], test["next_value"]
 
 
 model = XGBRegressor()

@@ -141,10 +141,13 @@ def _predict_base_load(
             n_evs_at_home=n_evs_at_home,
         )
 
-        feature_row = pd.DataFrame([features])
-        model_input = feature_row[MODEL_FEATURE_COLUMNS]
+        for f in Config.XGB_FEATURES["BASE_LOAD"]:
+            if f not in features:
+                raise ValueError(f"Missing required feature: {f}")
 
-        next_base_load = float(model.predict(model_input)[0])
+        model_input = [features[f] for f in Config.XGB_FEATURES["BASE_LOAD"]]
+
+        next_base_load = float(model.predict([model_input])[0])
         next_base_load = max(0.0, next_base_load)
 
         base_load_history.append(float(current_base_load))

@@ -24,10 +24,14 @@ test_household_ids = list(Config.H_SET_TESTING)
 train = get_ev_status_features(train_household_ids)
 test = get_ev_status_features(test_household_ids)
 
-# Keep the matrix purely numeric; drop identity/string columns and target.
-drop_columns = ["next_state", "household_id", "ev_key", "phase"]
-X_train, y_train = train.drop(columns=drop_columns), train["next_state"]
-X_test, y_test = test.drop(columns=drop_columns), test["next_state"]
+feature_columns = Config.XGB_FEATURES["EV_STATUS"]
+
+for f in feature_columns:
+	if f not in train.columns or f not in test.columns:
+		raise ValueError(f"Missing feature '{f}' in features df.")
+
+X_train, y_train = train[feature_columns], train["next_state"]
+X_test, y_test = test[feature_columns], test["next_state"]
 
 model = XGBClassifier(
 	n_estimators=300,
