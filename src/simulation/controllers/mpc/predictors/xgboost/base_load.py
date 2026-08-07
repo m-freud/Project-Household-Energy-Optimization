@@ -14,15 +14,6 @@ from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import
 from xgboost import XGBRegressor
 
 
-def _history_values(household: Household, key: str, current_timestep: int) -> list[float]:
-    history = household.history.get(key, {})
-    if not history:
-        return []
-
-    ordered_steps = sorted(int(step) for step in history.keys() if int(step) < int(current_timestep))
-    return [float(history[step]) for step in ordered_steps]
-
-
 def _count_evs_at_home(
     predicted_ev_status: dict[str, list[int]],
     prediction_index: int,
@@ -41,6 +32,7 @@ def _build_base_load_features(
     current_base_load: float,
     base_load_history: list[float], # dict is converted to list for calculations
     n_evs_at_home: int,
+    round_values: bool = False,
 ) -> dict:
     base_load_seq = base_load_history + [current_base_load]
 
