@@ -73,7 +73,7 @@ def _build_base_load_features(
     base_load_delta_2 = float(lag_1 - lag_2) if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
     base_load_accel = float(base_load_delta_1 - base_load_delta_2)
 
-    time_sin, time_cos = encode_time_cyclic(current_timestep, Config.TOTAL_TIMESTEPS_DAY)
+    time_sin, time_cos = encode_time_cyclic(current_timestep)
 
     features = {
         "timestep": int(current_timestep),
