@@ -22,7 +22,7 @@ class XGBPredictor(BasePredictor):
 
     base_load: xgboost
     pv_gen: xgboost
-    ev_status: phase 1: dynamic worst case; phase 2: xgboost
+    ev_status: xgboost
     ev_load: ev_status
     ev_max_charge: ev_status
     ev_buy_price: ev_status

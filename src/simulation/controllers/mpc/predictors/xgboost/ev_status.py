@@ -17,73 +17,7 @@ from xgboost import XGBClassifier
 from src.config import Config
 
 
-MODEL_FEATURE_COLUMNS = [
-    "timestep",
-    "status",
-    "time_sin",
-    "time_cos",
-    "steps_in_current_state",
-    "phase_id",
-    "status_lag_1",
-    "status_lag_1_is_pad",
-    "status_lag_2",
-    "status_lag_2_is_pad",
-    "status_lag_4",
-    "status_lag_4_is_pad",
-    "status_lag_8",
-    "status_lag_8_is_pad",
-    "start1_earliest",
-    "end1_latest",
-    "start2_earliest",
-    "end2_latest",
-    "max_commute_steps_1",
-    "max_commute_steps_2",
-    "steps_to_start1_earliest",
-    "steps_to_end1_latest",
-    "steps_to_start2_earliest",
-    "steps_to_end2_latest",
-    "start1",
-    "end1",
-    "start2",
-    "end2",
-    "start1_observed",
-    "end1_observed",
-    "start2_observed",
-    "end2_observed",
-    "observed_window_length_1",
-    "observed_window_length_2",
-    "window_length_slack_1",
-    "window_length_slack_2",
-]
-
-
-def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
-    current_timestep = int(household.current_timestep)
-
-    at_home_history = household.history.get(f"{ev_key}_at_home", {})
-    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
-
-    # Histories are keyed by timestep in the simulator; keep temporal order for lag features.
-    ordered_steps = [
-        int(step)
-        for step in sorted(set(at_home_history.keys()) | set(at_station_history.keys()))
-        if int(step) < current_timestep
-    ]
-    status_history = [
-        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
-        for step in ordered_steps
-    ]
-
-    status_now = int(
-        1
-        - int(getattr(household, f"{ev_key}_at_home", 0))
-        + int(getattr(household, f"{ev_key}_at_charging_station", 0))
-    )
-
-    status_seq = status_history + [status_now]
-    timestep_seq = ordered_steps + [current_timestep]
-
+def _generate_phase_ids(status_seq: list[int]) -> list[int]:
     phase_ids: list[int] = []
     seen_station = False
     for state in status_seq:
