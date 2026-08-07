@@ -51,19 +51,21 @@ def _get_n_evs_at_home_profiles_df(ev_home_profiles: dict) -> pd.DataFrame:
 
 
 def _add_n_evs_at_home(feature_df: pd.DataFrame, household_ids: list[int]) -> pd.DataFrame:
-	ev_home_profiles = _fetch_ev_home_profiles(household_ids)
+	# fetch raw at_home profiles as dict
+	ev_home_profiles:dict = _fetch_ev_home_profiles(household_ids)
+
+	# convert to df with columns: household_id, timestep, n_evs_at_home
 	ev_home_df = _init_feature_df(
 		_get_n_evs_at_home_profiles_df(ev_home_profiles),
 		value_name="n_evs_at_home",
 	)
-	ev_home_df["n_evs_at_home"] = ev_home_df["n_evs_at_home"].astype(int)
 
 	feature_df = feature_df.merge(
 		ev_home_df,
 		on=["household_id", "timestep"],
 		how="left",
 	)
-	feature_df["n_evs_at_home"] = feature_df["n_evs_at_home"].fillna(0).astype(int)
+
 	return feature_df
 
 
