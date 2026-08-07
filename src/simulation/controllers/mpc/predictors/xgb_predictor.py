@@ -44,7 +44,7 @@ class XGBPredictor(BasePredictor):
 
 
     def predict(self, household: Household, horizon: int) -> dict:
-        prediction: dict[str, list[float]] = {}
+        prediction: dict[str, list] = {}
 
         ev_status = predict_ev_status(
             model=self.predictors["ev_status"],
@@ -76,7 +76,7 @@ class XGBPredictor(BasePredictor):
 
         prediction.update(base_load)
         prediction.update(pv_gen)
-        prediction.update(ev_status)
+        prediction.update(ev_status) # int
 
         prediction.update(ev_load)
         prediction.update(ev_buy_price)
