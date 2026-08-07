@@ -21,7 +21,7 @@ def _average_non_zero(values: list[float], default: float = 0.0) -> float:
 def predict_ev_load(
     household: Household,
     horizon: int,
-    ev_status: dict[str, list[float]],
+    ev_status: dict[str, list[int]],
 ) -> dict[str, list[float]]:
     """Predict EV driving load as average non-zero historical load masked by status.
 
@@ -58,7 +58,7 @@ def predict_ev_load(
 def predict_ev_max_charge(
     household: Household,
     horizon: int,
-    ev_status: dict[str, list[float]],
+    ev_status: dict[str, list[int]],
 ) -> dict[str, list[float]]:
     """Predict EV max charge from home/station capacities masked by predicted location."""
 
