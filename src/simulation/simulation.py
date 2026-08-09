@@ -789,7 +789,7 @@ if __name__ == "__main__":
         ) from e
 
     controller_factories_by_name = {
-        # "no_control": make_function_controller("no_control", no_control),
+        "no_control": make_function_controller("no_control", no_control),
         # "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
         # "even_linear": make_function_controller("even_linear", even_linear_policy),
         "price_aware_linear": make_function_controller(
