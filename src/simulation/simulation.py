@@ -429,7 +429,8 @@ class Simulation:
             controller: BaseController,
             scenario: Scenario,
             duration_hours: float = 0.25,
-            time=0):
+            time=1,
+        ):
         self.current_timestep = time
         self.update_household_inputs(household)
         controls = controller.set_controls(household, scenario)
