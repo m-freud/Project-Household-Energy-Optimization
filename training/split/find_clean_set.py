@@ -16,9 +16,14 @@ Approved candidate set:
 
 
 
-from __future__ import annotations
+from __future__ import annotations# paste this to enable src. imports
+from pathlib import Path
+import sys
 
-from collections import defaultdict
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from importlib import import_module
 from itertools import combinations
 import random
@@ -40,7 +45,7 @@ TARGET_COUNTS = {
 }
 RNG_SEED = 42
 MAX_ITERATIONS = 20000
-ROUND_DIGITS = 6
+PROFILE_TOLERANCE = 1e-5
 TARGET_PRETTY_SETS = 25
 
 
@@ -79,10 +84,18 @@ def _normalize_series(series: list[float]) -> list[float]:
     return [(value - min_val) / (max_val - min_val) for value in series]
 
 
-def _series_signature(player_id: int, table_name: str) -> tuple[float, ...]:
+def _equivalent_series(s1: list[float], s2: list[float], tolerance: float = PROFILE_TOLERANCE) -> bool:
+    if len(s1) != len(s2):
+        return False
+    for idx in range(len(s1)):
+        if abs(float(s1[idx]) - float(s2[idx])) > tolerance:
+            return False
+    return True
+
+
+def _series_profile(player_id: int, table_name: str) -> list[float]:
     values = fetch_timeseries(sqlite_cursor, player_id=player_id, table_name=table_name)
-    normalized = _normalize_series(values)
-    return tuple(round(value, ROUND_DIGITS) for value in normalized)
+    return _normalize_series(values)
 
 
 def _player_category(player_id: int) -> str:
@@ -96,47 +109,70 @@ def _player_category(player_id: int) -> str:
     return "pv_bess"
 
 
-def _ev_state_signature(player_id: int, ev_number: int) -> tuple[float, ...]:
+def _ev_state_profile(player_id: int, ev_number: int) -> list[float]:
     home_values = fetch_timeseries(sqlite_cursor, player_id=player_id, table_name=f"ev{ev_number}_at_home")
     station_values = fetch_timeseries(
         sqlite_cursor,
         player_id=player_id,
         table_name=f"ev{ev_number}_at_charging_station",
     )
-    return tuple(
-        round(1.0 - float(at_home) + float(at_station), ROUND_DIGITS)
+    return [
+        1.0 - float(at_home) + float(at_station)
         for at_home, at_station in zip(home_values, station_values)
-    )
+    ]
 
 
-def _build_groups() -> tuple[dict[int, str], dict[tuple[float, ...], list[int]], dict[tuple[float, ...], list[int]]]:
+def _group_ids_by_equivalence(ids: list[int], profiles_by_id: dict[int, list[float]]) -> list[list[int]]:
+    groups: list[list[int]] = []
+    representative_profiles: list[list[float]] = []
+
+    for player_id in sorted(ids):
+        profile = profiles_by_id[player_id]
+        assigned = False
+        for group_idx, representative in enumerate(representative_profiles):
+            if _equivalent_series(profile, representative):
+                groups[group_idx].append(player_id)
+                assigned = True
+                break
+
+        if not assigned:
+            representative_profiles.append(profile)
+            groups.append([player_id])
+
+    return groups
+
+
+def _build_groups() -> tuple[dict[int, str], list[list[int]], list[list[int]]]:
     categories: dict[int, str] = {}
-    base_groups: dict[tuple[float, ...], list[int]] = defaultdict(list)
-    pv_groups: dict[tuple[float, ...], list[int]] = defaultdict(list)
+    base_profiles: dict[int, list[float]] = {}
+    pv_profiles: dict[int, list[float]] = {}
 
     for player_id in PLAYER_IDS:
         category = _player_category(player_id)
         categories[player_id] = category
-        base_groups[_series_signature(player_id, "base_load")].append(player_id)
+        base_profiles[player_id] = _series_profile(player_id, "base_load")
         if category != "no_pv_no_bess":
-            pv_groups[_series_signature(player_id, "pv_gen")].append(player_id)
+            pv_profiles[player_id] = _series_profile(player_id, "pv_gen")
+
+    base_groups = _group_ids_by_equivalence(list(categories.keys()), base_profiles)
+    pv_groups = _group_ids_by_equivalence(list(pv_profiles.keys()), pv_profiles)
 
     return categories, base_groups, pv_groups
 
 
 def _build_conflicts(
     categories: dict[int, str],
-    base_groups: dict[tuple[float, ...], list[int]],
-    pv_groups: dict[tuple[float, ...], list[int]],
+    base_groups: list[list[int]],
+    pv_groups: list[list[int]],
 ) -> dict[int, set[int]]:
     conflicts = {player_id: set() for player_id in categories}
 
-    for members in base_groups.values():
+    for members in base_groups:
         for left_id, right_id in combinations(members, 2):
             conflicts[left_id].add(right_id)
             conflicts[right_id].add(left_id)
 
-    for members in pv_groups.values():
+    for members in pv_groups:
         for left_id, right_id in combinations(members, 2):
             conflicts[left_id].add(right_id)
             conflicts[right_id].add(left_id)
@@ -199,10 +235,9 @@ def _count_categories(selected_ids: list[int], categories: dict[int, str]) -> di
 
 
 def _ev_conflict_groups(selected_ids: list[int], ev_number: int) -> list[list[int]]:
-    grouped_ids: dict[tuple[float, ...], list[int]] = defaultdict(list)
-    for player_id in selected_ids:
-        grouped_ids[_ev_state_signature(player_id, ev_number)].append(player_id)
-    return [sorted(group) for group in grouped_ids.values() if len(group) > 1]
+    profiles_by_id = {player_id: _ev_state_profile(player_id, ev_number) for player_id in selected_ids}
+    groups = _group_ids_by_equivalence(selected_ids, profiles_by_id)
+    return [sorted(group) for group in groups if len(group) > 1]
 
 
 def _count_group_conflicts(groups: list[list[int]]) -> int:
@@ -329,6 +364,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    candidate_set = [12, 29, 30, 38, 60, 62, 75, 93, 94, 112, 116, 121, 133, 154, 157, 171, 180, 204, 206, 217, 201]
     validation = validate_candidate_set(candidate_set)
     print(f"candidate_set_valid {validation['is_valid']}")
     print(f"candidate_set_count {validation['selected_count']}")
