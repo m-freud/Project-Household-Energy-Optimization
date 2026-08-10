@@ -1,5 +1,12 @@
 import pandas as pd
 import numpy as np
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from src.ingestion.table_config import table_config
@@ -137,6 +144,41 @@ def enrich_ev_charge_rates(wb):
     sqlite_conn.commit()
 
 
+def add_combined_ev_states():
+    # ev status = 1 - ev_at_home + ev_at_charging_station, evaluated per household column
+    for ev_num in ("1", "2"):
+        source_home = f"ev{ev_num}_at_home"
+        source_station = f"ev{ev_num}_at_charging_station"
+        target_table = f"ev{ev_num}_status"
+
+        home_df = pd.read_sql_query(f"SELECT * FROM {source_home}", sqlite_conn)
+        station_df = pd.read_sql_query(f"SELECT * FROM {source_station}", sqlite_conn)
+
+        if home_df.empty or station_df.empty:
+            sqlite_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
+            pd.DataFrame().to_sql(target_table, sqlite_conn, if_exists="replace", index=False)
+            continue
+
+        if "period" not in home_df.columns or "period" not in station_df.columns:
+            raise ValueError(f"{source_home} and {source_station} must contain a period column")
+
+        status_df = home_df.copy()
+        value_columns = [column for column in home_df.columns if column != "period"]
+
+        for column in value_columns:
+            status_df[column] = 1 - pd.to_numeric(home_df[column], errors="coerce") + pd.to_numeric(
+                station_df[column], errors="coerce"
+            )
+
+        sqlite_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
+        status_df.to_sql(target_table, sqlite_conn, if_exists="replace", index=False)
+        sqlite_conn.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{target_table}_period ON {target_table} (period)"
+        )
+
+    sqlite_conn.commit()
+
+
 def load_all_tables(wb, table_instructions):
     for table_name, config in table_instructions.items():
         print(f"Loading table: {table_name} to sqlite...")
@@ -144,6 +186,9 @@ def load_all_tables(wb, table_instructions):
 
     print("Enriching EV charge-rate metadata...")
     enrich_ev_charge_rates(wb)
+
+    print("Building combined EV state tables...")
+    add_combined_ev_states()
     
     print("tables loaded successfully!")
 
