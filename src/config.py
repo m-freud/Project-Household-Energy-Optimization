@@ -59,6 +59,21 @@ class Config:
 
     CLEAN_SET = [12, 29, 30, 38, 60, 62, 75, 93, 94, 112, 116, 121, 133, 154, 157, 171, 180, 204, 206, 217]
 
+    CLEAN_SUBSETS = {
+        "A": CLEAN_SET[:4],
+        "B": CLEAN_SET[4:8],
+        "C": CLEAN_SET[8:12],
+        "D": CLEAN_SET[12:16],
+        "E": CLEAN_SET[16:20],
+    }
+
+    CLEAN_COMPLEMENTS = {
+        "A": CLEAN_SET[4:],
+        "B": CLEAN_SET[:4] + CLEAN_SET[8:],
+        "C": CLEAN_SET[:8] + CLEAN_SET[12:],
+        "D": CLEAN_SET[:12] + CLEAN_SET[16:],
+        "E": CLEAN_SET[:16],
+    }
 
 
     XGB_FEATURES = {
