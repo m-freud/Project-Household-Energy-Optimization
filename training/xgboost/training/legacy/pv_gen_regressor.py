@@ -8,15 +8,15 @@ sys.path.insert(0, str(repo_root))
 
 
 from xgboost import XGBRegressor  # noqa: E402
-from training.xgboost.features.pv_gen_features import get_pv_features  # noqa: E402
+from training.xgboost.features.pv_gen_features import get_pv_gen_features  # noqa: E402
 from src.config import Config  # noqa: E402
 import numpy as np  # noqa: E402
 
 train_household_ids = list(Config.H_SET_TRAINING)
 test_household_ids = list(Config.H_SET_TESTING)
 
-train = get_pv_features(train_household_ids)
-test = get_pv_features(test_household_ids)
+train = get_pv_gen_features(train_household_ids)
+test = get_pv_gen_features(test_household_ids)
 
 feature_columns = Config.XGB_FEATURES["PV_GEN"]
 
