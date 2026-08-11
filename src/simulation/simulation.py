@@ -10,10 +10,10 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
-from typing import Callable
+from typing import Callable, TypeVar
 import numpy as np
 from src.simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
-from src.simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
+from src.simulation.controllers.mpc.predictors.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
 from src.simulation.household import Household
@@ -33,6 +33,9 @@ from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePre
 from src.config import Config
 
 from xgboost import XGBClassifier, XGBRegressor
+
+
+TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
 
 
 
@@ -751,42 +754,55 @@ if __name__ == "__main__":
     # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
-    base_load_model_path = Config.XGB_BASE_LOAD_MODEL_PATH
-    pv_gen_model_path = Config.XGB_PV_GEN_MODEL_PATH
-    ev_status_model_path = Config.XGB_EV_STATUS_MODEL_PATH
+    def _load_models_by_fold(metric: str, model_class: type[TXGBModel]) -> dict[str, TXGBModel]:
+        models_by_fold: dict[str, TXGBModel] = {}
+        for fold_id, fold_player_ids in Config.RUNTIME_TEST_FOLDS.items():
+            if not fold_player_ids:
+                raise ValueError(f"Fold '{fold_id}' has no player ids configured.")
 
-    xgb_models = {
-        "base_load": XGBRegressor(),
-        "pv_gen": XGBRegressor(),
-        "ev_status": XGBClassifier(),
-    }
+            representative_player_id = int(fold_player_ids[0])
+            model_path = Config.get_xgb_model_path(metric, representative_player_id)
+            if not model_path.exists():
+                raise FileNotFoundError(f"Missing {metric} model for fold '{fold_id}': {model_path}")
 
-    try:
-        xgb_models["base_load"].load_model(str(base_load_model_path))
-        print(f"Loaded base-load regressor: {base_load_model_path}")
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load base-load regressor from '{base_load_model_path}'. "
-            "Train/export it first in repo root."
-        ) from e
+            model = model_class()
+            try:
+                model.load_model(str(model_path))
+                print(f"Loaded {metric} model for fold '{fold_id}': {model_path}")
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to load {metric} model for fold '{fold_id}' from '{model_path}'."
+                ) from exc
 
-    try:
-        xgb_models["pv_gen"].load_model(str(pv_gen_model_path))
-        print(f"Loaded PV regressor: {pv_gen_model_path}")
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load PV regressor from '{pv_gen_model_path}'. "
-            "Train/export it first in repo root."
-        ) from e
+            models_by_fold[fold_id] = model
 
-    try:
-        xgb_models["ev_status"].load_model(str(ev_status_model_path))
-        print(f"Loaded EV status classifier: {ev_status_model_path}")
-    except Exception as e:
-        raise RuntimeError(
-            f"Failed to load EV status classifier from '{ev_status_model_path}'. "
-            "Train/export it first in repo root."
-        ) from e
+        return models_by_fold
+
+    player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+
+    base_load_model_bank = FoldModelBank[XGBRegressor](
+        models_by_fold=_load_models_by_fold("base_load", XGBRegressor),
+        id_to_fold=player_to_fold,
+    )
+    pv_gen_model_bank = FoldModelBank[XGBRegressor](
+        models_by_fold=_load_models_by_fold("pv_gen", XGBRegressor),
+        id_to_fold=player_to_fold,
+    )
+    ev1_status_model_bank = FoldModelBank[XGBClassifier](
+        models_by_fold=_load_models_by_fold("ev1_status", XGBClassifier),
+        id_to_fold=player_to_fold,
+    )
+    ev2_status_model_bank = FoldModelBank[XGBClassifier](
+        models_by_fold=_load_models_by_fold("ev2_status", XGBClassifier),
+        id_to_fold=player_to_fold,
+    )
+
+    predictor_model_bank = PredictorModelBank(
+        base_load_model_bank=base_load_model_bank,
+        pv_gen_model_bank=pv_gen_model_bank,
+        ev1_status_model_bank=ev1_status_model_bank,
+        ev2_status_model_bank=ev2_status_model_bank,
+    )
 
     controller_factories_by_name = {
         "no_control": make_function_controller("no_control", no_control),
@@ -808,10 +824,8 @@ if __name__ == "__main__":
         "mpc_xgb": make_mpc_controller(
             "mpc_xgb",
             horizon=96,
-            predictor=XGBPredictor(
-                base_load_regressor=xgb_models["base_load"],
-                pv_gen_regressor=xgb_models["pv_gen"],
-                ev_status_classifier=xgb_models["ev_status"],
+            predictor=XGBPredictor( #TODO conf interval?
+                predictor_model_bank
             ),
         ),
     }
@@ -847,7 +861,7 @@ if __name__ == "__main__":
     if args.households == "all":
         selected_household_ids = None
     elif args.households == "test_set":
-        selected_household_ids = Config.H_SET_TESTING
+        selected_household_ids = list(Config.RUNTIME_SIM_PLAYER_IDS)
     else:
         selected_household_ids = [
             int(token.strip()) for token in args.households.split(",") if token.strip()
