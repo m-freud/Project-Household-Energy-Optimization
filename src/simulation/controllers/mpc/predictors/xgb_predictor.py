@@ -1,5 +1,4 @@
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-
 from src.simulation.controllers.mpc.predictors.xgboost import (
     predict_base_load,
     predict_pv_gen,
@@ -15,6 +14,28 @@ from src.simulation.controllers.mpc.predictors.shared import (
 )
 from src.simulation.household import Household
 from xgboost import XGBClassifier, XGBRegressor
+from typing import Generic, TypeVar
+
+from dataclasses import dataclass
+
+TModel = TypeVar("TModel", XGBRegressor, XGBClassifier)
+
+@dataclass
+class FoldModelBank(Generic[TModel]):
+    models_by_fold: dict[str, TModel]
+    id_to_fold: dict[int, str]
+
+    def get_predictor_model(self, player_id: int) -> TModel:
+        fold_id = self.id_to_fold[player_id]
+        return self.models_by_fold[fold_id]
+
+@dataclass
+class PredictorModelBank:
+    base_load_model_bank: FoldModelBank[XGBRegressor]
+    pv_gen_model_bank: FoldModelBank[XGBRegressor]
+    ev1_status_model_bank: FoldModelBank[XGBClassifier]
+    ev2_status_model_bank: FoldModelBank[XGBClassifier]
+
 
 class XGBPredictor(BasePredictor):
     """
@@ -30,35 +51,37 @@ class XGBPredictor(BasePredictor):
     sell_price: lookup table
     """
 
-    def __init__(
-            self,
-            base_load_regressor: XGBRegressor, # let simulation handle the model imports
-            pv_gen_regressor: XGBRegressor,
-            ev_status_classifier: XGBClassifier
-    ):
-        self.predictors = {
-            "base_load": base_load_regressor,
-            "pv_gen": pv_gen_regressor,
-            "ev_status": ev_status_classifier
-        }
+    def __init__(self,predictor_model_bank: PredictorModelBank):
+        self.predictor_model_bank = predictor_model_bank
 
 
     def predict(self, household: Household, horizon: int) -> dict:
+        # select models based on household and metric
+        household_id = household.player_id
+        base_load_model: XGBRegressor = self.predictor_model_bank.base_load_model_bank.get_predictor_model(household_id)
+        pv_gen_model: XGBRegressor = self.predictor_model_bank.pv_gen_model_bank.get_predictor_model(household_id)
+        ev1_status_model: XGBClassifier = self.predictor_model_bank.ev1_status_model_bank.get_predictor_model(household_id)
+        ev2_status_model: XGBClassifier = self.predictor_model_bank.ev2_status_model_bank.get_predictor_model(household_id)
+
+
+        # use models to predict each metric
         prediction: dict[str, list] = {}
 
+        # todo separate ev1 and ev2
         ev_status = predict_ev_status(
-            model=self.predictors["ev_status"],
+            model_ev1=ev1_status_model,
+            model_ev2=ev2_status_model,
             household=household,
             horizon=horizon,
         )
         base_load = predict_base_load(
-            model=self.predictors["base_load"],
+            model=base_load_model,
             household=household,
             horizon=horizon,
             predicted_ev_status=ev_status,
         )
         pv_gen = predict_pv_gen(
-            model=self.predictors["pv_gen"],
+            model=pv_gen_model,
             household=household,
             horizon=horizon,
         )

@@ -314,14 +314,15 @@ def _predict_single_ev_status(model: XGBClassifier, household: Household, ev_key
     
 
 def predict_ev_status(
-    model: XGBClassifier,
+    model_ev1: XGBClassifier,
+    model_ev2: XGBClassifier,
     household: Household,
     horizon: int,
 ) -> dict[str, list[int]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
 
-    ev1_at_home, ev1_at_charging_station = _predict_single_ev_status(model, household, "ev1", horizon)
-    ev2_at_home, ev2_at_charging_station = _predict_single_ev_status(model, household, "ev2", horizon)
+    ev1_at_home, ev1_at_charging_station = _predict_single_ev_status(model_ev1, household, "ev1", horizon)
+    ev2_at_home, ev2_at_charging_station = _predict_single_ev_status(model_ev2, household, "ev2", horizon)
 
     return {
         "ev1_at_home": ev1_at_home,
