@@ -28,7 +28,7 @@ from src.simulation.controllers.mpc.predictors.xgboost.ev_status import (
 )
 
 from training.xgboost.features.base_load_features import get_base_load_features
-from training.xgboost.features.pv_gen_features import get_pv_features
+from training.xgboost.features.pv_gen_features import get_pv_gen_features
 from training.xgboost.features.ev_status_features import get_ev_status_features
 
 HOUSEHOLD_IDS = [1, 6]
@@ -133,7 +133,7 @@ def _compare_feature_rows(
 
 def main() -> None:
     base_load_training = get_base_load_features(HOUSEHOLD_IDS)
-    pv_training = get_pv_features(HOUSEHOLD_IDS)
+    pv_training = get_pv_gen_features(HOUSEHOLD_IDS)
     ev_training = get_ev_status_features(HOUSEHOLD_IDS)
 
     _compare_feature_rows(
