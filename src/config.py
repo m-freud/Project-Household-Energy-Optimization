@@ -53,6 +53,50 @@ class Config:
 
     PV_GENERATION_WINDOW_ALLOWED = PV_GENERATION_WINDOW_OBSERVED
 
+    # Runtime simulation households (sorted by has_pv, has_bess).
+    RUNTIME_SIM_PLAYER_IDS = [1, 27, 42, 68, 85, 92, 110, 114, 118, 167, 202, 229, 12, 52, 159, 215, 131, 153, 199, 238]
+
+    # Five test folds (A-E), each holding four runtime households.
+    RUNTIME_TEST_FOLDS = {
+        "A": RUNTIME_SIM_PLAYER_IDS[:4],
+        "B": RUNTIME_SIM_PLAYER_IDS[4:8],
+        "C": RUNTIME_SIM_PLAYER_IDS[8:12],
+        "D": RUNTIME_SIM_PLAYER_IDS[12:16],
+        "E": RUNTIME_SIM_PLAYER_IDS[16:20],
+    }
+
+    # Reverse lookup used by predictors: household -> fold id.
+    RUNTIME_PLAYER_TO_TEST_FOLD = {
+        _player_id: _fold_id
+        for _fold_id, _player_ids in RUNTIME_TEST_FOLDS.items()
+        for _player_id in _player_ids
+    }
+
+    # Fold-specific model directories.
+    XGB_METRIC_MODEL_DIRS = {
+        "base_load": Path(XGB_MODEL_DIR / "base_load"),
+        "pv_gen": Path(XGB_MODEL_DIR / "pv_gen"),
+        "ev1_status": Path(XGB_MODEL_DIR / "ev1_status"),
+        "ev2_status": Path(XGB_MODEL_DIR / "ev2_status"),
+    }
+
+    @classmethod
+    def get_test_fold_for_player(cls, player_id: int) -> str:
+        try:
+            return cls.RUNTIME_PLAYER_TO_TEST_FOLD[int(player_id)]
+        except KeyError as exc:
+            raise KeyError(f"Player ID {player_id} is not part of the runtime fold set.") from exc
+
+    @classmethod
+    def get_xgb_model_path(cls, metric: str, player_id: int) -> Path:
+        metric_key = str(metric)
+        if metric_key not in cls.XGB_METRIC_MODEL_DIRS:
+            valid_metrics = ", ".join(sorted(cls.XGB_METRIC_MODEL_DIRS.keys()))
+            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
+
+        fold_id = cls.get_test_fold_for_player(int(player_id))
+        return Path(cls.XGB_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.json")
+
 
     XGB_FEATURES = {
         "EV_STATUS": [
