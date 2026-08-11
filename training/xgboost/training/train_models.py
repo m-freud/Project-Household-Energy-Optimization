@@ -78,9 +78,9 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
         model.fit(X_train, y_train)
         print(f"  Finished training {target} model for fold {fold_id}")
 
-        model_save_path = Path(Config.ROOT_DIR / "training" / "models" / f"{target}" / f"{fold_id}.json")
+        model_save_path = Path(Config.XGB_METRIC_MODEL_DIRS[target] / f"{fold_id}.json")
         model_save_path.parent.mkdir(parents=True, exist_ok=True)
-        model.save_model(model_save_path)
+        model.save_model(str(model_save_path))
         print(f"  Saved model to {model_save_path}")
 
 print("\nAll initial models trained and saved.")

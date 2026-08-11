@@ -8,9 +8,13 @@ class Config:
     ROOT_DIR = Path(__file__).parent.parent
     XGB_MODEL_DIR = Path(ROOT_DIR / "training" / "xgboost" / "models")
 
-    XGB_BASE_LOAD_MODEL_PATH = Path(XGB_MODEL_DIR / "base_load_regressor.json")
-    XGB_PV_GEN_MODEL_PATH = Path(XGB_MODEL_DIR / "pv_gen_regressor.json")
-    XGB_EV_STATUS_MODEL_PATH = Path(XGB_MODEL_DIR / "ev_status_classifier.json")
+    # Fold-specific model directories.
+    XGB_METRIC_MODEL_DIRS = {
+        "base_load": Path(XGB_MODEL_DIR / "base_load"),
+        "pv_gen": Path(XGB_MODEL_DIR / "pv_gen"),
+        "ev1_status": Path(XGB_MODEL_DIR / "ev1_status"),
+        "ev2_status": Path(XGB_MODEL_DIR / "ev2_status"),
+    }
 
     # data source
     EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))
@@ -70,14 +74,6 @@ class Config:
         _player_id: _fold_id
         for _fold_id, _player_ids in RUNTIME_TEST_FOLDS.items()
         for _player_id in _player_ids
-    }
-
-    # Fold-specific model directories.
-    XGB_METRIC_MODEL_DIRS = {
-        "base_load": Path(XGB_MODEL_DIR / "base_load"),
-        "pv_gen": Path(XGB_MODEL_DIR / "pv_gen"),
-        "ev1_status": Path(XGB_MODEL_DIR / "ev1_status"),
-        "ev2_status": Path(XGB_MODEL_DIR / "ev2_status"),
     }
 
     @classmethod
