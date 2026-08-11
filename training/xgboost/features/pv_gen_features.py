@@ -44,7 +44,7 @@ def _add_steps_to_daylight_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def get_pv_features(household_ids: list[int], round_values: bool = False) -> pd.DataFrame:
+def get_pv_gen_features(household_ids: list[int], round_values: bool = False) -> pd.DataFrame:
     raw_profiles = _fetch_profiles(household_ids, "pv_gen")
     standardized_df = _get_profiles_df(raw_profiles)
     feature_df = _init_feature_df(standardized_df, value_name="pv_gen")
@@ -82,7 +82,7 @@ def get_pv_features(household_ids: list[int], round_values: bool = False) -> pd.
 
 if __name__ == "__main__":
     household_ids = list(range(1, 3))
-    feature_df = get_pv_features(household_ids)
+    feature_df = get_pv_gen_features(household_ids)
 
 
     cols_to_print = [
