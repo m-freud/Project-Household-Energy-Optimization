@@ -1,11 +1,11 @@
 """Find metric-distinct IDs outside CLEAN_SET.
 
 This script selects outside IDs whose metric profile signature is not present in
-Config.CLEAN_SET. For each unseen signature, it keeps one representative ID
+CLEAN_SET. For each unseen signature, it keeps one representative ID
 (smallest ID for deterministic output).
 
 It also prints fold-wise training IDs:
-- train_ids[label] = Config.CLEAN_COMPLEMENTS[label] + extra_ids
+- train_ids[label] = CLEAN_COMPLEMENTS[label] + extra_ids
 
 Usage examples:
   python training/split/find_metric_distinct_ids.py --metric pv_gen
@@ -26,8 +26,8 @@ cwd = Path.cwd().resolve()
 repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from training.split.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SET
 
 
 MetricName = str
@@ -121,7 +121,7 @@ def build_extra_ids_for_metric(
 
 def build_fold_training_sets(extra_ids: list[int]) -> dict[str, list[int]]:
     training_sets: dict[str, list[int]] = {}
-    for label, clean_complement in Config.CLEAN_COMPLEMENTS.items():
+    for label, clean_complement in CLEAN_COMPLEMENTS.items():
         training_sets[label] = sorted(clean_complement + extra_ids)
     return training_sets
 
@@ -156,7 +156,7 @@ def main() -> None:
     args = parser.parse_args()
 
     all_ids = _collect_player_ids(args.start_id, args.end_id)
-    clean_set = sorted(Config.CLEAN_SET)
+    clean_set = sorted(CLEAN_SET)
 
     extra_ids, clean_signature_count, uncovered_groups = build_extra_ids_for_metric(
         metric=args.metric,
