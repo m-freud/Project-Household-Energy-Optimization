@@ -187,7 +187,7 @@ def load_all_tables(wb, table_instructions):
     print("Enriching EV charge-rate metadata...")
     enrich_ev_charge_rates(wb)
 
-    print("Building combined EV state tables...")
+    print("Building combined EV status tables...")
     add_combined_ev_states()
     
     print("tables loaded successfully!")

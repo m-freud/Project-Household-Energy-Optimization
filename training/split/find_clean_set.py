@@ -374,3 +374,15 @@ if __name__ == "__main__":
     print(f"candidate_set_ev1_conflicts {validation['ev_conflicts']['ev1_conflicts']}")
     print(f"candidate_set_ev2_conflicts {validation['ev_conflicts']['ev2_conflicts']}")
     print(f"candidate_set_total_ev_conflicts {validation['ev_conflicts']['total_ev_conflicts']}")
+
+    print("#########################################################################")
+    id_selection = [1, 12, 27, 42, 52, 68, 85, 92, 110, 114, 118, 131, 153, 159, 167, 199, 202, 215, 229, 238]
+    validation = validate_candidate_set(id_selection)
+    print(f"candidate_set_valid {validation['is_valid']}")
+    print(f"candidate_set_count {validation['selected_count']}")
+    print(f"candidate_set_category_counts {validation['category_counts']}")
+    print(f"candidate_set_wrong_counts {validation['wrong_counts']}")
+    print(f"candidate_set_conflict_pairs {validation['conflict_pairs']}")
+    print(f"candidate_set_ev1_conflicts {validation['ev_conflicts']['ev1_conflicts']}")
+    print(f"candidate_set_ev2_conflicts {validation['ev_conflicts']['ev2_conflicts']}")
+    print(f"candidate_set_total_ev_conflicts {validation['ev_conflicts']['total_ev_conflicts']}")
