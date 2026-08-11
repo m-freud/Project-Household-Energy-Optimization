@@ -241,7 +241,9 @@ def render_prediction_explorer(
     st.header("Prediction Explorer")
 
     only_show_test_ids = st.checkbox("Only show test ids", value=False)
-    available_household_ids = list(Config.H_SET_TESTING) if only_show_test_ids else list(household_ids)
+    test_household_ids = getattr(Config, "RUNTIME_SIM_PLAYER_IDS", [])
+
+    available_household_ids = list(test_household_ids) if only_show_test_ids else list(household_ids)
     if not available_household_ids:
         st.warning("No household ids available for the selected filter.")
         return
