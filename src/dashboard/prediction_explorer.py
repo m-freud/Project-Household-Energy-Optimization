@@ -12,7 +12,11 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from src.config import Config
 from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
-from simulation.controllers.mpc.predictors.xgb_predictor import XGBPredictor
+from simulation.controllers.mpc.predictors.xgb_predictor import (
+    FoldModelBank,
+    PredictorModelBank,
+    XGBPredictor,
+)
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -56,36 +60,45 @@ class _ConstantRegressor(XGBRegressor):
 
 
 @st.cache_resource(show_spinner=False)
-def _load_xgb_base_load_model() -> XGBRegressor:
-    model_path = Config.XGB_BASE_LOAD_MODEL_PATH
-    if not model_path.exists():
-        raise FileNotFoundError(f"Missing model file: {model_path}")
+def _load_models_by_fold(metric: str, model_cls):
+    models_by_fold: dict[str, XGBRegressor | XGBClassifier] = {}
+    for fold_id, fold_player_ids in Config.RUNTIME_TEST_FOLDS.items():
+        if not fold_player_ids:
+            raise ValueError(f"Fold '{fold_id}' has no player ids configured.")
 
-    model = XGBRegressor()
-    model.load_model(str(model_path))
-    return model
+        representative_player_id = int(fold_player_ids[0])
+        model_path = Config.get_xgb_model_path(metric, representative_player_id)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Missing {metric} model for fold '{fold_id}': {model_path}")
 
+        model = model_cls()
+        model.load_model(str(model_path))
+        models_by_fold[fold_id] = model
 
-@st.cache_resource(show_spinner=False)
-def _load_xgb_ev_status_model() -> XGBClassifier:
-    model_path = Config.XGB_EV_STATUS_MODEL_PATH
-    if not model_path.exists():
-        raise FileNotFoundError(f"Missing model file: {model_path}")
-
-    model = XGBClassifier()
-    model.load_model(str(model_path))
-    return model
+    return models_by_fold
 
 
 @st.cache_resource(show_spinner=False)
-def _load_xgb_pv_gen_model() -> XGBRegressor:
-    model_path = Config.XGB_PV_GEN_MODEL_PATH
-    if not model_path.exists():
-        raise FileNotFoundError(f"Missing model file: {model_path}")
-
-    model = XGBRegressor()
-    model.load_model(str(model_path))
-    return model
+def _load_xgb_predictor_model_bank() -> PredictorModelBank:
+    player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+    return PredictorModelBank(
+        base_load_model_bank=FoldModelBank[XGBRegressor](
+            models_by_fold=_load_models_by_fold("base_load", XGBRegressor),
+            id_to_fold=player_to_fold,
+        ),
+        pv_gen_model_bank=FoldModelBank[XGBRegressor](
+            models_by_fold=_load_models_by_fold("pv_gen", XGBRegressor),
+            id_to_fold=player_to_fold,
+        ),
+        ev1_status_model_bank=FoldModelBank[XGBClassifier](
+            models_by_fold=_load_models_by_fold("ev1_status", XGBClassifier),
+            id_to_fold=player_to_fold,
+        ),
+        ev2_status_model_bank=FoldModelBank[XGBClassifier](
+            models_by_fold=_load_models_by_fold("ev2_status", XGBClassifier),
+            id_to_fold=player_to_fold,
+        ),
+    )
 
 
 def _build_predictor(
@@ -98,9 +111,7 @@ def _build_predictor(
         )
     if predictor_name == "xgb":
         return XGBPredictor(
-            base_load_regressor=_load_xgb_base_load_model(),
-            pv_gen_regressor=_load_xgb_pv_gen_model(),
-            ev_status_classifier=_load_xgb_ev_status_model(),
+            predictor_model_bank=_load_xgb_predictor_model_bank(),
         )
     return OraclePredictor()
 
