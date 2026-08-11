@@ -340,6 +340,41 @@ def pick_lowest_ev_conflict_set(pretty_sets: list[list[int]]) -> RankedPrettySet
     return ranked_sets[0]
 
 
+def _has_bess(player_id: int) -> bool:
+    return bool(load_attribute("player_pv_bess", player_id, "has_bess"))
+
+
+def _has_pv(player_id: int) -> bool:
+    return bool(load_attribute("player_pv_bess", player_id, "has_pv"))
+
+
+def get_labeled_folds(selected_ids: list[int]) -> dict[str, list[int]]:
+    folds = {
+        "A": [],
+        "B": [],
+        "C": [],
+        "D": [],
+        "E": [],
+    }
+
+    for id in selected_ids:
+        if _has_bess(id) and _has_pv(id):
+            if len(folds["A"]) < 4:
+                folds["A"].append(id)
+            elif len(folds["B"]) < 4:
+                folds["B"].append(id)
+            else:
+                folds["C"].append(id)
+        elif _has_pv(id):
+            if len(folds["D"]) < 4:
+                folds["D"].append(id)
+        else:
+            folds["E"].append(id)
+
+    return folds
+
+
+
 def main() -> None:
     pretty_sets = generate_pretty_sets()
     best_choice = pick_lowest_ev_conflict_set(pretty_sets)
@@ -386,3 +421,20 @@ if __name__ == "__main__":
     print(f"candidate_set_ev1_conflicts {validation['ev_conflicts']['ev1_conflicts']}")
     print(f"candidate_set_ev2_conflicts {validation['ev_conflicts']['ev2_conflicts']}")
     print(f"candidate_set_total_ev_conflicts {validation['ev_conflicts']['total_ev_conflicts']}")
+
+
+    labeled_folds = get_labeled_folds(id_selection)
+    print(f"labeled_folds {labeled_folds}")
+    # labeled_folds 
+    # {'A': [1, 27, 42, 68],
+    # 'B': [85, 92, 110, 114],
+    # 'C': [118, 167, 202, 229],
+    # 'D': [12, 52, 159, 215],
+    # 'E': [131, 153, 199, 238]}
+
+    # sorted by label [1,27,42,68,85,92,110,114,118,167,202,229,12,52,159,215,131,153,199,238]
+
+    for fold in ["A", "B", "C", "D", "E"]:
+        for id in labeled_folds[fold]:
+            print(f"fold {fold} player_id {id} has_bess {_has_bess(id)} has_pv {_has_pv(id)}")
+
