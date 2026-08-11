@@ -1,9 +1,9 @@
-"""Generate training/split/test_folds.csv from Config constants.
+"""Generate training/split/test_folds.csv from split-local fold_spec.
 
 Rules:
-- fold_members come from Config.CLEAN_SUBSETS
-- fold_complement comes from Config.CLEAN_COMPLEMENTS
-- global complement for each metric is fold_complement + Config.EXTRA_IDS[metric]
+- fold_members come from CLEAN_SUBSETS
+- fold_complement comes from CLEAN_COMPLEMENTS
+- global complement for each metric is fold_complement + EXTRA_IDS[metric]
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ cwd = Path.cwd().resolve()
 repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from training.split.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
 
 
 def _format_ids(ids: list[int]) -> str:
@@ -26,8 +26,7 @@ def _format_ids(ids: list[int]) -> str:
 
 
 def _build_global_complement(fold_complement: list[int], metric: str) -> list[int]:
-    # Use set + sort to match Config.TRAIN_SETS behavior.
-    return sorted(set(fold_complement + Config.EXTRA_IDS[metric]))
+    return sorted(set(fold_complement + EXTRA_IDS[metric]))
 
 
 def main() -> None:
@@ -51,9 +50,9 @@ def main() -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
 
-        for fold_id in sorted(Config.CLEAN_SUBSETS.keys()):
-            fold_members = list(Config.CLEAN_SUBSETS[fold_id])
-            fold_complement = list(Config.CLEAN_COMPLEMENTS[fold_id])
+        for fold_id in sorted(CLEAN_SUBSETS.keys()):
+            fold_members = list(CLEAN_SUBSETS[fold_id])
+            fold_complement = list(CLEAN_COMPLEMENTS[fold_id])
 
             row = {
                 "fold_id": fold_id,
