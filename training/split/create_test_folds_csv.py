@@ -19,14 +19,27 @@ repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
 from training.split.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
+from src.config import Config
 
 
 def _format_ids(ids: list[int]) -> str:
     return ", ".join(str(player_id) for player_id in ids)
 
 
-def _build_global_complement(fold_complement: list[int], metric: str) -> list[int]:
-    return sorted(set(fold_complement + EXTRA_IDS[metric]))
+def _build_train_set(fold_complement: list[int], target: str) -> list[int]:
+    """
+    build complement set for the given fold to be used as training set.
+    composed of the complement out of the 20 runtime household and any available extra profiles for the given metric.
+
+    in case of pv we sort out any non-pv households
+    """
+    complement = fold_complement + EXTRA_IDS[target]
+
+    if target == "pv_gen":
+        # filter out any non-pv households
+        complement = [player_id for player_id in complement if player_id in Config.PLAYERS_WITH_PV]
+
+    return sorted(complement)
 
 
 def main() -> None:
@@ -43,7 +56,7 @@ def main() -> None:
         "fold_id",
         "fold_members",
         "fold_complement",
-        *[f"global_complement_{metric}" for metric in metric_columns],
+        *[f"train_set_{metric}" for metric in metric_columns],
     ]
 
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -61,8 +74,12 @@ def main() -> None:
             }
 
             for metric in metric_columns:
-                global_complement = _build_global_complement(fold_complement, metric)
-                row[f"global_complement_{metric}"] = _format_ids(global_complement)
+                if metric == "pv_gen" and fold_id == "E":
+                    # fold E has no PV households, so we cannot build a training set for pv_gen
+                    row[f"train_set_{metric}"] = _format_ids([2]) # first id without pv
+                    continue
+                global_complement = _build_train_set(fold_complement, metric)
+                row[f"train_set_{metric}"] = _format_ids(global_complement)
 
             writer.writerow(row)
 
