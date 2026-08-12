@@ -13,7 +13,7 @@ from src.config import Config  # noqa: E402
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor  # noqa: E402
 
 
-from training.xgboost.features._shared import _add_trig_time_features, _add_lag_features, _add_next_value_target  # noqa: E402
+from training._features._shared import _add_trig_time_features, _add_lag_features, _add_next_value_target  # noqa: E402
 
 
 def _fetch_ev_status_profiles(household_ids: list[int])->dict:

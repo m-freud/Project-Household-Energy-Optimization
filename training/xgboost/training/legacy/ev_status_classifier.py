@@ -15,7 +15,7 @@ sys.path.insert(0, str(repo_root))
 from src.config import Config  # noqa: E402
 
 from xgboost import XGBClassifier  # noqa: E402
-from training.xgboost.features.ev_status_features import get_ev_status_features  # noqa: E402
+from training._features.ev_status_features import get_ev_status_features  # noqa: E402
 
 
 train_household_ids = list(Config.H_SET_TRAINING)

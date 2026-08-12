@@ -333,7 +333,7 @@ def predict_ev_status(
 
 
 if __name__ == "__main__":
-    from training.xgboost.features.ev_status_features import get_ev_status_features
+    from training._features.ev_status_features import get_ev_status_features
 
     household_id = 1
     ev_key = "ev1"

@@ -14,7 +14,7 @@ from src.simulation.controllers.mpc.predictors.xgboost.ev_status import (
     _fetch_ev_status_data,
     _build_ev_status_features,
 )
-from training.xgboost.features.ev_status_features import get_ev_status_features
+from training._features.ev_status_features import get_ev_status_features
 
 
 HOUSEHOLD_IDS = [1, 2]

@@ -8,7 +8,7 @@ sys.path.insert(0, str(repo_root))
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from training.xgboost.features._regression import (  # noqa: E402
+from training._features._regression import (  # noqa: E402
 	_fetch_profiles,
 	_get_profiles_df,
 	_init_feature_df,
@@ -18,7 +18,7 @@ from training.xgboost.features._regression import (  # noqa: E402
 	_add_accel_feature,
 	_round_float_features,
 )
-from training.xgboost.features._shared import ( # noqa: E402
+from training._features._shared import ( # noqa: E402
     _add_trig_time_features, 
 	_add_lag_features, 
     _add_next_value_target
