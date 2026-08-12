@@ -1,0 +1,23 @@
+target,rule,feature,mean_gain,std_gain,min_gain,max_gain,mean_total_gain,std_total_gain,min_total_gain,max_total_gain,mean_split_count,nonzero_fold_count
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,end1_latest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,end1_observed,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,end2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,observed_window_length_2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,max_commute_steps_2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,end2_latest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,status_lag_1_is_pad,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,start2_observed,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,start1_observed,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,start2_earliest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,start1_earliest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,max_commute_steps_1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,end2_observed,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,status_lag_2_is_pad,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,steps_to_end1_latest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,status_lag_8_is_pad,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,status_lag_8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,status_lag_4_is_pad,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,steps_to_start2_earliest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,steps_to_start1_earliest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,steps_to_end2_latest,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+ev1_status,mean_total_gain <= 2% of max_mean_total_gain (6214.612250) and nonzero_fold_count <= 2,window_length_slack_2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
