@@ -40,7 +40,7 @@ def load_train_test_partition(fold_id: str, metric_name: str):
         raise ValueError(f"No fold found for fold_id '{fold_id}'.")
 
     test_column_name = "fold_members"
-    train_column_name = f"global_complement_{metric_name}"
+    train_column_name = f"train_set_{metric_name}"
 
     test_fold = _parse_id_list(row.iloc[0][test_column_name]) #TODO this is stupid
     train_fold = _parse_id_list(row.iloc[0][train_column_name])
