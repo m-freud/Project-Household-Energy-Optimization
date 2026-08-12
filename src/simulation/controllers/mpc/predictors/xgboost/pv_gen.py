@@ -100,6 +100,10 @@ def _predict_pv_gen(
         household: Household,
         horizon: int = 96
         ) -> list[float]:
+    
+    if not household.has_pv:
+        return [0.0] * horizon
+
     daylight_start = Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"]
     daylight_end = Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]
 
