@@ -1,0 +1,7 @@
+target,rule,feature,mean_abs_coef,std_abs_coef,min_abs_coef,max_abs_coef,nonzero_fold_count
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,end1_latest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,start1_earliest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,max_commute_steps_2,0.0,0.0,0.0,0.0,0
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,start2_earliest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,end2_latest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_abs_coef <= 2% of max_mean_abs_coef (0.110967) and nonzero_fold_count <= 2,max_commute_steps_1,0.0,0.0,0.0,0.0,0
