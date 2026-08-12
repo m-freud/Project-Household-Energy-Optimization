@@ -13,6 +13,9 @@ FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
 
 FOLD_IDS = list("ABCDE")
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
+EXCLUDED_FOLDS_BY_TARGET = {
+    "pv_gen": {"E"},
+}
 
 # Best params from tuning results.
 BEST_PARAMS = {
@@ -97,6 +100,11 @@ def _build_model_for_target(target: str):
     return XGBClassifier(**params, verbosity=0)
 
 
+def _effective_fold_ids(target: str) -> list[str]:
+    excluded = EXCLUDED_FOLDS_BY_TARGET.get(target, set())
+    return [fold_id for fold_id in FOLD_IDS if fold_id not in excluded]
+
+
 def _extract_gain_importance(model, feature_columns: list[str]) -> pd.DataFrame:
     booster = model.get_booster()
     gain_by_f = booster.get_score(importance_type="gain")
@@ -117,9 +125,14 @@ def _extract_gain_importance(model, feature_columns: list[str]) -> pd.DataFrame:
 def analyze_target(target: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     feature_columns = _feature_columns_for_target(target)
     per_fold_frames = []
+    effective_folds = _effective_fold_ids(target)
 
     print(f"\n=== Feature importance for {target} ===")
-    for fold_id in FOLD_IDS:
+    if len(effective_folds) != len(FOLD_IDS):
+        skipped = sorted(set(FOLD_IDS).difference(effective_folds))
+        print(f"  Skipping folds for {target}: {', '.join(skipped)}")
+
+    for fold_id in effective_folds:
         _, train_fold = load_train_test_partition(fold_id, target)
         train_df = _train_df_for_target(target, train_fold)
         y_col = _label_column_for_target(target)

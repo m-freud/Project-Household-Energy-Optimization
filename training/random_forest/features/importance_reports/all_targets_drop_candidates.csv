@@ -1,0 +1,14 @@
+target,rule,feature,mean_importance,std_importance,min_importance,max_importance,nonzero_fold_count
+pv_gen,mean_importance <= 2% of max_mean_importance (0.004659) and nonzero_fold_count <= 2,pv_lag_1_is_pad,4.0917898458336526e-11,8.183579691667304e-11,0.0,1.636715938333461e-10,1
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,end1_latest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,start1_earliest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,max_commute_steps_2,0.0,0.0,0.0,0.0,0
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,start2_earliest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,end2_latest,0.0,0.0,0.0,0.0,0
+ev1_status,mean_importance <= 2% of max_mean_importance (0.004688) and nonzero_fold_count <= 2,max_commute_steps_1,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,end1_latest,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,start1_earliest,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,max_commute_steps_2,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,start2_earliest,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,end2_latest,0.0,0.0,0.0,0.0,0
+ev2_status,mean_importance <= 2% of max_mean_importance (0.004606) and nonzero_fold_count <= 2,max_commute_steps_1,0.0,0.0,0.0,0.0,0

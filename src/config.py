@@ -7,6 +7,8 @@ load_dotenv()
 class Config:
     ROOT_DIR = Path(__file__).parent.parent
     XGB_MODEL_DIR = Path(ROOT_DIR / "training" / "xgboost" / "models")
+    RF_MODEL_DIR = Path(ROOT_DIR / "training" / "random_forest" / "models")
+    RIDGE_MODEL_DIR = Path(ROOT_DIR / "training" / "ridge_regression" / "models")
 
     # Fold-specific model directories.
     XGB_METRIC_MODEL_DIRS = {
@@ -14,6 +16,20 @@ class Config:
         "pv_gen": Path(XGB_MODEL_DIR / "pv_gen"),
         "ev1_status": Path(XGB_MODEL_DIR / "ev1_status"),
         "ev2_status": Path(XGB_MODEL_DIR / "ev2_status"),
+    }
+
+    RF_METRIC_MODEL_DIRS = {
+        "base_load": Path(RF_MODEL_DIR / "base_load"),
+        "pv_gen": Path(RF_MODEL_DIR / "pv_gen"),
+        "ev1_status": Path(RF_MODEL_DIR / "ev1_status"),
+        "ev2_status": Path(RF_MODEL_DIR / "ev2_status"),
+    }
+
+    RIDGE_METRIC_MODEL_DIRS = {
+        "base_load": Path(RIDGE_MODEL_DIR / "base_load"),
+        "pv_gen": Path(RIDGE_MODEL_DIR / "pv_gen"),
+        "ev1_status": Path(RIDGE_MODEL_DIR / "ev1_status"),
+        "ev2_status": Path(RIDGE_MODEL_DIR / "ev2_status"),
     }
 
     # data source
@@ -95,6 +111,26 @@ class Config:
 
         fold_id = cls.get_test_fold_for_player(int(player_id))
         return Path(cls.XGB_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.json")
+
+    @classmethod
+    def get_rf_model_path(cls, metric: str, player_id: int) -> Path:
+        metric_key = str(metric)
+        if metric_key not in cls.RF_METRIC_MODEL_DIRS:
+            valid_metrics = ", ".join(sorted(cls.RF_METRIC_MODEL_DIRS.keys()))
+            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
+
+        fold_id = cls.get_test_fold_for_player(int(player_id))
+        return Path(cls.RF_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.pkl")
+
+    @classmethod
+    def get_ridge_model_path(cls, metric: str, player_id: int) -> Path:
+        metric_key = str(metric)
+        if metric_key not in cls.RIDGE_METRIC_MODEL_DIRS:
+            valid_metrics = ", ".join(sorted(cls.RIDGE_METRIC_MODEL_DIRS.keys()))
+            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
+
+        fold_id = cls.get_test_fold_for_player(int(player_id))
+        return Path(cls.RIDGE_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.pkl")
 
 
     XGB_FEATURES = {
