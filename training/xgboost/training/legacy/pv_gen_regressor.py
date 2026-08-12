@@ -8,7 +8,7 @@ sys.path.insert(0, str(repo_root))
 
 
 from xgboost import XGBRegressor  # noqa: E402
-from training.xgboost.features.pv_gen_features import get_pv_gen_features  # noqa: E402
+from training._features.pv_gen_features import get_pv_gen_features  # noqa: E402
 from src.config import Config  # noqa: E402
 import numpy as np  # noqa: E402
 
