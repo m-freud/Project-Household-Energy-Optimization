@@ -1,10 +1,10 @@
-from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.ev_status import (
+from src.simulation.controllers.mpc.predictors.xgboost_legacy.helpers.ev_status import (
     predict_ev_status,
 )
-from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.base_load import (
+from src.simulation.controllers.mpc.predictors.xgboost_legacy.helpers.base_load import (
     predict_base_load,
 )
-from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.pv_gen import (
+from src.simulation.controllers.mpc.predictors.xgboost_legacy.helpers.pv_gen import (
     predict_pv_gen,
 )
 
