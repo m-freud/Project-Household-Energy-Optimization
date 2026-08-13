@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-MODEL_METRICS: tuple[str, ...] = (
+MODEL_TARGETS: tuple[str, ...] = (
     "base_load",
     "pv_gen",
     "ev1_status",
     "ev2_status",
 )
+
+# Backward-compatible alias.
+MODEL_METRICS = MODEL_TARGETS
 
 
 MODEL_FEATURES: dict[str, list[str]] = {
@@ -125,7 +128,7 @@ class ModelFamilyConfig:
 
 
 def _build_target_dirs(model_dir: Path) -> dict[str, Path]:
-    return {target: Path(model_dir / target) for target in MODEL_METRICS}
+    return {target: Path(model_dir / target) for target in MODEL_TARGETS}
 
 
 def build_model_family_configs(root_dir: Path) -> dict[str, ModelFamilyConfig]:
