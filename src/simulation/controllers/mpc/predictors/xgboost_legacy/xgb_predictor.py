@@ -1,5 +1,5 @@
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.xgboost import (
+from src.simulation.controllers.mpc.predictors.xgboost_legacy import (
     predict_base_load,
     predict_pv_gen,
     predict_ev_status,
@@ -67,7 +67,6 @@ class XGBPredictor(BasePredictor):
         # use models to predict each metric
         prediction: dict[str, list] = {}
 
-        # todo separate ev1 and ev2
         ev_status = predict_ev_status(
             model_ev1=ev1_status_model,
             model_ev2=ev2_status_model,

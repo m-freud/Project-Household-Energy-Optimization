@@ -3,7 +3,7 @@ from typing import Any
 
 import numpy as np
 
-from src.simulation.controllers.mpc.predictors.xgboost.base_load import predict_base_load
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.base_load import predict_base_load
 from src.simulation.household import Household
 from src.simulation.devices.ev import EV
 

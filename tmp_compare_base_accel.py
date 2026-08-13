@@ -4,7 +4,7 @@ sys.path.insert(0, str(Path.cwd()))
 
 from training._features.base_load_features import get_base_load_features
 from src.sqlite_connection import sqlite_cursor, fetch_timeseries
-from src.simulation.controllers.mpc.predictors.xgboost.base_load import _build_base_load_features
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.base_load import _build_base_load_features
 from tests._compare_runtime_vs_training_features import _build_household_for_base_load
 
 

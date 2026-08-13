@@ -8,7 +8,7 @@ import numpy as np
 repo_root = next((p for p in [Path.cwd().resolve(), *Path.cwd().resolve().parents] if (p / "src").exists()), Path.cwd().resolve())
 sys.path.insert(0, str(repo_root))
 
-from src.simulation.controllers.mpc.predictors.xgboost.ev_status import (
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.ev_status import (
     _build_ev_status_features,
     _fetch_ev_status_data,
     _predict_single_ev_status,

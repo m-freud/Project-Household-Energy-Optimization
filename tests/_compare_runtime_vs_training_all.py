@@ -13,17 +13,17 @@ from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
 
-from src.simulation.controllers.mpc.predictors.xgboost.pv_gen import (
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.pv_gen import (
     _fetch_pv_gen_profiles,
     _build_pv_gen_features,
     MODEL_FEATURE_COLUMNS as PV_MODEL_FEATURE_COLUMNS,
 )
-from src.simulation.controllers.mpc.predictors.xgboost.ev_status import (
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.ev_status import (
     _fetch_ev_status_data,
     _build_ev_status_features,
     MODEL_FEATURE_COLUMNS as EV_MODEL_FEATURE_COLUMNS,
 )
-from src.simulation.controllers.mpc.predictors.xgboost.base_load import (
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.base_load import (
     _build_base_load_features,
     MODEL_FEATURE_COLUMNS as BASE_LOAD_MODEL_FEATURE_COLUMNS,
 )
