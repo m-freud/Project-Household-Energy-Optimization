@@ -10,7 +10,7 @@ sys.path.insert(0, str(repo_root))
 from src.config import Config
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
-from src.simulation.controllers.mpc.predictors.xgboost.encode_time_cyclic import encode_time_cyclic
+from src.simulation.controllers.mpc.predictors.machine_learning.encode_time_cyclic import encode_time_cyclic
 from xgboost import XGBRegressor
 
 
