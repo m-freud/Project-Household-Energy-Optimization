@@ -6,16 +6,17 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
+from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from typing import Callable, TypeVar
 import numpy as np
-from simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from simulation.controllers.mpc.predictors.xgboost_legacy.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
+from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
+from src.simulation.controllers.mpc.predictors.xgboost_legacy.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
 from src.simulation.run_context import RunContext
-from simulation.controllers.stepwise.stepwise_controller import StepwiseController
+from src.simulation.controllers.stepwise.stepwise_controller import StepwiseController
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV
@@ -29,7 +30,7 @@ from src.simulation.controllers.stepwise.step_functions.waterfall.waterfall impo
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
-from simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
+from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.config import Config
 
 from xgboost import XGBClassifier, XGBRegressor
@@ -821,10 +822,17 @@ if __name__ == "__main__":
                 conf_interval_frct=0.0,
             ),
         ),
-        "mpc_xgb": make_mpc_controller(
-            "mpc_xgb",
+        "mpc_xgb_1": make_mpc_controller(
+            "mpc_xgb_1",
             horizon=96,
             predictor=XGBPredictor( #TODO conf interval?
+                predictor_model_bank
+            ),
+        ),
+        "mpc_xgb_2": make_mpc_controller(
+            "mpc_xgb_2",
+            horizon=96,
+            predictor=MLPredictor( #TODO conf interval?
                 predictor_model_bank
             ),
         ),
