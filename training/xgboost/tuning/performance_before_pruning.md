@@ -2,7 +2,7 @@
 
 Date: 2026-08-12
 Benchmark run_id: 15
-Scope: test_set, all scenarios, controllers `mpc_running_avg` vs `mpc_xgb`
+Scope: test_set, all scenarios, controllers `mpc_history_avg` vs `mpc_xgb`
 
 ## XGBoost Hyperparameters Used
 
@@ -26,21 +26,21 @@ Aggregate metrics:
 
 | policy | pairs | avg_total_cost | avg_net_cost | avg_net_load | bess_target_rate | ev1_target_rate | ev2_target_rate |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| mpc_running_avg | 120 | 8.5550028067421 | 7.805227806742101 | 58.71462041112573 | 1.0 | 1.0 | 1.0 |
+| mpc_history_avg | 120 | 8.5550028067421 | 7.805227806742101 | 58.71462041112573 | 1.0 | 1.0 | 1.0 |
 | mpc_xgb | 120 | 8.23587881209847 | 7.486103812098469 | 54.90590321507042 | 1.0 | 1.0 | 1.0 |
 | mpc_oracle | 120 | 7.912110176109991 | 7.162335176109991 | 55.226935204408015 | 1.0 | 1.0 | 1.0 |
-Pairwise `total_cost` delta (`mpc_xgb - mpc_running_avg`) on matched `(scenario, player_id)` pairs:
+Pairwise `total_cost` delta (`mpc_xgb - mpc_history_avg`) on matched `(scenario, player_id)` pairs:
 
 - pairs: 120
 - mean_delta: -0.31912399464363167
 - median_delta: -0.24793537521085152
 - xgb_wins: 120
-- running_avg_wins: 0
+- history_avg_wins: 0
 - ties: 0
 
-Scenario breakdown (mean delta = `mpc_xgb - mpc_running_avg`):
+Scenario breakdown (mean delta = `mpc_xgb - mpc_history_avg`):
 
-| scenario | pairs | mean_delta | xgb_wins | running_avg_wins | ties |
+| scenario | pairs | mean_delta | xgb_wins | history_avg_wins | ties |
 |---|---:|---:|---:|---:|---:|
 | default_scenario | 20 | -0.35644627215183095 | 20 | 0 | 0 |
 | relaxed_high_start | 20 | -0.3126604439090256 | 20 | 0 | 0 |
@@ -74,4 +74,4 @@ Scenario breakdown:
 
 ## Summary
 
-Before feature pruning, `mpc_xgb` outperformed `mpc_running_avg` on total cost in every matched pair in run 15 while preserving full target compliance (all target rates = 1.0 for both controllers).
+Before feature pruning, `mpc_xgb` outperformed `mpc_history_avg` on total cost in every matched pair in run 15 while preserving full target compliance (all target rates = 1.0 for both controllers).

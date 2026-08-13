@@ -63,7 +63,7 @@ def _init_feature_df(profiles_df: pd.DataFrame, value_name: str) -> pd.DataFrame
 	return feature_df
 
 
-def _add_running_average_features(
+def _add_history_average_features(
 	feature_df: pd.DataFrame,
 	windows: tuple[int, ...] = (2, 4, 8, 16),
 	value_column: str = "pv_gen",

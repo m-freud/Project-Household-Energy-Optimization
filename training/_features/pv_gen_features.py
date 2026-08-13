@@ -13,7 +13,7 @@ from training._features._regression import (  # noqa: E402
     _fetch_profiles,
     _get_profiles_df,
     _init_feature_df,
-    _add_running_average_features,
+    _add_history_average_features,
     _add_std_features,
     _add_delta_features,
     _add_accel_feature,
@@ -60,7 +60,7 @@ def get_pv_gen_features(household_ids: list[int], round_values: bool = False) ->
         output_prefix="pv_lag",
         dtype=float,
     )
-    feature_df = _add_running_average_features(feature_df, windows=(2, 4, 8, 16))
+    feature_df = _add_history_average_features(feature_df, windows=(2, 4, 8, 16))
     feature_df = _add_std_features(feature_df, windows=(4, 8), value_column="pv_gen", prefix="pv")
     feature_df = _add_delta_features(feature_df, value_column="pv_gen", prefix="pv")
     feature_df = _add_accel_feature(feature_df, prefix="pv")

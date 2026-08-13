@@ -18,7 +18,7 @@ from types import SimpleNamespace
 from src.simulation.simulation import Simulation
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.controllers.mpc.mpc_controller import MPCController
-from simulation.controllers.mpc.predictors.running_avg_predictor import HybridRunningAvgPredictor
+from simulation.controllers.mpc.predictors.history_avg_predictor import HybridRunningAvgPredictor
 from src.sqlite_connection import create_sqlite_connection
 
 PLAYER_ID = 1
@@ -35,7 +35,7 @@ def main():
         predictor = HybridRunningAvgPredictor(conf_interval_frct=0.0)
 
         controller = MPCController(
-            name="profile_running_avg",
+            name="profile_history_avg",
             household=household,
             scenario=scenario,
             horizon=96,
