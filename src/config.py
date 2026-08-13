@@ -2,35 +2,27 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
+from src.simulation.controllers.mpc.predictors.ml.model_config import (
+    MODEL_FEATURES,
+    MODEL_METRICS,
+    build_model_family_configs,
+)
+
 load_dotenv()
 
 class Config:
     ROOT_DIR = Path(__file__).parent.parent
-    XGB_MODEL_DIR = Path(ROOT_DIR / "training" / "xgboost" / "models")
-    RF_MODEL_DIR = Path(ROOT_DIR / "training" / "random_forest" / "models")
-    RIDGE_MODEL_DIR = Path(ROOT_DIR / "training" / "ridge_regression" / "models")
+    MODEL_METRICS = MODEL_METRICS
+    MODEL_FAMILY_CONFIGS = build_model_family_configs(ROOT_DIR)
 
-    # Fold-specific model directories.
-    XGB_METRIC_MODEL_DIRS = {
-        "base_load": Path(XGB_MODEL_DIR / "base_load"),
-        "pv_gen": Path(XGB_MODEL_DIR / "pv_gen"),
-        "ev1_status": Path(XGB_MODEL_DIR / "ev1_status"),
-        "ev2_status": Path(XGB_MODEL_DIR / "ev2_status"),
-    }
+    # Backward-compatible aliases.
+    XGB_MODEL_DIR = MODEL_FAMILY_CONFIGS["xgb"].model_dir
+    RF_MODEL_DIR = MODEL_FAMILY_CONFIGS["rf"].model_dir
+    RIDGE_MODEL_DIR = MODEL_FAMILY_CONFIGS["ridge"].model_dir
 
-    RF_METRIC_MODEL_DIRS = {
-        "base_load": Path(RF_MODEL_DIR / "base_load"),
-        "pv_gen": Path(RF_MODEL_DIR / "pv_gen"),
-        "ev1_status": Path(RF_MODEL_DIR / "ev1_status"),
-        "ev2_status": Path(RF_MODEL_DIR / "ev2_status"),
-    }
-
-    RIDGE_METRIC_MODEL_DIRS = {
-        "base_load": Path(RIDGE_MODEL_DIR / "base_load"),
-        "pv_gen": Path(RIDGE_MODEL_DIR / "pv_gen"),
-        "ev1_status": Path(RIDGE_MODEL_DIR / "ev1_status"),
-        "ev2_status": Path(RIDGE_MODEL_DIR / "ev2_status"),
-    }
+    XGB_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["xgb"].metric_model_dirs
+    RF_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["rf"].metric_model_dirs
+    RIDGE_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["ridge"].metric_model_dirs
 
     # data source
     EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))
@@ -103,126 +95,30 @@ class Config:
             raise KeyError(f"Player ID {player_id} is not part of the runtime fold set.") from exc
 
     @classmethod
-    def get_xgb_model_path(cls, metric: str, player_id: int) -> Path:
-        metric_key = str(metric)
-        if metric_key not in cls.XGB_METRIC_MODEL_DIRS:
-            valid_metrics = ", ".join(sorted(cls.XGB_METRIC_MODEL_DIRS.keys()))
-            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
+    def get_model_path(cls, family: str, metric: str, player_id: int) -> Path:
+        family_key = str(family).lower()
+        if family_key not in cls.MODEL_FAMILY_CONFIGS:
+            valid_families = ", ".join(sorted(cls.MODEL_FAMILY_CONFIGS.keys()))
+            raise ValueError(
+                f"Unsupported model family '{family_key}'. Expected one of: {valid_families}"
+            )
 
         fold_id = cls.get_test_fold_for_player(int(player_id))
-        return Path(cls.XGB_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.json")
+        family_config = cls.MODEL_FAMILY_CONFIGS[family_key]
+        return family_config.get_model_path_for_fold(metric=metric, fold_id=fold_id)
+
+    @classmethod
+    def get_xgb_model_path(cls, metric: str, player_id: int) -> Path:
+        return cls.get_model_path(family="xgb", metric=metric, player_id=player_id)
 
     @classmethod
     def get_rf_model_path(cls, metric: str, player_id: int) -> Path:
-        metric_key = str(metric)
-        if metric_key not in cls.RF_METRIC_MODEL_DIRS:
-            valid_metrics = ", ".join(sorted(cls.RF_METRIC_MODEL_DIRS.keys()))
-            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
-
-        fold_id = cls.get_test_fold_for_player(int(player_id))
-        return Path(cls.RF_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.pkl")
+        return cls.get_model_path(family="rf", metric=metric, player_id=player_id)
 
     @classmethod
     def get_ridge_model_path(cls, metric: str, player_id: int) -> Path:
-        metric_key = str(metric)
-        if metric_key not in cls.RIDGE_METRIC_MODEL_DIRS:
-            valid_metrics = ", ".join(sorted(cls.RIDGE_METRIC_MODEL_DIRS.keys()))
-            raise ValueError(f"Unsupported metric '{metric_key}'. Expected one of: {valid_metrics}")
-
-        fold_id = cls.get_test_fold_for_player(int(player_id))
-        return Path(cls.RIDGE_METRIC_MODEL_DIRS[metric_key] / f"{fold_id}.pkl")
+        return cls.get_model_path(family="ridge", metric=metric, player_id=player_id)
 
 
-    XGB_FEATURES = {
-        "EV_STATUS": [
-            "timestep",
-            "status",
-            "time_sin",
-            "time_cos",
-            "steps_in_current_state",
-            "phase_id",
-            "status_lag_1",
-            "status_lag_1_is_pad",
-            "status_lag_2",
-            "status_lag_2_is_pad",
-            "status_lag_4",
-            "status_lag_4_is_pad",
-            "status_lag_8",
-            "status_lag_8_is_pad",
-            "start1_earliest",
-            "end1_latest",
-            "start2_earliest",
-            "end2_latest",
-            "max_commute_steps_1",
-            "max_commute_steps_2",
-            "steps_to_start1_earliest",
-            "steps_to_end1_latest",
-            "steps_to_start2_earliest",
-            "steps_to_end2_latest",
-            "start1",
-            "end1",
-            "start2",
-            "end2",
-            "start1_observed",
-            "end1_observed",
-            "start2_observed",
-            "end2_observed",
-            "observed_window_length_1",
-            "observed_window_length_2",
-            "window_length_slack_1",
-            "window_length_slack_2",
-        ],
-        "BASE_LOAD": [
-            "timestep",
-            "base_load",
-            "n_evs_at_home",
-            "time_sin",
-            "time_cos",
-            "base_load_lag_1",
-            "base_load_lag_1_is_pad",
-            "base_load_lag_2",
-            "base_load_lag_2_is_pad",
-            "base_load_lag_4",
-            "base_load_lag_4_is_pad",
-            "base_load_lag_8",
-            "base_load_lag_8_is_pad",
-            "base_load_lag_12",
-            "base_load_lag_12_is_pad",
-            "base_load_ma_2",
-            "base_load_ma_4",
-            "base_load_ma_8",
-            "base_load_ma_16",
-            "base_load_std_4",
-            "base_load_std_8",
-            "base_load_delta_1",
-            "base_load_delta_2",
-            "base_load_accel",
-        ],
-        "PV_GEN": [
-            "timestep",
-            "pv_gen",
-            "time_sin",
-            "time_cos",
-            "pv_lag_1",
-            "pv_lag_1_is_pad",
-            "pv_lag_2",
-            "pv_lag_2_is_pad",
-            "pv_lag_4",
-            "pv_lag_4_is_pad",
-            "pv_lag_8",
-            "pv_lag_8_is_pad",
-            "pv_lag_12",
-            "pv_lag_12_is_pad",
-            "pv_ma_2",
-            "pv_ma_4",
-            "pv_ma_8",
-            "pv_ma_16",
-            "pv_std_4",
-            "pv_std_8",
-            "pv_delta_1",
-            "pv_delta_2",
-            "pv_accel",
-            "steps_to_daylight_start",
-            "steps_to_daylight_end",
-        ]
-    }
+    XGB_FEATURES = MODEL_FEATURES
+    MODEL_FEATURES = MODEL_FEATURES
