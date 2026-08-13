@@ -20,9 +20,9 @@ class Config:
     RF_MODEL_DIR = MODEL_FAMILY_CONFIGS["rf"].model_dir
     RIDGE_MODEL_DIR = MODEL_FAMILY_CONFIGS["ridge"].model_dir
 
-    XGB_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["xgb"].metric_model_dirs
-    RF_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["rf"].metric_model_dirs
-    RIDGE_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["ridge"].metric_model_dirs
+    XGB_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["xgb"].target_model_dirs
+    RF_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["rf"].target_model_dirs
+    RIDGE_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["ridge"].target_model_dirs
 
     # data source
     EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))
@@ -95,7 +95,7 @@ class Config:
             raise KeyError(f"Player ID {player_id} is not part of the runtime fold set.") from exc
 
     @classmethod
-    def get_model_path(cls, family: str, metric: str, player_id: int) -> Path:
+    def get_model_path(cls, family: str, target: str, player_id: int) -> Path:
         family_key = str(family).lower()
         if family_key not in cls.MODEL_FAMILY_CONFIGS:
             valid_families = ", ".join(sorted(cls.MODEL_FAMILY_CONFIGS.keys()))
@@ -105,19 +105,19 @@ class Config:
 
         fold_id = cls.get_test_fold_for_player(int(player_id))
         family_config = cls.MODEL_FAMILY_CONFIGS[family_key]
-        return family_config.get_model_path_for_fold(metric=metric, fold_id=fold_id)
+        return family_config.get_model_path_for_fold(target=target, fold_id=fold_id)
 
     @classmethod
-    def get_xgb_model_path(cls, metric: str, player_id: int) -> Path:
-        return cls.get_model_path(family="xgb", metric=metric, player_id=player_id)
+    def get_xgb_model_path(cls, target: str, player_id: int) -> Path:
+        return cls.get_model_path(family="xgb", target=target, player_id=player_id)
 
     @classmethod
-    def get_rf_model_path(cls, metric: str, player_id: int) -> Path:
-        return cls.get_model_path(family="rf", metric=metric, player_id=player_id)
+    def get_rf_model_path(cls, target: str, player_id: int) -> Path:
+        return cls.get_model_path(family="rf", target=target, player_id=player_id)
 
     @classmethod
-    def get_ridge_model_path(cls, metric: str, player_id: int) -> Path:
-        return cls.get_model_path(family="ridge", metric=metric, player_id=player_id)
+    def get_ridge_model_path(cls, target: str, player_id: int) -> Path:
+        return cls.get_model_path(family="ridge", target=target, player_id=player_id)
 
 
     XGB_FEATURES = MODEL_FEATURES
