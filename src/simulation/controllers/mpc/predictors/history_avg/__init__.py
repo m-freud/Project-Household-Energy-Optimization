@@ -1,8 +1,8 @@
-from src.simulation.controllers.mpc.predictors.running_avg.house_profiles import (
+from src.simulation.controllers.mpc.predictors.history_avg.house_profiles import (
     predict_base_load,
     predict_pv_gen,
 )
-from src.simulation.controllers.mpc.predictors.running_avg.ev_status import (
+from src.simulation.controllers.mpc.predictors.history_avg.ev_status import (
     predict_ev_status,
     predict_single_ev_status,
 )

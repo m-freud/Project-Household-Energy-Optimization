@@ -12,7 +12,7 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, TypeVar
 import numpy as np
-from src.simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
+from simulation.controllers.mpc.predictors.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.function_controller import FunctionController
@@ -814,10 +814,10 @@ if __name__ == "__main__":
         ),
         "waterfall": make_function_controller("waterfall", waterfall_policy),
         "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, predictor=OraclePredictor()),
-        "mpc_running_avg": make_mpc_controller(
-            "mpc_running_avg",
+        "mpc_history_avg": make_mpc_controller(
+            "mpc_history_avg",
             horizon=96,
-            predictor=RunningAvgPredictor(
+            predictor=HistoryAveragePredictor(
                 conf_interval_frct=0.0,
             ),
         ),

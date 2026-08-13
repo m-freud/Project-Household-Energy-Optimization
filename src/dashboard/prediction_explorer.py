@@ -11,7 +11,7 @@ import streamlit as st
 from xgboost import XGBClassifier, XGBRegressor 
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.running_avg_predictor import RunningAvgPredictor
+from simulation.controllers.mpc.predictors.history_avg_predictor import HistoryAveragePredictor
 from simulation.controllers.mpc.predictors.xgb_predictor import (
     FoldModelBank,
     PredictorModelBank,
@@ -28,7 +28,7 @@ from src.sqlite_connection import create_sqlite_connection, load_source_avg_prof
 
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
-    "running_avg": "running_avg",
+    "history_avg": "history_avg",
     "xgb": "xgb (base load + pv gen + ev status)",
 }
 
@@ -105,8 +105,8 @@ def _build_predictor(
     predictor_name: str,
     ma3_interval_width: float,
 ):
-    if predictor_name == "running_avg":
-        return RunningAvgPredictor(
+    if predictor_name == "history_avg":
+        return HistoryAveragePredictor(
             conf_interval_frct=ma3_interval_width,
         )
     if predictor_name == "xgb":
@@ -189,8 +189,8 @@ def _build_default_policy_name(
     ma3_interval_width: float,
 ) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if predictor_name == "running_avg":
-        return f"mpc_running_avg_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
+    if predictor_name == "history_avg":
+        return f"mpc_history_avg_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
     if predictor_name == "xgb":
         return f"mpc_xgb_{timestamp}"
     return f"mpc_oracle_{timestamp}"
@@ -262,7 +262,7 @@ def render_prediction_explorer(
         selected_predictors = st.multiselect(
             "Predictors",
             options=list(PREDICTOR_OPTIONS.keys()),
-            default=["running_avg"],
+            default=["history_avg"],
             key="pred_predictors",
             format_func=lambda value: PREDICTOR_OPTIONS[value],
         )
@@ -383,7 +383,7 @@ def render_prediction_explorer(
                 label=f"pred ({predictor_name})",
             )
 
-            if predictor_name == "running_avg" and profile_name in {"base_load", "pv_gen"}:
+            if predictor_name == "history_avg" and profile_name in {"base_load", "pv_gen"}:
                 lb_key = f"{profile_name}_lb"
                 ub_key = f"{profile_name}_ub"
                 lb = predicted.get(lb_key, [])
