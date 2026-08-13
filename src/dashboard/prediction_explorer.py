@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from functools import partial
 import math
+import pickle
 import re
+from pathlib import Path
+from typing import Any, Callable, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,14 +14,14 @@ import streamlit as st
 from xgboost import XGBClassifier, XGBRegressor 
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from simulation.controllers.mpc.predictors.xgboost_legacy.xgb_predictor import (
+from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
+from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     FoldModelBank,
     PredictorModelBank,
-    XGBPredictor,
 )
 from src.simulation.controllers.mpc.mpc_controller import MPCController
-from simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
+from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.scenarios.scenario import default_scenario
@@ -26,10 +29,16 @@ from src.simulation.simulation import Simulation
 from src.sqlite_connection import create_sqlite_connection, load_source_avg_profile
 
 
+TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
+TLoadedModel = TypeVar("TLoadedModel")
+
+
 PREDICTOR_OPTIONS = {
     "oracle": "oracle",
     "history_avg": "history_avg",
     "xgb": "xgb (base load + pv gen + ev status)",
+    "rf": "random forest (base load + pv gen + ev status)",
+    "ridge": "ridge (base load + pv gen + ev status)",
 }
 
 PROFILE_OPTIONS = [
@@ -50,52 +59,110 @@ PROFILE_OPTIONS = [
 ]
 
 
-class _ConstantRegressor(XGBRegressor):
-    def __init__(self, value: float = 0.0):
-        self.value = float(value)
-
-    def predict(self, features):
-        n_rows = len(features) if hasattr(features, "__len__") else 1
-        return np.full(int(n_rows), self.value, dtype=float)
-
-
-@st.cache_resource(show_spinner=False)
-def _load_models_by_fold(metric: str, model_cls):
-    models_by_fold: dict[str, XGBRegressor | XGBClassifier] = {}
+def _load_models_by_fold(
+    family: str,
+    target: str,
+    load_model_fn: Callable[[Path], TLoadedModel],
+) -> dict[str, TLoadedModel]:
+    models_by_fold: dict[str, TLoadedModel] = {}
     for fold_id, fold_player_ids in Config.RUNTIME_TEST_FOLDS.items():
         if not fold_player_ids:
             raise ValueError(f"Fold '{fold_id}' has no player ids configured.")
 
         representative_player_id = int(fold_player_ids[0])
-        model_path = Config.get_xgb_model_path(metric, representative_player_id)
+        model_path = Config.get_model_path(
+            family=family,
+            target=target,
+            player_id=representative_player_id,
+        )
         if not model_path.exists():
-            raise FileNotFoundError(f"Missing {metric} model for fold '{fold_id}': {model_path}")
+            raise FileNotFoundError(f"Missing {family}:{target} model for fold '{fold_id}': {model_path}")
 
-        model = model_cls()
-        model.load_model(str(model_path))
+        model = load_model_fn(model_path)
         models_by_fold[fold_id] = model
 
     return models_by_fold
 
 
 @st.cache_resource(show_spinner=False)
-def _load_xgb_predictor_model_bank() -> PredictorModelBank:
+def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
+    model = model_class()
+    model.load_model(str(model_path))
+    return model
+
+
+@st.cache_resource(show_spinner=False)
+def _load_pickle_model(model_path: Path):
+    with open(model_path, "rb") as fh:
+        return pickle.load(fh)
+
+
+@st.cache_resource(show_spinner=False)
+def _load_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
+    family_key = str(family).lower()
     player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+
+    if family_key == "xgb":
+        base_load_models = _load_models_by_fold(
+            family="xgb",
+            target="base_load",
+            load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
+        )
+        pv_gen_models = _load_models_by_fold(
+            family="xgb",
+            target="pv_gen",
+            load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
+        )
+        ev1_status_models = _load_models_by_fold(
+            family="xgb",
+            target="ev1_status",
+            load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
+        )
+        ev2_status_models = _load_models_by_fold(
+            family="xgb",
+            target="ev2_status",
+            load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
+        )
+    elif family_key in {"rf", "ridge"}:
+        base_load_models = _load_models_by_fold(
+            family=family_key,
+            target="base_load",
+            load_model_fn=_load_pickle_model,
+        )
+        pv_gen_models = _load_models_by_fold(
+            family=family_key,
+            target="pv_gen",
+            load_model_fn=_load_pickle_model,
+        )
+        ev1_status_models = _load_models_by_fold(
+            family=family_key,
+            target="ev1_status",
+            load_model_fn=_load_pickle_model,
+        )
+        ev2_status_models = _load_models_by_fold(
+            family=family_key,
+            target="ev2_status",
+            load_model_fn=_load_pickle_model,
+        )
+    else:
+        valid = ", ".join(sorted(Config.MODEL_FAMILY_CONFIGS.keys()))
+        raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
+
     return PredictorModelBank(
-        base_load_model_bank=FoldModelBank[XGBRegressor](
-            models_by_fold=_load_models_by_fold("base_load", XGBRegressor),
+        base_load_model_bank=FoldModelBank(
+            models_by_fold=base_load_models,
             id_to_fold=player_to_fold,
         ),
-        pv_gen_model_bank=FoldModelBank[XGBRegressor](
-            models_by_fold=_load_models_by_fold("pv_gen", XGBRegressor),
+        pv_gen_model_bank=FoldModelBank(
+            models_by_fold=pv_gen_models,
             id_to_fold=player_to_fold,
         ),
-        ev1_status_model_bank=FoldModelBank[XGBClassifier](
-            models_by_fold=_load_models_by_fold("ev1_status", XGBClassifier),
+        ev1_status_model_bank=FoldModelBank(
+            models_by_fold=ev1_status_models,
             id_to_fold=player_to_fold,
         ),
-        ev2_status_model_bank=FoldModelBank[XGBClassifier](
-            models_by_fold=_load_models_by_fold("ev2_status", XGBClassifier),
+        ev2_status_model_bank=FoldModelBank(
+            models_by_fold=ev2_status_models,
             id_to_fold=player_to_fold,
         ),
     )
@@ -109,10 +176,8 @@ def _build_predictor(
         return HistoryAveragePredictor(
             conf_interval_frct=ma3_interval_width,
         )
-    if predictor_name == "xgb":
-        return XGBPredictor(
-            predictor_model_bank=_load_xgb_predictor_model_bank(),
-        )
+    if predictor_name in {"xgb", "rf", "ridge"}:
+        return MLPredictor(_load_predictor_model_bank(predictor_name))
     return OraclePredictor()
 
 
@@ -193,6 +258,10 @@ def _build_default_policy_name(
         return f"mpc_history_avg_ci{_format_float_token(ma3_interval_width)}_{timestamp}"
     if predictor_name == "xgb":
         return f"mpc_xgb_{timestamp}"
+    if predictor_name == "rf":
+        return f"mpc_rf_{timestamp}"
+    if predictor_name == "ridge":
+        return f"mpc_ridge_{timestamp}"
     return f"mpc_oracle_{timestamp}"
 
 
