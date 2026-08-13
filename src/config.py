@@ -4,7 +4,7 @@ from pathlib import Path
 
 from src.simulation.controllers.mpc.predictors.ml.model_config import (
     MODEL_FEATURES,
-    MODEL_METRICS,
+    MODEL_TARGETS,
     build_model_family_configs,
 )
 
@@ -12,7 +12,8 @@ load_dotenv()
 
 class Config:
     ROOT_DIR = Path(__file__).parent.parent
-    MODEL_METRICS = MODEL_METRICS
+    MODEL_TARGETS = MODEL_TARGETS
+    MODEL_METRICS = MODEL_TARGETS
     MODEL_FAMILY_CONFIGS = build_model_family_configs(ROOT_DIR)
 
     # Backward-compatible aliases.

@@ -11,10 +11,14 @@ import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
-from typing import Callable, TypeVar
+import pickle
+from typing import Any, Callable, TypeVar
 import numpy as np
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.xgboost_legacy.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
+from src.simulation.controllers.mpc.predictors.ml.model_interface import (
+    FoldModelBank,
+    PredictorModelBank,
+)
 from src.simulation.run_context import RunContext
 from src.simulation.controllers.stepwise.stepwise_controller import StepwiseController
 from src.simulation.household import Household
@@ -37,6 +41,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 
 TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
+TLoadedModel = TypeVar("TLoadedModel")
 
 
 
@@ -755,55 +760,118 @@ if __name__ == "__main__":
     # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
-    def _load_models_by_fold(metric: str, model_class: type[TXGBModel]) -> dict[str, TXGBModel]:
-        models_by_fold: dict[str, TXGBModel] = {}
+    def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
+        model = model_class()
+        try:
+            model.load_model(str(model_path))
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load XGBoost model from '{model_path}'.") from exc
+        return model
+
+    def _load_pickle_model(model_path: Path):
+        try:
+            with open(model_path, "rb") as fh:
+                return pickle.load(fh)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load pickle model from '{model_path}'.") from exc
+
+    def _load_models_by_fold(
+        family: str,
+        target: str,
+        load_model_fn: Callable[[Path], TLoadedModel],
+    ) -> dict[str, TLoadedModel]:
+        models_by_fold: dict[str, TLoadedModel] = {}
         for fold_id, fold_player_ids in Config.RUNTIME_TEST_FOLDS.items():
             if not fold_player_ids:
                 raise ValueError(f"Fold '{fold_id}' has no player ids configured.")
 
             representative_player_id = int(fold_player_ids[0])
-            model_path = Config.get_xgb_model_path(metric, representative_player_id)
+            model_path = Config.get_model_path(
+                family=family,
+                target=target,
+                player_id=representative_player_id,
+            )
             if not model_path.exists():
-                raise FileNotFoundError(f"Missing {metric} model for fold '{fold_id}': {model_path}")
+                raise FileNotFoundError(f"Missing {family}:{target} model for fold '{fold_id}': {model_path}")
 
-            model = model_class()
-            try:
-                model.load_model(str(model_path))
-                print(f"Loaded {metric} model for fold '{fold_id}': {model_path}")
-            except Exception as exc:
-                raise RuntimeError(
-                    f"Failed to load {metric} model for fold '{fold_id}' from '{model_path}'."
-                ) from exc
+            model = load_model_fn(model_path)
+            print(f"Loaded {family}:{target} model for fold '{fold_id}': {model_path}")
 
             models_by_fold[fold_id] = model
 
         return models_by_fold
 
-    player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+    def _build_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
+        family_key = str(family).lower()
 
-    base_load_model_bank = FoldModelBank[XGBRegressor](
-        models_by_fold=_load_models_by_fold("base_load", XGBRegressor),
-        id_to_fold=player_to_fold,
-    )
-    pv_gen_model_bank = FoldModelBank[XGBRegressor](
-        models_by_fold=_load_models_by_fold("pv_gen", XGBRegressor),
-        id_to_fold=player_to_fold,
-    )
-    ev1_status_model_bank = FoldModelBank[XGBClassifier](
-        models_by_fold=_load_models_by_fold("ev1_status", XGBClassifier),
-        id_to_fold=player_to_fold,
-    )
-    ev2_status_model_bank = FoldModelBank[XGBClassifier](
-        models_by_fold=_load_models_by_fold("ev2_status", XGBClassifier),
-        id_to_fold=player_to_fold,
-    )
+        if family_key == "xgb":
+            base_load_models = _load_models_by_fold(
+                family="xgb",
+                target="base_load",
+                load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
+            )
+            pv_gen_models = _load_models_by_fold(
+                family="xgb",
+                target="pv_gen",
+                load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
+            )
+            ev1_status_models = _load_models_by_fold(
+                family="xgb",
+                target="ev1_status",
+                load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
+            )
+            ev2_status_models = _load_models_by_fold(
+                family="xgb",
+                target="ev2_status",
+                load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
+            )
+        elif family_key in {"rf", "ridge"}:
+            base_load_models = _load_models_by_fold(
+                family=family_key,
+                target="base_load",
+                load_model_fn=_load_pickle_model,
+            )
+            pv_gen_models = _load_models_by_fold(
+                family=family_key,
+                target="pv_gen",
+                load_model_fn=_load_pickle_model,
+            )
+            ev1_status_models = _load_models_by_fold(
+                family=family_key,
+                target="ev1_status",
+                load_model_fn=_load_pickle_model,
+            )
+            ev2_status_models = _load_models_by_fold(
+                family=family_key,
+                target="ev2_status",
+                load_model_fn=_load_pickle_model,
+            )
+        else:
+            valid = ", ".join(sorted(Config.MODEL_FAMILY_CONFIGS.keys()))
+            raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
-    predictor_model_bank = PredictorModelBank(
-        base_load_model_bank=base_load_model_bank,
-        pv_gen_model_bank=pv_gen_model_bank,
-        ev1_status_model_bank=ev1_status_model_bank,
-        ev2_status_model_bank=ev2_status_model_bank,
-    )
+        player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+        return PredictorModelBank(
+            base_load_model_bank=FoldModelBank(
+                models_by_fold=base_load_models,
+                id_to_fold=player_to_fold,
+            ),
+            pv_gen_model_bank=FoldModelBank(
+                models_by_fold=pv_gen_models,
+                id_to_fold=player_to_fold,
+            ),
+            ev1_status_model_bank=FoldModelBank(
+                models_by_fold=ev1_status_models,
+                id_to_fold=player_to_fold,
+            ),
+            ev2_status_model_bank=FoldModelBank(
+                models_by_fold=ev2_status_models,
+                id_to_fold=player_to_fold,
+            ),
+        )
+    predictor_xgb = MLPredictor(_build_predictor_model_bank("xgb"))
+    predictor_rf = MLPredictor(_build_predictor_model_bank("rf"))
+    predictor_ridge = MLPredictor(_build_predictor_model_bank("ridge"))
 
     controller_factories_by_name = {
         "no_control": make_function_controller("no_control", no_control),
@@ -822,19 +890,20 @@ if __name__ == "__main__":
                 conf_interval_frct=0.0,
             ),
         ),
-        "mpc_xgb_1": make_mpc_controller(
-            "mpc_xgb_1",
+        "mpc_xgb": make_mpc_controller(
+            "mpc_xgb",
             horizon=96,
-            predictor=XGBPredictor( #TODO conf interval?
-                predictor_model_bank
-            ),
+            predictor=predictor_xgb,
         ),
-        "mpc_xgb_2": make_mpc_controller(
-            "mpc_xgb_2",
+        "mpc_rf": make_mpc_controller(
+            "mpc_rf",
             horizon=96,
-            predictor=MLPredictor( #TODO conf interval?
-                predictor_model_bank
-            ),
+            predictor=predictor_rf,
+        ),
+        "mpc_ridge": make_mpc_controller(
+            "mpc_ridge",
+            horizon=96,
+            predictor=predictor_ridge,
         ),
     }
 
