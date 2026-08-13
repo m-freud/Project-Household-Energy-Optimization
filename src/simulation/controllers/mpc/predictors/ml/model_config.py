@@ -112,20 +112,20 @@ class ModelFamilyConfig:
     name: str
     model_dir: Path
     file_suffix: str
-    metric_model_dirs: dict[str, Path]
+    target_model_dirs: dict[str, Path]
 
-    def get_model_path_for_fold(self, metric: str, fold_id: str) -> Path:
-        metric_key = str(metric)
-        if metric_key not in self.metric_model_dirs:
-            valid_metrics = ", ".join(sorted(self.metric_model_dirs.keys()))
+    def get_model_path_for_fold(self, target: str, fold_id: str) -> Path:
+        target_key = str(target)
+        if target_key not in self.target_model_dirs:
+            valid_targets = ", ".join(sorted(self.target_model_dirs.keys()))
             raise ValueError(
-                f"Unsupported metric '{metric_key}' for model family '{self.name}'. Expected one of: {valid_metrics}"
+                f"Unsupported target '{target_key}' for model family '{self.name}'. Expected one of: {valid_targets}"
             )
-        return Path(self.metric_model_dirs[metric_key] / f"{fold_id}{self.file_suffix}")
+        return Path(self.target_model_dirs[target_key] / f"{fold_id}{self.file_suffix}")
 
 
-def _build_metric_dirs(model_dir: Path) -> dict[str, Path]:
-    return {metric: Path(model_dir / metric) for metric in MODEL_METRICS}
+def _build_target_dirs(model_dir: Path) -> dict[str, Path]:
+    return {target: Path(model_dir / target) for target in MODEL_METRICS}
 
 
 def build_model_family_configs(root_dir: Path) -> dict[str, ModelFamilyConfig]:
@@ -138,18 +138,18 @@ def build_model_family_configs(root_dir: Path) -> dict[str, ModelFamilyConfig]:
             name="xgb",
             model_dir=xgb_dir,
             file_suffix=".json",
-            metric_model_dirs=_build_metric_dirs(xgb_dir),
+            target_model_dirs=_build_target_dirs(xgb_dir),
         ),
         "rf": ModelFamilyConfig(
             name="rf",
             model_dir=rf_dir,
             file_suffix=".pkl",
-            metric_model_dirs=_build_metric_dirs(rf_dir),
+            target_model_dirs=_build_target_dirs(rf_dir),
         ),
         "ridge": ModelFamilyConfig(
             name="ridge",
             model_dir=ridge_dir,
             file_suffix=".pkl",
-            metric_model_dirs=_build_metric_dirs(ridge_dir),
+            target_model_dirs=_build_target_dirs(ridge_dir),
         ),
     }
