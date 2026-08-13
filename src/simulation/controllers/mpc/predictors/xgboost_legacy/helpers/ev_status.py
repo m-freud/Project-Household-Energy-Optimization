@@ -11,7 +11,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.devices.ev import EV
-from simulation.controllers.mpc.predictors.machine_learning.encode_time_cyclic import encode_time_cyclic
+from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
 
 from xgboost import XGBClassifier
 

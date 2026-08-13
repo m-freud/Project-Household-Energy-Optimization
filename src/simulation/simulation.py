@@ -12,24 +12,24 @@ from functools import partial
 from pathlib import Path
 from typing import Callable, TypeVar
 import numpy as np
-from simulation.controllers.mpc.predictors.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
+from simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
+from simulation.controllers.mpc.predictors.xgboost_legacy.xgb_predictor import FoldModelBank, PredictorModelBank, XGBPredictor
 from src.simulation.run_context import RunContext
-from src.simulation.controllers.function_controller import FunctionController
+from simulation.controllers.stepwise.stepwise_controller import StepwiseController
 from src.simulation.household import Household
 from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
 from src.simulation.devices.pv import PV
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
-from src.simulation.controllers.policies.basic_examples import no_control
-from src.simulation.controllers.policies.linear.linear import even_linear_policy, fast_charge_policy
-from src.simulation.controllers.policies.linear.price_aware_linear import price_aware_linear
-from src.simulation.controllers.policies.waterfall.waterfall import waterfall_policy
+from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
+from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
+from src.simulation.controllers.stepwise.step_functions.linear.price_aware_linear import price_aware_linear
+from src.simulation.controllers.stepwise.step_functions.waterfall.waterfall import waterfall_policy
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
-from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
+from simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.config import Config
 
 from xgboost import XGBClassifier, XGBRegressor
@@ -70,9 +70,9 @@ def build_function_controller(
     *,
     name: str,
     step_function: Callable[..., dict],
-) -> FunctionController:
+) -> StepwiseController:
     _ = (household, scenario)
-    return FunctionController(name=name, step_function=step_function)
+    return StepwiseController(name=name, step_function=step_function)
 
 
 def build_mpc_controller(
@@ -90,7 +90,7 @@ def build_mpc_controller(
         household=household,
         scenario=scenario,
         horizon=horizon,
-        predictor=predictor or OraclePredictor(),
+        predictor=predictor,
         duration_hours=duration_hours,
         buffer_config=buffer_config,
     )
@@ -99,7 +99,7 @@ def build_mpc_controller(
 def make_function_controller( # for parallel runs
     name: str,
     step_function: Callable[..., dict],
-) -> Callable[[Household, Scenario], FunctionController]:
+) -> Callable[[Household, Scenario], StepwiseController]:
     return partial(build_function_controller, name=name, step_function=step_function)
 
 

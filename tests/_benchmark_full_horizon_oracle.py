@@ -23,7 +23,7 @@ sys.path.insert(0, str(repo_root))
 from src.config import Config
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.moving_average_predictor2 import MovingAveragePredictor2
-from src.simulation.controllers.mpc.predictors.oracle_predictor import OraclePredictor
+from simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, make_mpc_controller

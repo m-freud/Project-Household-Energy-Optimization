@@ -16,7 +16,7 @@ if repo_root is None:
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
-from simulation.controllers.mpc.predictors.history_avg_predictor import HybridRunningAvgPredictor
+from simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HybridRunningAvgPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, make_mpc_controller

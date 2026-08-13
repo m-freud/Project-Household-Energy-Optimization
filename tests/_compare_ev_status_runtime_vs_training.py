@@ -10,7 +10,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.devices.ev import EV
-from src.simulation.controllers.mpc.predictors.xgboost.ev_status import (
+from simulation.controllers.mpc.predictors.xgboost_legacy.helpers.ev_status import (
     _fetch_ev_status_data,
     _build_ev_status_features,
 )
