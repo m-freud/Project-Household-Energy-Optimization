@@ -38,6 +38,8 @@ INPUT_TABLES = [
     "ev2_max_charge",
     "pv_gen",
     "sell_price",
+    "ev1_status",
+    "ev2_status",
 ]
 RESULT_METRICS = ["net_cost", "net_load", "total_consumption", "total_cost"]
 
