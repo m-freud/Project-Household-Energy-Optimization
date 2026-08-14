@@ -334,14 +334,40 @@ class ModelConfig:
             ridgeclassifier
             ridge
         """
-        class_name = model.__class__.__name__.lower()
-        if "xgb" in class_name:
-            return "xgboost"
-        if "randomforest" in class_name:
-            return "random_forest"
-        if "ridge" in class_name:
-            return "ridge"
-        return ""
+        def _family_from_name(name: str) -> str:
+            lower_name = name.lower()
+            if "xgb" in lower_name or "xgboost" in lower_name:
+                return "xgboost"
+            if "randomforest" in lower_name:
+                return "random_forest"
+            if "ridge" in lower_name:
+                return "ridge"
+            return ""
+
+        family = _family_from_name(model.__class__.__name__)
+        if family:
+            return family
+
+        # Ridge models are often wrapped in sklearn.Pipeline; inspect known wrappers.
+        named_steps = getattr(model, "named_steps", None)
+        if isinstance(named_steps, dict):
+            inner = named_steps.get("model")
+            if inner is not None:
+                family = _family_from_name(inner.__class__.__name__)
+                if family:
+                    return family
+
+        for attr_name in ("estimator", "base_estimator", "final_estimator", "regressor", "classifier"):
+            inner = getattr(model, attr_name, None)
+            if inner is None:
+                continue
+            family = _family_from_name(inner.__class__.__name__)
+            if family:
+                return family
+
+        raise ValueError(
+            f"model family not found for class '{model.__class__.__name__}'. function needs fixing"
+        )
 
     @staticmethod
     def _build_target_dirs(model_dir: Path) -> dict[str, Path]:

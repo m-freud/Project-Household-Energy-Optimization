@@ -711,7 +711,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run household energy simulation")
     parser.add_argument(
         "--controllers",
-        default="all",
+        default="mpc_xgb,mpc_ridge,mpc_rf",
         help="Comma-separated controller names (default: all)",
     )
     parser.add_argument(
@@ -721,7 +721,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--households",
-        default="all",
+        default="1",
         help="Comma-separated household ids (default: all)",
     )
     parser.add_argument(
