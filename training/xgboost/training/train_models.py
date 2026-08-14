@@ -9,12 +9,20 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
+from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 
 FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
 TUNING_RESULTS_CSV_PATH = Path(Config.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv")
 
 test_sets = Config.RUNTIME_TEST_FOLDS
+
+
+def _feature_columns_for_target(target: str) -> list[str]:
+    family_features = ModelConfig.MODEL_FEATURES_BY_FAMILY["xgboost"]
+    if target in ("ev1_status", "ev2_status"):
+        return family_features["ev_status"]
+    return family_features[target]
 
 
 def _parse_id_list(value: object) -> list[int]:
@@ -96,17 +104,17 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
 
         if target == "base_load":
             train_df = get_base_load_features(train_fold)
-            feature_columns = Config.XGB_FEATURES["BASE_LOAD"]
+            feature_columns = _feature_columns_for_target(target)
             X_train, y_train = train_df[feature_columns], train_df["next_value"]
             model = XGBRegressor(**target_params, verbosity=0)
         elif target == "pv_gen":
             train_df = get_pv_gen_features(train_fold)
-            feature_columns = Config.XGB_FEATURES["PV_GEN"]
+            feature_columns = _feature_columns_for_target(target)
             X_train, y_train = train_df[feature_columns], train_df["next_value"]
             model = XGBRegressor(**target_params, verbosity=0)
         elif target in ["ev1_status", "ev2_status"]:
             train_df = get_ev_status_features(train_fold)
-            feature_columns = Config.XGB_FEATURES["EV_STATUS"]
+            feature_columns = _feature_columns_for_target(target)
             X_train, y_train = train_df[feature_columns], train_df["next_state"]
             model = XGBClassifier(**target_params, verbosity=0)
 

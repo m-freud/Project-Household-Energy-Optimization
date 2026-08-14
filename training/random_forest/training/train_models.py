@@ -10,6 +10,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.config import Config
+from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
@@ -18,12 +19,13 @@ FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
 TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "random_forest" / "tuning" / "results.csv"
 
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
+RF_N_ESTIMATORS = 100
 
 DEFAULT_RF_PARAMS = {
-    "base_load": {"n_estimators": 400, "max_depth": None, "random_state": 42, "n_jobs": -1},
-    "pv_gen": {"n_estimators": 400, "max_depth": None, "random_state": 42, "n_jobs": -1},
-    "ev1_status": {"n_estimators": 400, "max_depth": None, "random_state": 42, "n_jobs": -1},
-    "ev2_status": {"n_estimators": 400, "max_depth": None, "random_state": 42, "n_jobs": -1},
+    "base_load": {"n_estimators": RF_N_ESTIMATORS, "max_depth": None, "random_state": 42, "n_jobs": -1},
+    "pv_gen": {"n_estimators": RF_N_ESTIMATORS, "max_depth": None, "random_state": 42, "n_jobs": -1},
+    "ev1_status": {"n_estimators": RF_N_ESTIMATORS, "max_depth": None, "random_state": 42, "n_jobs": -1},
+    "ev2_status": {"n_estimators": RF_N_ESTIMATORS, "max_depth": None, "random_state": 42, "n_jobs": -1},
 }
 
 
@@ -68,7 +70,7 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
                 parsed_max_features = float(max_features)
 
         best_params[target] = {
-            "n_estimators": int(float(best_row["n_estimators"])),
+            "n_estimators": RF_N_ESTIMATORS,
             "max_depth": parsed_max_depth,
             "min_samples_leaf": int(float(best_row["min_samples_leaf"])),
             "max_features": parsed_max_features,
@@ -125,12 +127,13 @@ def load_train_test_partition(fold_id: str, metric_name: str) -> tuple[list[int]
 
 
 def _feature_columns_for_target(target: str) -> list[str]:
+    family_features = ModelConfig.MODEL_FEATURES_BY_FAMILY["random_forest"]
     if target == "base_load":
-        return Config.XGB_FEATURES["BASE_LOAD"]
+        return family_features["base_load"]
     if target == "pv_gen":
-        return Config.XGB_FEATURES["PV_GEN"]
+        return family_features["pv_gen"]
     if target in ("ev1_status", "ev2_status"):
-        return Config.XGB_FEATURES["EV_STATUS"]
+        return family_features["ev_status"]
     raise ValueError(f"Unknown target: {target}")
 
 

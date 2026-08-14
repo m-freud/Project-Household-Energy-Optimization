@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
+from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
 
 
 MODEL_TARGETS: tuple[str, ...] = (
@@ -345,7 +345,7 @@ class ModelConfig:
 
     @staticmethod
     def _build_target_dirs(model_dir: Path) -> dict[str, Path]:
-        return {target.upper(): Path(model_dir / target) for target in ModelConfig.MODEL_TARGETS}
+        return {target: Path(model_dir / target) for target in ModelConfig.MODEL_TARGETS}
 
     @staticmethod
     def build_model_family_configs(root_dir: Path) -> dict[str, "ModelFamilyConfig"]:
