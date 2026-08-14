@@ -5,6 +5,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import TRegres
 from src.simulation.controllers.mpc.predictors.shared import make_band
 from src.simulation.household import Household
 import numpy as np
+from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 
 
 
@@ -120,7 +121,7 @@ def _predict_pv_gen(
             continue
 
 
-        features = _build_pv_gen_features(
+        all_features = _build_pv_gen_features(
             current_timestep=current_timestep,
             current_pv_gen=current_pv_gen,
             pv_history=sim_pv_history,
@@ -128,18 +129,21 @@ def _predict_pv_gen(
             daylight_end=daylight_end,
         )
 
-        # ensure completness of features for the model
-        for f in Config.XGB_FEATURES["PV_GEN"]:
-                if f not in features:
-                    raise ValueError(f"Missing feature '{f}' in features dictionary.")
+        model_family_name = ModelConfig.get_model_family_name(model)
+        model_features = ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["pv_gen"]
 
-        # ensure correct order of features
-        model_input = [features[f] for f in Config.XGB_FEATURES["PV_GEN"]]
+        # ensure completness of features for the model
+        for f in model_features:
+            if f not in all_features:
+                raise ValueError(f"Missing required feature: {f}")
+
+        # ensure correct order of features (as in model_features)
+        model_input = [all_features[f] for f in model_features]
 
         # update sim hist before next prediction
         sim_pv_history.append(float(current_pv_gen))
 
-        current_pv_gen = model.predict([model_input])[0]
+        current_pv_gen = model.predict([model_input])[0] # type: ignore
         pv_pred.append(current_pv_gen)
 
         # incr time

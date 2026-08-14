@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
+
 
 MODEL_TARGETS: tuple[str, ...] = (
     "base_load",
@@ -108,8 +110,8 @@ MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
 
 
 MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
-    "XGBOOST": {
-        "EV_STATUS": [
+    "xgboost": {
+        "ev_status": [
             "status",
             "steps_in_current_state",
             "status_lag_1",
@@ -125,7 +127,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "start1",
             "observed_window_length_1",
         ],
-        "BASE_LOAD": [
+        "base_load": [
             "base_load",
             "base_load_ma_8",
             "base_load_ma_2",
@@ -146,7 +148,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "base_load_lag_1",
             "n_evs_at_home",
         ],
-        "PV_GEN": [
+        "pv_gen": [
             "pv_gen",
             "pv_ma_2",
             "timestep",
@@ -167,8 +169,8 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "time_sin",
         ],
     },
-    "RANDOM_FOREST": {
-        "EV_STATUS": [
+    "random_forest": {
+        "ev_status": [
             "status",
             "status_lag_2",
             "status_lag_1",
@@ -196,7 +198,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "status_lag_8",
             "time_sin",
         ],
-        "BASE_LOAD": [
+        "base_load": [
             "base_load",
             "base_load_ma_2",
             "base_load_ma_4",
@@ -217,7 +219,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "base_load_lag_2",
             "n_evs_at_home",
         ],
-        "PV_GEN": [
+        "pv_gen": [
             "pv_gen",
             "pv_ma_2",
             "pv_lag_1",
@@ -240,8 +242,8 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "pv_ma_16",
         ],
     },
-    "RIDGE": {
-        "EV_STATUS": [
+    "ridge": {
+        "ev_status": [
             "timestep",
             "steps_to_start1_earliest",
             "steps_to_end2_latest",
@@ -270,7 +272,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "status_lag_8_is_pad",
             "steps_in_current_state",
         ],
-        "BASE_LOAD": [
+        "base_load": [
             "base_load",
             "base_load_ma_2",
             "base_load_delta_1",
@@ -291,7 +293,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "n_evs_at_home",
             "base_load_lag_12",
         ],
-        "PV_GEN": [
+        "pv_gen": [
             "pv_gen",
             "pv_ma_2",
             "pv_lag_1",
@@ -317,14 +319,75 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
 }
 
 
-def dropped_features_report() -> None:
-    for family in MODEL_FEATURES_BY_FAMILY:
-        for target in MODEL_FEATURES_BY_FAMILY[family]:
-            features = MODEL_FEATURES_BY_FAMILY[family][target]
-            domain_features = MODEL_FEATURE_DOMAIN[target]
-            missing_features = set(domain_features) - set(features)
-            if missing_features:
-                print("we dropped these features for family", family, "target", target, ":", missing_features)
+class ModelConfig:
+    MODEL_TARGETS: tuple[str, ...] = MODEL_TARGETS
+    MODEL_FEATURE_DOMAIN: dict[str, list[str]] = MODEL_FEATURE_DOMAIN
+    MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = MODEL_FEATURES_BY_FAMILY
+
+    @staticmethod
+    def get_model_family_name(model: ModelLike) -> str:
+        """Get family name from model instance.
+            xgbclassifier
+            xgbregressor
+            randomforestclassifier
+            randomforestregressor
+            ridgeclassifier
+            ridge
+        """
+        class_name = model.__class__.__name__.lower()
+        if "xgb" in class_name:
+            return "xgboost"
+        if "randomforest" in class_name:
+            return "random_forest"
+        if "ridge" in class_name:
+            return "ridge"
+        return ""
+
+    @staticmethod
+    def _build_target_dirs(model_dir: Path) -> dict[str, Path]:
+        return {target.upper(): Path(model_dir / target) for target in ModelConfig.MODEL_TARGETS}
+
+    @staticmethod
+    def build_model_family_configs(root_dir: Path) -> dict[str, "ModelFamilyConfig"]:
+        xgb_dir = Path(root_dir / "training" / "xgboost" / "models")
+        rf_dir = Path(root_dir / "training" / "random_forest" / "models")
+        ridge_dir = Path(root_dir / "training" / "ridge_regression" / "models")
+
+        return {
+            "xgb": ModelFamilyConfig(
+                name="xgb",
+                model_dir=xgb_dir,
+                file_suffix=".json",
+                target_model_dirs=ModelConfig._build_target_dirs(xgb_dir),
+            ),
+            "rf": ModelFamilyConfig(
+                name="rf",
+                model_dir=rf_dir,
+                file_suffix=".pkl",
+                target_model_dirs=ModelConfig._build_target_dirs(rf_dir),
+            ),
+            "ridge": ModelFamilyConfig(
+                name="ridge",
+                model_dir=ridge_dir,
+                file_suffix=".pkl",
+                target_model_dirs=ModelConfig._build_target_dirs(ridge_dir),
+            ),
+        }
+
+
+def get_model_family_name(model: ModelLike)->str:
+    """get family name from model instance.
+    possible class names:
+        xgbclassifier
+        xgbregressor
+        randomforestclassifier
+        randomforestregressor
+        ridgeclassifier
+        ridge
+    """
+
+    return ModelConfig.get_model_family_name(model)
+
 
 
 @dataclass(frozen=True)
@@ -345,37 +408,24 @@ class ModelFamilyConfig:
 
 
 def _build_target_dirs(model_dir: Path) -> dict[str, Path]:
-    return {target.upper(): Path(model_dir / target) for target in MODEL_TARGETS}
+    return ModelConfig._build_target_dirs(model_dir)
 
 
 def build_model_family_configs(root_dir: Path) -> dict[str, ModelFamilyConfig]:
-    xgb_dir = Path(root_dir / "training" / "xgboost" / "models")
-    rf_dir = Path(root_dir / "training" / "random_forest" / "models")
-    ridge_dir = Path(root_dir / "training" / "ridge_regression" / "models")
-
-    return {
-        "xgb": ModelFamilyConfig(
-            name="xgb",
-            model_dir=xgb_dir,
-            file_suffix=".json",
-            target_model_dirs=_build_target_dirs(xgb_dir),
-        ),
-        "rf": ModelFamilyConfig(
-            name="rf",
-            model_dir=rf_dir,
-            file_suffix=".pkl",
-            target_model_dirs=_build_target_dirs(rf_dir),
-        ),
-        "ridge": ModelFamilyConfig(
-            name="ridge",
-            model_dir=ridge_dir,
-            file_suffix=".pkl",
-            target_model_dirs=_build_target_dirs(ridge_dir),
-        ),
-    }
+    return ModelConfig.build_model_family_configs(root_dir)
 
 
 if __name__ == "__main__":
+
+    def dropped_features_report() -> None:
+        for family in ModelConfig.MODEL_FEATURES_BY_FAMILY:
+            for target in ModelConfig.MODEL_FEATURES_BY_FAMILY[family]:
+                features = ModelConfig.MODEL_FEATURES_BY_FAMILY[family][target]
+                domain_features = ModelConfig.MODEL_FEATURE_DOMAIN[target]
+                missing_features = set(domain_features) - set(features)
+                if missing_features:
+                    print("we dropped these features for family", family, "target", target, ":", missing_features)
+
     dropped_features_report() # checks out
 
     '''

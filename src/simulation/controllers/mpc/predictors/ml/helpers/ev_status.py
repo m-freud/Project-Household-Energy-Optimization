@@ -2,6 +2,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import TClassi
 from src.simulation.household import Household
 from src.config import Config
 from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
+from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 
 
 
@@ -251,7 +252,6 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
     at_home_pred, at_station_pred = [current_at_home], [current_at_station]
 
     for _ in range(horizon - 1):
-
         ev_status_data = {
             "timestep": current_timestep,
             "status": current_status,
@@ -264,10 +264,11 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         }
 
-        features = _build_ev_status_features(ev_status_data)
+        # here we need features before bypass because bypass depends on some of the features
+        all_features = _build_ev_status_features(ev_status_data)
 
         # bypass model if possible
-        bypass = _try_bypass(current_timestep, features)
+        bypass = _try_bypass(current_timestep, all_features)
         if bypass is not None:
             current_status = bypass
             current_at_home, current_at_station = _status_to_home_station(current_status)
@@ -276,19 +277,22 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
             current_timestep += 1
             continue
 
+        model_family_name = ModelConfig.get_model_family_name(model)
+        model_features = ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["ev_status"]
+
         # ensure completeness of features for the model
-        for f in Config.XGB_FEATURES["EV_STATUS"]:
-            if f not in features:
+        for f in model_features:
+            if f not in all_features:
                 raise ValueError(f"Missing feature '{f}' in features dictionary.")
 
         # ensure correct order of features for the model
-        model_input = [features[f] for f in Config.XGB_FEATURES["EV_STATUS"]]
+        model_input = [all_features[f] for f in model_features]
 
         # update history before predicting next value
         sim_status_history.append(current_status)
 
         # predict next value, save as split into at_home and at_station
-        current_status = int(model.predict([model_input])[0])
+        current_status = int(model.predict([model_input])[0])  # type: ignore
         
         current_at_home, current_at_station = _status_to_home_station(current_status)
         at_home_pred.append(current_at_home)
