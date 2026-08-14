@@ -24,7 +24,6 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     TClassifier,
     PredictorModelBankLike,
 )
-from src.simulation.household import Household
 
 
 class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):

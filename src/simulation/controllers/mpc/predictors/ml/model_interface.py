@@ -10,9 +10,9 @@ class ModelLike(Protocol):
         ...
 
 
-TModel = TypeVar("TModel", bound=ModelLike)
-TRegressor = TypeVar("TRegressor", bound=ModelLike)
-TClassifier = TypeVar("TClassifier", bound=ModelLike)
+TModel = TypeVar("TModel", bound=ModelLike, covariant=True)
+TRegressor = TypeVar("TRegressor", bound=ModelLike, covariant=True)
+TClassifier = TypeVar("TClassifier", bound=ModelLike, covariant=True)
 
 
 class FoldModelBankLike(Protocol[TModel]):
@@ -24,15 +24,26 @@ class FoldModelBankLike(Protocol[TModel]):
 
 class PredictorModelBankLike(Protocol[TRegressor, TClassifier]):
     """Interface for metric-specific fold model banks."""
+    @property
+    def base_load_model_bank(self) -> FoldModelBankLike[TRegressor]:
+        ...
 
-    base_load_model_bank: FoldModelBankLike[TRegressor]
-    pv_gen_model_bank: FoldModelBankLike[TRegressor]
-    ev1_status_model_bank: FoldModelBankLike[TClassifier]
-    ev2_status_model_bank: FoldModelBankLike[TClassifier]
+    @property
+    def pv_gen_model_bank(self) -> FoldModelBankLike[TRegressor]:
+        ...
+
+    @property
+    def ev1_status_model_bank(self) -> FoldModelBankLike[TClassifier]:
+        ...
+
+    @property
+    def ev2_status_model_bank(self) -> FoldModelBankLike[TClassifier]:
+        ...
 
 
 @dataclass
 class FoldModelBank(Generic[TModel]):
+    """Model bank for one fold"""
     models_by_fold: dict[str, TModel]
     id_to_fold: dict[int, str]
 

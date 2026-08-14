@@ -6,38 +6,36 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
-import argparse
+
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
-import pickle
-from typing import Any, Callable, TypeVar
-import numpy as np
+from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
+from src.config import Config
+from src.simulation.controllers.base_controller import BaseController
+from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
+from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.ml.model_interface import (
-    FoldModelBank,
-    PredictorModelBank,
-)
-from src.simulation.run_context import RunContext
-from src.simulation.controllers.stepwise.stepwise_controller import StepwiseController
-from src.simulation.household import Household
-from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
-from src.simulation.devices.pv import PV
-from src.simulation.devices.bess import BESS
-from src.simulation.devices.ev import EV
-from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
+from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from src.simulation.controllers.mpc.predictors.ml.model_interface import (FoldModelBank,ModelLike,PredictorModelBank,)
+from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.stepwise.step_functions.linear.price_aware_linear import price_aware_linear
 from src.simulation.controllers.stepwise.step_functions.waterfall.waterfall import waterfall_policy
-from src.simulation.controllers.base_controller import BaseController
-from src.simulation.controllers.mpc.mpc_controller import MPCController
-from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
-from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
-from src.config import Config
-
+from src.simulation.controllers.stepwise.stepwise_controller import StepwiseController
+from src.simulation.devices.bess import BESS
+from src.simulation.devices.ev import EV
+from src.simulation.devices.pv import PV
+from src.simulation.household import Household
+from src.simulation.run_context import RunContext
+from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
+from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
+from typing import Any, Callable, TypeVar
 from xgboost import XGBClassifier, XGBRegressor
+import argparse
+import numpy as np
+import pickle
 
 
 TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
@@ -87,7 +85,7 @@ def build_mpc_controller(
     *,
     name: str,
     horizon: int = 96,
-    predictor=None,
+    predictor: BasePredictor,
     duration_hours: float = 0.25,
     buffer_config: DeviceBufferConfig | None = None,
 ) -> MPCController:
@@ -111,8 +109,8 @@ def make_function_controller( # for parallel runs
 
 def make_mpc_controller(
     name: str,
-    horizon: int = 96,
-    predictor=None,
+    horizon: int,
+    predictor: BasePredictor,
     duration_hours: float = 0.25,
     buffer_config: DeviceBufferConfig | None = None,
 ) -> Callable[[Household, Scenario], MPCController]:
@@ -801,7 +799,7 @@ if __name__ == "__main__":
 
         return models_by_fold
 
-    def _build_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
+    def _build_predictor_model_bank(family: str) -> PredictorModelBank[ModelLike, ModelLike]:
         family_key = str(family).lower()
 
         if family_key == "xgb":
@@ -851,6 +849,7 @@ if __name__ == "__main__":
             raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
         player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
+
         return PredictorModelBank(
             base_load_model_bank=FoldModelBank(
                 models_by_fold=base_load_models,
@@ -869,6 +868,7 @@ if __name__ == "__main__":
                 id_to_fold=player_to_fold,
             ),
         )
+    
     predictor_xgb = MLPredictor(_build_predictor_model_bank("xgb"))
     predictor_rf = MLPredictor(_build_predictor_model_bank("rf"))
     predictor_ridge = MLPredictor(_build_predictor_model_bank("ridge"))
