@@ -42,7 +42,6 @@ TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
 TLoadedModel = TypeVar("TLoadedModel")
 
 
-
 DEFAULT_HISTORY_MEASUREMENTS = [
     "net_load",
     "net_cost",
@@ -584,9 +583,6 @@ class Simulation:
             )
 
 
-    # result loading.
-    # household results != household history. helper functions enable modularity for external usage
-
     def load_household_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
         # extract dict from household, load to sqlite
         payload = {
@@ -720,7 +716,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--scenarios",
-        default="all",
+        default="default_scenario",
         help="Comma-separated scenario names (default: all)",
     )
     parser.add_argument(
