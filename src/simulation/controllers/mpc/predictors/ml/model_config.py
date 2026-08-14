@@ -317,6 +317,16 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
 }
 
 
+def dropped_features_report() -> None:
+    for family in MODEL_FEATURES_BY_FAMILY:
+        for target in MODEL_FEATURES_BY_FAMILY[family]:
+            features = MODEL_FEATURES_BY_FAMILY[family][target]
+            domain_features = MODEL_FEATURE_DOMAIN[target]
+            missing_features = set(domain_features) - set(features)
+            if missing_features:
+                print("we dropped these features for family", family, "target", target, ":", missing_features)
+
+
 @dataclass(frozen=True)
 class ModelFamilyConfig:
     name: str
@@ -363,3 +373,19 @@ def build_model_family_configs(root_dir: Path) -> dict[str, ModelFamilyConfig]:
             target_model_dirs=_build_target_dirs(ridge_dir),
         ),
     }
+
+
+if __name__ == "__main__":
+    dropped_features_report() # checks out
+
+    '''
+    we dropped these features for family XGBOOST target EV_STATUS : {'status_lag_4_is_pad', 'steps_to_end2_latest', 'max_commute_steps_2', 'end2_latest', 'start1_observed', 'start2_observed', 'status_lag_8_is_pad', 'observed_window_length_2', 'steps_to_end1_latest', 'end2', 'window_length_slack_2', 'status_lag_1_is_pad', 'start1_earliest', 'steps_to_start1_earliest', 'end2_observed', 'status_lag_2_is_pad', 'status_lag_8', 'start2_earliest', 'steps_to_start2_earliest', 'end1_observed', 'end1_latest', 'max_commute_steps_1'}
+    we dropped these features for family XGBOOST target BASE_LOAD : {'base_load_lag_2_is_pad', 'base_load_lag_4_is_pad', 'base_load_lag_8_is_pad', 'base_load_lag_12_is_pad', 'base_load_lag_1_is_pad'}
+    we dropped these features for family XGBOOST target PV_GEN : {'steps_to_daylight_end', 'pv_lag_8_is_pad', 'pv_lag_4_is_pad', 'pv_lag_12_is_pad', 'pv_lag_1_is_pad', 'pv_lag_2_is_pad', 'steps_to_daylight_start'}
+    we dropped these features for family RANDOM_FOREST target EV_STATUS : {'status_lag_4_is_pad', 'status_lag_2_is_pad', 'start2_earliest', 'max_commute_steps_2', 'end2_latest', 'status_lag_1_is_pad', 'start1_earliest', 'end1_latest', 'status_lag_8_is_pad', 'max_commute_steps_1'}
+    we dropped these features for family RANDOM_FOREST target BASE_LOAD : {'base_load_lag_2_is_pad', 'base_load_lag_4_is_pad', 'base_load_lag_8_is_pad', 'base_load_lag_12_is_pad', 'base_load_lag_1_is_pad'}
+    we dropped these features for family RANDOM_FOREST target PV_GEN : {'pv_lag_8_is_pad', 'pv_lag_4_is_pad', 'pv_lag_12_is_pad', 'pv_lag_1_is_pad', 'pv_lag_2_is_pad'}
+    we dropped these features for family RIDGE target EV_STATUS : {'status_lag_4_is_pad', 'status_lag_2_is_pad', 'start2_earliest', 'max_commute_steps_2','end2_latest', 'status_lag_1_is_pad', 'start1_earliest', 'end1_latest', 'max_commute_steps_1'}
+    we dropped these features for family RIDGE target BASE_LOAD : {'base_load_lag_2_is_pad', 'base_load_lag_4_is_pad', 'base_load_lag_8_is_pad', 'base_load_lag_12_is_pad', 'base_load_lag_1_is_pad'}
+    we dropped these features for family RIDGE target PV_GEN : {'pv_lag_8_is_pad', 'pv_lag_4_is_pad', 'pv_lag_12_is_pad', 'pv_lag_1_is_pad', 'pv_lag_2_is_pad'}
+    '''
