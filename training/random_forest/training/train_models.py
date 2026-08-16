@@ -1,6 +1,12 @@
 from pathlib import Path
 import pickle
+# paste this to enable src. imports
+from pathlib import Path
+import sys
 
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
@@ -73,7 +79,7 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
             "min_samples_leaf": int(float(min_samples_leaf)),
             "max_features": parsed_max_features,
             "random_state": 42,
-            "n_jobs": -1,
+            "n_jobs": 1,
         }
 
     return best_params
