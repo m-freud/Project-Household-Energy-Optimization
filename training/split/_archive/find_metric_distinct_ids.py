@@ -27,7 +27,7 @@ repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
-from training.split.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SET
+from training.split._archive.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SET
 
 
 MetricName = str

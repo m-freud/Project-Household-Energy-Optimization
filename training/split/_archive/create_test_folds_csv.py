@@ -18,7 +18,7 @@ cwd = Path.cwd().resolve()
 repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
-from training.split.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
+from training.split._archive.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
 from src.config import Config
 
 
@@ -43,7 +43,7 @@ def _build_train_set(fold_complement: list[int], target: str) -> list[int]:
 
 
 def main() -> None:
-    output_path = repo_root / "training" / "split" / "test_folds.csv"
+    output_path = repo_root / "training" / "split" / "test_folds123.csv"
 
     metric_columns = [
         "base_load",

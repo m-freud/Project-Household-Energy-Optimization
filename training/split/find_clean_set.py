@@ -10,8 +10,8 @@ Optional EV-state tie-breaker that we also satisfied:
 - No two selected households share the same EV2 state profile.
 - EV state is defined period-wise as: 1 - ev_at_home + ev_at_charging_station.
 
-Approved candidate set:
-[12, 29, 30, 38, 60, 62, 75, 93, 94, 112, 116, 121, 133, 154, 157, 171, 180, 204, 206, 217]
+Approved strictly independent candidate set:
+id_selection = [1, 12, 27, 42, 52, 68, 85, 92, 110, 114, 118, 131, 153, 159, 167, 199, 202, 215, 229, 238]
 """
 
 

@@ -59,6 +59,11 @@ def find_equal_groups(table_name:str):
                 else:
                     equality_groups[i].append(j)
 
+    independent_ids = [id for id in range(1, 251) if id not in assigned_ids]
+
+    for id in independent_ids:
+        equality_groups[id] = [id]
+
     return equality_groups
 
 
@@ -67,4 +72,35 @@ eg_pv_gen = find_equal_groups("pv_gen")
 eg_ev1 = find_equal_groups("ev1_status")
 eg_ev2 = find_equal_groups("ev2_status")
 
-print(eg_ev1)
+print("BASE LOAD", eg_base_load)
+print("PV GEN", eg_pv_gen)
+print("EV1 STATUS", eg_ev1)
+print("EV2 STATUS", eg_ev2)
+
+
+def plot_group_distributions():
+    """
+    categorical distributions of equality-group sizes for each prediction metric
+    """
+    import matplotlib.pyplot as plt
+
+    def plot_group_sizes(equality_groups, title):
+        group_keys = [str(group_key) for group_key in equality_groups.keys()]
+        group_sizes = [len(group) for group in equality_groups.values()]
+
+        plt.figure(figsize=(14, 6))
+        plt.bar(group_keys, group_sizes, color="blue", edgecolor="black", alpha=0.75)
+        plt.title(title)
+        plt.xlabel("Group key (first household id)")
+        plt.ylabel("Number of households in group")
+        plt.xticks(rotation=45, ha="right")
+        plt.grid(axis="y", alpha=0.75)
+        plt.tight_layout()
+        plt.show()
+
+    plot_group_sizes(eg_base_load, "Base Load Equality Group Distribution")
+    plot_group_sizes(eg_pv_gen, "PV Generation Equality Group Distribution")
+    plot_group_sizes(eg_ev1, "EV1 Status Equality Group Distribution")
+    plot_group_sizes(eg_ev2, "EV2 Status Equality Group Distribution")
+
+plot_group_distributions()
