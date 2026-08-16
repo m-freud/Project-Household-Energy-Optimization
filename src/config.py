@@ -139,7 +139,23 @@ class Config:
     @classmethod
     def get_training_ids_for_fold(cls, target: str, fold_id: str) -> list[int]:
         test_ids = set(cls.get_fold_members(target=target, fold_id=fold_id))
-        return [player_id for player_id in cls.ALL_PLAYER_IDS if player_id not in test_ids]
+        target_population_ids = cls.get_target_population_ids(target)
+        return [player_id for player_id in target_population_ids if player_id not in test_ids]
+
+    @classmethod
+    def get_target_population_ids(cls, target: str) -> list[int]:
+        target_key = str(target)
+        try:
+            fold_splits = cls.FOLD_SPLITS_BY_TARGET[target_key]
+        except KeyError as exc:
+            raise ValueError(f"Unknown target '{target}'.") from exc
+
+        population_ids = {
+            int(player_id)
+            for fold_members in fold_splits.values()
+            for player_id in fold_members
+        }
+        return sorted(population_ids)
 
     @classmethod
     def get_player_to_fold_map(cls, target: str) -> dict[int, str]:
