@@ -33,10 +33,6 @@ def write_training_params_manifest(
 ) -> Path:
     model_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = model_dir / "training_params.txt"
-    counter = 0
-    while manifest_path.exists():
-        counter += 1
-        manifest_path = model_dir / f"training_params_{counter}.txt"
     manifest_path.write_text(
         render_training_params_manifest(
             family=family,

@@ -30,7 +30,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfi
 from training._features.base_load_features import get_base_load_features  # noqa: E402
 from training._features.ev_status_features import get_ev_status_features  # noqa: E402
 from training._features.pv_gen_features import get_pv_gen_features  # noqa: E402
-from training.model_artifacts import render_training_params_manifest, write_training_params_manifest  # noqa: E402
+from training.model_artifacts import render_training_params_manifest  # noqa: E402
 
 
 TARGETS = ("base_load", "pv_gen", "ev1_status", "ev2_status")
@@ -50,26 +50,49 @@ def _is_missing(value: object) -> bool:
     return text in {"", "none", "nan"}
 
 
-def _load_best_params_from_tuning(csv_path: Path, target_names: tuple[str, ...]) -> dict[str, dict[str, Any]]:
-    if not csv_path.exists():
-        raise FileNotFoundError(f"Missing tuning results file: {csv_path}")
+def _parse_manifest_scalar(value: str) -> Any:
+    text = value.strip()
+    lowered = text.lower()
 
-    results = pd.read_csv(csv_path)
-    if {"target", "mean_score"}.difference(results.columns):
-        raise ValueError(f"Tuning results file has unexpected columns: {csv_path}")
+    if lowered == "none":
+        return None
 
-    best_params: dict[str, dict[str, Any]] = {}
-    for target in target_names:
-        target_rows = results.loc[results["target"] == target]
-        if target_rows.empty:
-            raise ValueError(f"No tuning rows found for target '{target}' in {csv_path}")
+    try:
+        if any(char in text for char in (".", "e", "E")):
+            return float(text)
+        return int(text)
+    except ValueError:
+        return text
 
-        best_row = target_rows.loc[target_rows["mean_score"].idxmin()].to_dict()
-        best_params[target] = {
-            key: value for key, value in best_row.items() if key not in {"target", "mean_score"}
-        }
 
-    return best_params
+def _load_params_from_manifest(manifest_path: Path) -> dict[str, Any]:
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Missing training params manifest: {manifest_path}")
+
+    params: dict[str, Any] = {}
+    in_params_block = False
+
+    for line in manifest_path.read_text(encoding="utf-8").splitlines():
+        if not in_params_block:
+            if line.strip() == "params:":
+                in_params_block = True
+            continue
+
+        if not line.strip():
+            continue
+
+        if not line.startswith("  "):
+            break
+
+        key, _, raw_value = line.strip().partition(":")
+        if not _:
+            raise ValueError(f"Invalid manifest line in {manifest_path}: {line!r}")
+        params[key.strip()] = _parse_manifest_scalar(raw_value)
+
+    if not params:
+        raise ValueError(f"No params block found in training params manifest: {manifest_path}")
+
+    return params
 
 
 def _parse_xgb_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -202,15 +225,9 @@ def _normalise_training_params(family: str, raw_params: dict[str, Any]) -> dict[
     return _parse_ridge_params(raw_params)
 
 
-def _ensure_training_manifest(family: str, target: str, params: dict[str, Any]) -> Path:
+def _training_manifest_path(family: str, target: str) -> Path:
     model_dir = Config.MODEL_FAMILY_CONFIGS[family].target_model_dirs[target]
-    return write_training_params_manifest(
-        model_dir,
-        family=family,
-        target=target,
-        fold_ids=Config.FOLD_IDS,
-        params=params,
-    )
+    return Path(model_dir) / "training_params.txt"
 
 
 def _model_path_for(family: str, target: str, fold_id: str) -> Path:
@@ -229,25 +246,14 @@ def _manifest_text(family: str, target: str, params: dict[str, Any]) -> str:
 
 
 def evaluate_models() -> tuple[pd.DataFrame, pd.DataFrame]:
-    tuning_paths = {
-        "xgb": Config.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv",
-        "rf": Config.ROOT_DIR / "training" / "random_forest" / "tuning" / "results.csv",
-        "ridge": Config.ROOT_DIR / "training" / "ridge_regression" / "tuning" / "results.csv",
-    }
-
-    raw_params_by_family = {
-        family: _load_best_params_from_tuning(tuning_path, TARGETS)
-        for family, tuning_path in tuning_paths.items()
-    }
-
     summary_rows: list[dict[str, Any]] = []
     detail_rows: list[dict[str, Any]] = []
 
     for family in ("xgb", "rf", "ridge"):
         for target in TARGETS:
             household_ids, feature_builder, label_column, target_kind = _target_spec(target)
-            params = _normalise_training_params(family, raw_params_by_family[family][target])
-            manifest_path = _ensure_training_manifest(family, target, params)
+            manifest_path = _training_manifest_path(family, target)
+            params = _normalise_training_params(family, _load_params_from_manifest(manifest_path))
 
             feature_df = feature_builder(household_ids)
             feature_df = _apply_target_filter(feature_df, target)
@@ -274,7 +280,7 @@ def evaluate_models() -> tuple[pd.DataFrame, pd.DataFrame]:
 
                 model_path = _model_path_for(family, target, fold_id)
                 model = _load_model(family, target, model_path)
-                predictions = model.predict(fold_df[feature_columns])
+                predictions = model.predict(fold_df[feature_columns].to_numpy())
 
                 y_true_parts.append(fold_df[label_column].reset_index(drop=True))
                 y_pred_parts.append(pd.Series(predictions).reset_index(drop=True))
@@ -329,6 +335,16 @@ def main() -> None:
     summary_df, details_df = evaluate_models()
     summary_path = output_dir / "model_comparison_summary.csv"
     details_path = output_dir / "model_comparison_details.csv"
+
+    while summary_path.exists() or details_path.exists():
+        counter = 1
+        while summary_path.exists():
+            summary_path = output_dir / f"model_comparison_summary_{counter}.csv"
+            counter += 1
+        counter = 1
+        while details_path.exists():
+            details_path = output_dir / f"model_comparison_details_{counter}.csv"
+            counter += 1
 
     summary_df.to_csv(summary_path, index=False)
     details_df.to_csv(details_path, index=False)

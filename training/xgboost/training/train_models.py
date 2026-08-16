@@ -77,17 +77,17 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
         if target == "base_load":
             train_df = get_base_load_features(train_fold)
             feature_columns = _feature_columns_for_target(target)
-            X_train, y_train = train_df[feature_columns], train_df["next_value"]
+            X_train, y_train = train_df[feature_columns].to_numpy(), train_df["next_value"]
             model = XGBRegressor(**target_params, verbosity=0)
         elif target == "pv_gen":
             train_df = get_pv_gen_features(train_fold)
             feature_columns = _feature_columns_for_target(target)
-            X_train, y_train = train_df[feature_columns], train_df["next_value"]
+            X_train, y_train = train_df[feature_columns].to_numpy(), train_df["next_value"]
             model = XGBRegressor(**target_params, verbosity=0)
         elif target in ["ev1_status", "ev2_status"]:
             train_df = get_ev_status_features(train_fold)
             feature_columns = _feature_columns_for_target(target)
-            X_train, y_train = train_df[feature_columns], train_df["next_state"]
+            X_train, y_train = train_df[feature_columns].to_numpy(), train_df["next_state"]
             model = XGBClassifier(**target_params, verbosity=0)
 
         print(f"  Fitting model with {len(X_train)} rows and {len(feature_columns)} features")

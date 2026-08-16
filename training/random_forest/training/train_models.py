@@ -149,7 +149,7 @@ def run() -> None:
             train_df = _train_df_for_target(target, train_fold)
             feature_columns = _feature_columns_for_target(target)
             y_col = _label_column_for_target(target)
-            X_train = train_df[feature_columns]
+            X_train = train_df[feature_columns].to_numpy()
             y_train = train_df[y_col]
 
             model = _build_model_for_target(target)
