@@ -1,0 +1,7 @@
+family: xgb
+target: ev2_status
+fold_ids: fold_1, fold_2, fold_3, fold_4, fold_5
+params:
+  learning_rate: 0.1
+  max_depth: 3
+  n_estimators: 300

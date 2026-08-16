@@ -1,0 +1,5 @@
+family: ridge
+target: ev2_status
+fold_ids: fold_1, fold_2, fold_3, fold_4, fold_5
+params:
+  alpha: 0.01

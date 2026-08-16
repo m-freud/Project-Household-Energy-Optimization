@@ -1,0 +1,7 @@
+family: xgb
+target: pv_gen
+fold_ids: fold_1, fold_2, fold_3, fold_4, fold_5
+params:
+  learning_rate: 0.05
+  max_depth: 5
+  n_estimators: 600
