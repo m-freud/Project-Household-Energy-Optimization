@@ -4,18 +4,13 @@ import sys
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
-
 from src.config import Config
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 
-FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
-TUNING_RESULTS_CSV_PATH = Path(Config.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv")
+repo_root = Config.ROOT_DIR
 
-test_sets = Config.RUNTIME_TEST_FOLDS
+TUNING_RESULTS_CSV_PATH = Path(Config.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv")
 
 
 def _feature_columns_for_target(target: str) -> list[str]:
@@ -25,38 +20,10 @@ def _feature_columns_for_target(target: str) -> list[str]:
     return family_features[target]
 
 
-def _parse_id_list(value: object) -> list[int]:
-    """Convert a CSV cell containing comma-separated ids into a list of integers."""
-    if pd.isna(value):
-        return []
-    if isinstance(value, (list, tuple, set)):
-        return [int(item) for item in value]
-
-    text = str(value).strip()
-    if not text:
-        return []
-
-    return [int(item.strip()) for item in text.split(",") if item.strip()]
-
-
 def load_train_test_partition(fold_id: str, metric_name: str):
-    """Load the train and test partition ids for a given fold from the CSV.
-    Training folds are stored in the CSV under global_complement_{metric_name}.
-    """
-    df = pd.read_csv(FOLD_CSV_PATH)
-    row = df.loc[df["fold_id"] == fold_id]
-    if row.empty:
-        raise ValueError(f"No fold found for fold_id '{fold_id}'.")
-
-    test_column_name = "fold_members"
-    train_column_name = f"train_set_{metric_name}"
-
-    test_fold = _parse_id_list(row.iloc[0][test_column_name]) #TODO this is stupid
-    train_fold = _parse_id_list(row.iloc[0][train_column_name])
-
-    if len(train_fold) == 0:
-        raise ValueError(f"No training fold found for test fold '{fold_id}' and metric '{metric_name}'.")
-
+    """Load the train and test partition ids for a given fold from Config."""
+    test_fold = Config.get_fold_members(metric_name, fold_id)
+    train_fold = Config.get_training_ids_for_fold(metric_name, fold_id)
     return test_fold, train_fold
 
 
@@ -97,7 +64,7 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
         f"n_estimators={target_params['n_estimators']}, "
         f"max_depth={target_params['max_depth']}"
     )
-    for fold_id in "ABCDE":
+    for fold_id in Config.FOLD_IDS:
         print(f"- Training {target} for fold {fold_id}...")
         _, train_fold = load_train_test_partition(fold_id, target)
         print(f"  Loaded {len(train_fold)} training ids for fold {fold_id}")

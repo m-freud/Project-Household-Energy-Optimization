@@ -1,13 +1,8 @@
 from pathlib import Path
 import pickle
-import sys
 
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-
-# paste this to enable src. imports
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
 
 from src.config import Config
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
@@ -15,11 +10,12 @@ from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
 
-FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
+repo_root = Config.ROOT_DIR
+
 TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "random_forest" / "tuning" / "results.csv"
 
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
-RF_N_ESTIMATORS = 100
+RF_N_ESTIMATORS = 20
 
 DEFAULT_RF_PARAMS = {
     "base_load": {"n_estimators": RF_N_ESTIMATORS, "max_depth": None, "random_state": 42, "n_jobs": -1},
@@ -50,7 +46,7 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
             best_params[target] = default_params[target]
             continue
 
-        best_row = target_rows.loc[target_rows["mean_score"].idxmin()]
+        best_row = target_rows.loc[target_rows["mean_score"].idxmin()].to_dict()
         max_depth = best_row["max_depth"]
         if pd.isna(max_depth):
             parsed_max_depth = None
@@ -69,10 +65,12 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
             else:
                 parsed_max_features = float(max_features)
 
+        min_samples_leaf = best_row["min_samples_leaf"]
+
         best_params[target] = {
             "n_estimators": RF_N_ESTIMATORS,
             "max_depth": parsed_max_depth,
-            "min_samples_leaf": int(float(best_row["min_samples_leaf"])),
+            "min_samples_leaf": int(float(min_samples_leaf)),
             "max_features": parsed_max_features,
             "random_state": 42,
             "n_jobs": -1,
@@ -84,45 +82,10 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
 RF_PARAMS = _load_best_params_from_tuning(DEFAULT_RF_PARAMS)
 
 
-def _parse_id_list(value: object) -> list[int]:
-    """Convert a CSV cell containing comma-separated ids into a list of integers."""
-    if pd.isna(value):
-        return []
-    if isinstance(value, (list, tuple, set)):
-        return [int(item) for item in value]
-
-    text = str(value).strip()
-    if not text:
-        return []
-
-    return [int(item.strip()) for item in text.split(",") if item.strip()]
-
-
 def load_train_test_partition(fold_id: str, metric_name: str) -> tuple[list[int], list[int]]:
-    """Load test and train ids for a given fold and target metric."""
-    df = pd.read_csv(FOLD_CSV_PATH)
-    row = df.loc[df["fold_id"] == fold_id]
-    if row.empty:
-        raise ValueError(f"No fold found for fold_id '{fold_id}'.")
-
-    test_column_name = "fold_members"
-    train_column_name = f"train_set_{metric_name}"
-    if train_column_name not in df.columns:
-        fallback_column = f"global_complement_{metric_name}"
-        if fallback_column in df.columns:
-            train_column_name = fallback_column
-        else:
-            raise ValueError(
-                f"No training fold column found for metric '{metric_name}'. "
-                f"Checked: train_set_{metric_name}, global_complement_{metric_name}"
-            )
-
-    test_fold = _parse_id_list(row.iloc[0][test_column_name])
-    train_fold = _parse_id_list(row.iloc[0][train_column_name])
-
-    if len(train_fold) == 0:
-        raise ValueError(f"No training fold found for test fold '{fold_id}' and metric '{metric_name}'.")
-
+    """Load test and train ids for a given fold and target metric from Config."""
+    test_fold = Config.get_fold_members(metric_name, fold_id)
+    train_fold = Config.get_training_ids_for_fold(metric_name, fold_id)
     return test_fold, train_fold
 
 
@@ -171,7 +134,7 @@ def run() -> None:
         print(f"\n=== Starting {target} random_forest models ===")
         print(f"  Using params: {RF_PARAMS[target]}")
 
-        for fold_id in "ABCDE":
+        for fold_id in Config.FOLD_IDS:
             print(f"- Training {target} for fold {fold_id}...")
             _, train_fold = load_train_test_partition(fold_id, target)
             print(f"  Loaded {len(train_fold)} training ids for fold {fold_id}")

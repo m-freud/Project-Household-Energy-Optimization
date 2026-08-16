@@ -1,13 +1,7 @@
 from dotenv import load_dotenv
 import os
 from pathlib import Path
-# paste this to enable src. imports
-from pathlib import Path
-import sys
 
-# find the repository root that contains 'src'
-repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
-sys.path.insert(0, str(repo_root))
 from src.simulation.controllers.mpc.predictors.ml.model_config import (
     MODEL_FEATURE_DOMAIN,
     build_model_family_configs,
@@ -75,7 +69,8 @@ class Config:
     XGB_FEATURES = MODEL_FEATURE_DOMAIN
     MODEL_FEATURES = MODEL_FEATURE_DOMAIN
 
-    FOLD_IDS = ["fold_1", "fold_2", "fold_3", "fold_4", "fold_5"]
+    ALL_PLAYER_IDS = tuple(range(1, 251))
+    FOLD_IDS = ("fold_1", "fold_2", "fold_3", "fold_4", "fold_5")
 
     TARGET_FOLD_SPLITS = {
         "base_load": {
@@ -108,9 +103,65 @@ class Config:
             },
     }
 
-    def get_fold_id(self, target:str, household_id:int):
-        for fold_id, household_ids in self.TARGET_FOLD_SPLITS[target].items():
-            if household_id in household_ids:
-                return fold_id
-        raise ValueError(f"Household ID {household_id} not found in any fold for target {target}.")
+    FOLD_SPLITS_BY_TARGET = TARGET_FOLD_SPLITS
+    FOLD_PLAYER_TO_FOLD_BY_TARGET = {
+        target: {
+            household_id: fold_id
+            for fold_id, household_ids in fold_splits.items()
+            for household_id in household_ids
+        }
+        for target, fold_splits in TARGET_FOLD_SPLITS.items()
+    }
+
+    # Backward-compatible aliases for older runtime code.
+    RUNTIME_TEST_FOLDS = FOLD_SPLITS_BY_TARGET["base_load"]
+    RUNTIME_PLAYER_TO_TEST_FOLD = FOLD_PLAYER_TO_FOLD_BY_TARGET["base_load"]
+
+    def get_fold_id(self, target: str, household_id: int):
+        return self.get_fold_for_player(target=target, player_id=household_id)
+
+    @classmethod
+    def get_fold_for_player(cls, target: str, player_id: int) -> str:
+        try:
+            return cls.FOLD_PLAYER_TO_FOLD_BY_TARGET[str(target)][int(player_id)]
+        except KeyError as exc:
+            raise ValueError(
+                f"Household ID {player_id} not found in any fold for target {target}."
+            ) from exc
+
+    @classmethod
+    def get_fold_members(cls, target: str, fold_id: str) -> list[int]:
+        try:
+            return list(cls.FOLD_SPLITS_BY_TARGET[str(target)][str(fold_id)])
+        except KeyError as exc:
+            raise ValueError(f"Unknown fold '{fold_id}' for target '{target}'.") from exc
+
+    @classmethod
+    def get_training_ids_for_fold(cls, target: str, fold_id: str) -> list[int]:
+        test_ids = set(cls.get_fold_members(target=target, fold_id=fold_id))
+        return [player_id for player_id in cls.ALL_PLAYER_IDS if player_id not in test_ids]
+
+    @classmethod
+    def get_player_to_fold_map(cls, target: str) -> dict[int, str]:
+        try:
+            return dict(cls.FOLD_PLAYER_TO_FOLD_BY_TARGET[str(target)])
+        except KeyError as exc:
+            raise ValueError(f"Unknown target '{target}'.") from exc
+
+    @classmethod
+    def get_model_path_for_fold(cls, family: str, target: str, fold_id: str) -> Path:
+        family_key = str(family).lower()
+        if family_key not in cls.MODEL_FAMILY_CONFIGS:
+            valid_families = ", ".join(sorted(cls.MODEL_FAMILY_CONFIGS.keys()))
+            raise ValueError(
+                f"Unsupported model family '{family_key}'. Expected one of: {valid_families}"
+            )
+
+        family_config = cls.MODEL_FAMILY_CONFIGS[family_key]
+        return family_config.get_model_path_for_fold(target=target, fold_id=fold_id)
+
+    @classmethod
+    def get_model_path(cls, family: str, target: str, player_id: int) -> Path:
+        fold_id = cls.get_fold_for_player(target=target, player_id=player_id)
+        return cls.get_model_path_for_fold(family=family, target=target, fold_id=fold_id)
 

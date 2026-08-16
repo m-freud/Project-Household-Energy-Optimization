@@ -65,15 +65,11 @@ def _load_models_by_fold(
     load_model_fn: Callable[[Path], TLoadedModel],
 ) -> dict[str, TLoadedModel]:
     models_by_fold: dict[str, TLoadedModel] = {}
-    for fold_id, fold_player_ids in Config.RUNTIME_TEST_FOLDS.items():
-        if not fold_player_ids:
-            raise ValueError(f"Fold '{fold_id}' has no player ids configured.")
-
-        representative_player_id = int(fold_player_ids[0])
-        model_path = Config.get_model_path(
+    for fold_id in Config.FOLD_IDS:
+        model_path = Config.get_model_path_for_fold(
             family=family,
             target=target,
-            player_id=representative_player_id,
+            fold_id=fold_id,
         )
         if not model_path.exists():
             raise FileNotFoundError(f"Missing {family}:{target} model for fold '{fold_id}': {model_path}")
@@ -100,8 +96,6 @@ def _load_pickle_model(model_path: Path):
 @st.cache_resource(show_spinner=False)
 def _load_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
     family_key = str(family).lower()
-    player_to_fold = dict(Config.RUNTIME_PLAYER_TO_TEST_FOLD)
-
     if family_key == "xgb":
         base_load_models = _load_models_by_fold(
             family="xgb",
@@ -151,19 +145,19 @@ def _load_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
     return PredictorModelBank(
         base_load_model_bank=FoldModelBank(
             models_by_fold=base_load_models,
-            id_to_fold=player_to_fold,
+            id_to_fold=Config.get_player_to_fold_map("base_load"),
         ),
         pv_gen_model_bank=FoldModelBank(
             models_by_fold=pv_gen_models,
-            id_to_fold=player_to_fold,
+            id_to_fold=Config.get_player_to_fold_map("pv_gen"),
         ),
         ev1_status_model_bank=FoldModelBank(
             models_by_fold=ev1_status_models,
-            id_to_fold=player_to_fold,
+            id_to_fold=Config.get_player_to_fold_map("ev1_status"),
         ),
         ev2_status_model_bank=FoldModelBank(
             models_by_fold=ev2_status_models,
-            id_to_fold=player_to_fold,
+            id_to_fold=Config.get_player_to_fold_map("ev2_status"),
         ),
     )
 
