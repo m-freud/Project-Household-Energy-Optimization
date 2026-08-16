@@ -70,6 +70,11 @@ class Config:
     MODEL_FEATURES = MODEL_FEATURE_DOMAIN
 
     ALL_PLAYER_IDS = tuple(range(1, 251))
+
+    # minimal set that covers all base load groups while no households share any profile shapes
+    # used for quick testing of the simulation and ML models
+    INDEPENDENT_TEST_SET = [1, 12, 27, 42, 52, 68, 85, 92, 110, 114, 118, 131, 153, 159, 167, 199, 202, 215, 229, 238]
+
     FOLD_IDS = ("fold_1", "fold_2", "fold_3", "fold_4", "fold_5")
 
     TARGET_FOLD_SPLITS = {

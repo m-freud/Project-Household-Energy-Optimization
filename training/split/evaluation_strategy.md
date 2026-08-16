@@ -72,3 +72,20 @@ This is the minimum table needed to check both:
 If the two averages are close and controller ranking stays stable, the 250-household evaluation is sufficient.
 
 If they differ noticeably, or if controller ranking changes, then repeated base-load archetypes are influencing the headline result and both views should be reported explicitly.
+
+## Sanity Check Result
+
+The new fold setup was checked against the old strict setup using `run_id = 11` as the baseline and the latest default-scenario runs as the comparison.
+
+Default-scenario mean `total_cost` over the 20 test households:
+
+| controller | run 11 mean | latest mean | delta abs | delta pct |
+| --- | ---: | ---: | ---: | ---: |
+| mpc_rf | 7.503762 | 7.528608 | +0.024847 | +0.331% |
+| mpc_ridge | 9.426591 | 9.450052 | +0.023461 | +0.249% |
+| mpc_xgb | 7.557479 | 7.517684 | -0.039795 | -0.527% |
+
+Takeaway:
+- the new fold setup gives effectively equivalent default-scenario results
+- the old 20-household setup was too strict and too small to keep as the main evaluation path
+- the old setup can remain only as historical context in this folder

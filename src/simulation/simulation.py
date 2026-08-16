@@ -928,7 +928,7 @@ if __name__ == "__main__":
     if args.households == "all":
         selected_household_ids = None
     elif args.households == "test_set":
-        selected_household_ids = list(Config.RUNTIME_SIM_PLAYER_IDS)
+        selected_household_ids = list(Config.INDEPENDENT_TEST_SET)
     else:
         selected_household_ids = [
             int(token.strip()) for token in args.households.split(",") if token.strip()
