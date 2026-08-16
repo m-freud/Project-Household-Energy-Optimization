@@ -39,7 +39,6 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         # select models based on household and metric
         household_id = household.player_id
         base_load_model: TRegressor = self.model_bank.base_load_model_bank.get_predictor_model(household_id)
-        pv_gen_model: TRegressor = self.model_bank.pv_gen_model_bank.get_predictor_model(household_id)
         ev1_status_model: TClassifier = self.model_bank.ev1_status_model_bank.get_predictor_model(household_id)
         ev2_status_model: TClassifier = self.model_bank.ev2_status_model_bank.get_predictor_model(household_id)
 
@@ -58,11 +57,19 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
             horizon=horizon,
             predicted_ev_status=ev_status,
         )
-        pv_gen = predict_pv_gen(
-            model=pv_gen_model,
-            household=household,
-            horizon=horizon,
-        )
+        if household.has_pv:
+            pv_gen_model: TRegressor = self.model_bank.pv_gen_model_bank.get_predictor_model(household_id)
+            pv_gen = predict_pv_gen(
+                model=pv_gen_model,
+                household=household,
+                horizon=horizon,
+            )
+        else:
+            pv_gen = {
+                "pv_gen": [0.0] * horizon,
+                "pv_gen_lb": [0.0] * horizon,
+                "pv_gen_ub": [0.0] * horizon,
+            }
         
         ev_load = predict_ev_load(household, horizon, ev_status)
         buy_price = predict_buy_price_home(household, horizon)
