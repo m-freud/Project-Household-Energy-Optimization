@@ -9,7 +9,7 @@ from src.dashboard.single_performance.kpi_table import render_kpi_strip
 from src.dashboard.single_performance.subplots.plot_bess import plot_bess
 from src.dashboard.single_performance.subplots.plot_ev import plot_ev
 from src.dashboard.single_performance.subplots.plot_pv import plot_pv
-from src.dashboard.single_performance.subplots.plot_net_cost import plot_net_cost
+from dashboard.single_performance.subplots.plot_base_load import plot_base_load
 from src.dashboard.single_performance.subplots.plot_net_load import plot_net_load
 
 
@@ -135,11 +135,11 @@ def render_single_performance(
 	# PV
 	plot_pv(ax=axes[1, 0], player_id=player_id)
 
-	# Net Load
-	plot_net_load(ax=axes[1, 1], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	# Base Load
+	plot_base_load(ax=axes[1, 1], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
 
-	# Net Cost
-	plot_net_cost(ax=axes[1, 2], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	# Net Load
+	plot_net_load(ax=axes[1, 2], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
 
 	policy_handles = [
 		Line2D([0], [0], color=policy_colors[policy_name], linewidth=2, label=policy_name)

@@ -1,47 +1,23 @@
-# Domestic Energy Optimization
+# Project Household Energy Optimization
 
-Here we see what we can do with this dataset:
-https://zenodo.org/records/11351017
+## what am i looking at
+this is my attempt to compare different control algorithms for a virtual home energy management system (HEMS)
 
-paper:
-https://www.sciencedirect.com/science/article/pii/S2352340923003372
+based on a [paper](./data/paper.pdf) i found online, and the attached [spreadsheet](./data/energy_community_data.xlsx)
 
-It contains a simulated community of households with different setups of EVs, PVs, ...
-Energy consumption and generation, etc is simulated for 1 day in 15 min intervals for 96 households (?)
 
-Based on real user parameters from measurements.
-So the data is typical but without anomalies and chaotic behaviour. Clean, idealized users but with individual
-situations and energy profiles / behaviours.
+### data description
+The dataset represents a community of 250 residential households with 2 electric vehicles.
+200 houses get PV as well
+150 households get a battery (BESS)
 
-Why is this data relevant?
+We are provided with full-day profiles for all households, including:
 
-It shows typical consumer behaviour, but without any autmoated energy decisions. Consumption behaviour is ignorant and not motivated by factors like:
-- daytime
-- current energy prices
-- grid auslastung
-- PV erzeugung
-- Batteriestand
-- erwartete EV-Abfahrtszeiten
-- grid constraints
-- batterie effizienz
-- wetter
-- verbrauchsprognose
-- uvm
+- load (=base_load): energy consumption by house inhabitants
+- pv: pv generation (some houses have pv, some dont)
+- ev profiles for 2 vehicles:
+    - ev_at_home (1 or 0)
+    - ev_at_station (1 or 0)
 
-So we get a good model of a customer and can show real optimization
 
-Recent Hybrid MA tuning results are documented in [ma_hypa_tuning_results.md](ma_hypa_tuning_results.md). The full tuning chronology showed that added complexity (trend, beta, and other extra knobs) delivered only microscopic improvements in this setup. Practical takeaway: keep the simple global moving-average baseline as default.
-
-## Quick reset of simulation outputs (SQLite)
-
-To clear only simulation outputs (results + time-series histories) while keeping imported source tables:
-
-```bash
-./reset_sqlite_results.sh
-```
-
-## MA3 Calculation Reference
-
-Detailed equations for the current MA3 moving-average forecast are documented in:
-
-- [doc/moving_average_calculation.md](doc/moving_average_calculation.md)
+a profile is a time series of 96 values (1 per 15 minutes) amounting to one full day

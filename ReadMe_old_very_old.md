@@ -1,0 +1,47 @@
+# Domestic Energy Optimization
+
+Here we see what we can do with this dataset:
+https://zenodo.org/records/11351017
+
+paper:
+https://www.sciencedirect.com/science/article/pii/S2352340923003372
+
+It contains a simulated community of households with different setups of EVs, PVs, ...
+Energy consumption and generation, etc is simulated for 1 day in 15 min intervals for 96 households (?)
+
+Based on real user parameters from measurements.
+So the data is typical but without anomalies and chaotic behaviour. Clean, idealized users but with individual
+situations and energy profiles / behaviours.
+
+Why is this data relevant?
+
+It shows typical consumer behaviour, but without any autmoated energy decisions. Consumption behaviour is ignorant and not motivated by factors like:
+- daytime
+- current energy prices
+- grid auslastung
+- PV erzeugung
+- Batteriestand
+- erwartete EV-Abfahrtszeiten
+- grid constraints
+- batterie effizienz
+- wetter
+- verbrauchsprognose
+- uvm
+
+So we get a good model of a customer and can show real optimization
+
+Recent Hybrid MA tuning results are documented in [ma_hypa_tuning_results.md](ma_hypa_tuning_results.md). The full tuning chronology showed that added complexity (trend, beta, and other extra knobs) delivered only microscopic improvements in this setup. Practical takeaway: keep the simple global moving-average baseline as default.
+
+## Quick reset of simulation outputs (SQLite)
+
+To clear only simulation outputs (results + time-series histories) while keeping imported source tables:
+
+```bash
+./reset_sqlite_results.sh
+```
+
+## MA3 Calculation Reference
+
+Detailed equations for the current MA3 moving-average forecast are documented in:
+
+- [doc/moving_average_calculation.md](doc/moving_average_calculation.md)

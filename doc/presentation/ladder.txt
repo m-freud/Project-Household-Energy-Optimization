@@ -1,0 +1,16 @@
+blind/naive:
+    - no control
+    - fast charge
+    - even linear
+
+rule-based but myopic (no predictions, live in the now)
+    - price aware linear
+    - waterfall
+
+mpc with:
+    - oracle (mathematically optimal, upper boundary)
+    - historical average
+    - machine learning:
+        ridge regression (linear, relatively stupid)
+        xgboost (pretty good)
+        random forest (even better but very slow)
