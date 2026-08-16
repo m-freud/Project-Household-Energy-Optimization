@@ -72,10 +72,10 @@ eg_pv_gen = find_equal_groups("pv_gen")
 eg_ev1 = find_equal_groups("ev1_status")
 eg_ev2 = find_equal_groups("ev2_status")
 
-print("BASE LOAD", eg_base_load)
-print("PV GEN", eg_pv_gen)
-print("EV1 STATUS", eg_ev1)
-print("EV2 STATUS", eg_ev2)
+# print("BASE LOAD", eg_base_load)
+# print("PV GEN", eg_pv_gen)
+# print("EV1 STATUS", eg_ev1)
+# print("EV2 STATUS", eg_ev2)
 
 
 def plot_group_distributions():
@@ -103,4 +103,5 @@ def plot_group_distributions():
     plot_group_sizes(eg_ev1, "EV1 Status Equality Group Distribution")
     plot_group_sizes(eg_ev2, "EV2 Status Equality Group Distribution")
 
-plot_group_distributions()
+if __name__ == "__main__":
+    plot_group_distributions()
