@@ -16,7 +16,7 @@ def _make_uniform_device_scenario(
     *,
     start_soc: float,
     soc_allowed_range: tuple[float, float],
-    ev_targets: dict[int, float],
+    ev_targets: dict[int, float],  # uniform across EVs
     bess_final_target: float,
 ) -> tuple[DeviceScenario, DeviceScenario, DeviceScenario]:
     """Create matching EV profiles with a simpler BESS final target profile."""
@@ -38,13 +38,13 @@ def _make_uniform_device_scenario(
     return ev1, ev2, bess
 
 
-def _build_uniform_scenario(
+def _build_uniform_scenario( # all scenarios are uniform across devices
     *,
     name: str,
     start_soc: float,
     soc_allowed_range: tuple[float, float],
     ev_targets: dict[int, float],
-    bess_final_target: float,
+    bess_final_target: float=0.5,
 ) -> "Scenario":
     ev1, ev2, bess = _make_uniform_device_scenario(
         start_soc=start_soc,
@@ -67,7 +67,7 @@ FIXED_SOC_ALLOWED_RANGE = (0.2, 0.8)
 FIXED_BESS_FINAL_TARGET = 0.5
 
 START_SOC_LEVELS = {
-    "low": 0.2,
+    "low": 0.1,
     "mid": 0.5,
     "high": 0.8,
 }
@@ -77,79 +77,92 @@ EV_TARGET_PROFILES = {
     "stressed": {32: 0.6, 64: 0.75, 96: 0.9},
 }
 
-SCENARIO_METADATA = {
-    "default_scenario": {"start_level": "mid", "urgency": "relaxed"},
-    "relaxed_low_start": {"start_level": "low", "urgency": "relaxed"},
-    "relaxed_high_start": {"start_level": "high", "urgency": "relaxed"},
-    "stressed_low_start": {"start_level": "low", "urgency": "stressed"},
-    "stressed_mid_start": {"start_level": "mid", "urgency": "stressed"},
-    "stressed_high_start": {"start_level": "high", "urgency": "stressed"},
+
+
+DEFAULT_SOC_RANGE = (0.2, 0.8)
+LOW = DEFAULT_SOC_RANGE[0]
+MID = 0.5
+HIGH = DEFAULT_SOC_RANGE[1]
+
+
+scenarios = {
+    "00_no_targets_baseline": _build_uniform_scenario(
+        name="00_no_targets_baseline",
+        start_soc=0.5,
+        soc_allowed_range=DEFAULT_SOC_RANGE,
+        ev_targets={},
+    ),
+    "01_relaxed_flexible": _build_uniform_scenario(
+        name="01_relaxed_flexible",
+        start_soc=LOW,
+        soc_allowed_range=DEFAULT_SOC_RANGE,
+        ev_targets={
+            70: LOW,
+            96: MID
+            },
+    ),
+    "02": _build_uniform_scenario(
+        name="02",
+        start_soc=LOW,
+        soc_allowed_range=DEFAULT_SOC_RANGE,
+        ev_targets={
+            70: LOW,
+            96: HIGH
+            },
+    ),
+    "02a": _build_uniform_scenario(
+        name="02a",
+        start_soc=LOW,
+        soc_allowed_range=(0.05, 0.95),
+        ev_targets={
+            70: LOW,
+            96: HIGH
+            },
+    ),
+    "02b": _build_uniform_scenario(
+        name="02b",
+        start_soc=LOW,
+        soc_allowed_range=(0.3, 0.7),
+        ev_targets={
+            70: LOW,
+            96: HIGH
+            },
+    ),
+    "12": _build_uniform_scenario(
+        name="12",
+        start_soc=LOW,
+        soc_allowed_range=DEFAULT_SOC_RANGE,
+        ev_targets={
+            70: MID,
+            96: HIGH
+            },
+    ),
+    "22": _build_uniform_scenario(
+        name="22",
+        start_soc=LOW,
+        soc_allowed_range=DEFAULT_SOC_RANGE,
+        ev_targets={
+            70: HIGH,
+            96: HIGH
+            },
+    ),
 }
 
 
-scenarios = [
-    _build_uniform_scenario(
-        name="default_scenario",
-        start_soc=START_SOC_LEVELS["mid"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["relaxed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-    _build_uniform_scenario(
-        name="relaxed_low_start",
-        start_soc=START_SOC_LEVELS["low"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["relaxed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-    _build_uniform_scenario(
-        name="relaxed_high_start",
-        start_soc=START_SOC_LEVELS["high"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["relaxed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-    _build_uniform_scenario(
-        name="stressed_low_start",
-        start_soc=START_SOC_LEVELS["low"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["stressed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-    _build_uniform_scenario(
-        name="stressed_mid_start",
-        start_soc=START_SOC_LEVELS["mid"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["stressed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-    _build_uniform_scenario(
-        name="stressed_high_start",
-        start_soc=START_SOC_LEVELS["high"],
-        soc_allowed_range=FIXED_SOC_ALLOWED_RANGE,
-        ev_targets=EV_TARGET_PROFILES["stressed"],
-        bess_final_target=FIXED_BESS_FINAL_TARGET,
-    ),
-]
-
-SCENARIOS_BY_NAME = {scenario.name: scenario for scenario in scenarios}
-default_scenario = SCENARIOS_BY_NAME["default_scenario"]
+default_scenario = scenarios["02"]
 
 
 def get_scenario_names() -> list[str]:
-    return [scenario.name for scenario in scenarios]
+    return list(scenarios.keys())
 
 
 def get_scenario_summary_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
-    for scenario in scenarios:
-        metadata = SCENARIO_METADATA.get(scenario.name, {})
+    for scenario_name, scenario in scenarios.items():
         rows.append(
             {
-                "scenario": scenario.name,
-                "urgency": metadata.get("urgency", "unknown"),
-                "start_level": metadata.get("start_level", "unknown"),
-                "start_soc": scenario.bess.start_soc,
+                "scenario": scenario_name,
+                "start_soc": scenario.ev1.start_soc,
                 "soc_allowed_range": f"{scenario.bess.soc_allowed_range[0]:.1f}-{scenario.bess.soc_allowed_range[1]:.1f}",
                 "bess_target_eod": scenario.bess.soc_targets.get(96),
                 "ev_targets": str(scenario.ev1.soc_targets),
@@ -163,7 +176,7 @@ def get_scenario_value(
     device_name: str,
     value,
 ):
-    scenario = SCENARIOS_BY_NAME.get(scenario_name)
+    scenario = scenarios.get(scenario_name)
     if scenario is None:
         return None
 
@@ -186,3 +199,21 @@ def get_scenario_value(
         return dict(device_scenario.soc_targets)
 
     return getattr(device_scenario, str(value), None)
+
+
+if __name__ == "__main__":
+    for row in get_scenario_summary_rows():
+        print(row)
+
+    example_scenario_name = "02"
+    example_device_name = "ev1"
+    example_value = "target_soc"
+    example_value_result = get_scenario_value(
+        scenario_name=example_scenario_name,
+        device_name=example_device_name,
+        value=example_value,
+    )
+
+    print(
+        f"Example: scenario={example_scenario_name}, device={example_device_name}, value={example_value} => {example_value_result}"
+    )
