@@ -24,7 +24,7 @@ def load_avg_profile(policy_name: str, scenario_name: str, metric: str) -> pd.Da
     )
 
 
-def render_general_performance(policies: list[str], scenarios: list[str]) -> None:
+def render_general_performance(controllers: list[str], scenarios: list[str]) -> None:
     st.header("General Performance")
 
     general_c1, general_c2, general_c3 = st.columns([1, 1, 2], gap="large")
@@ -41,8 +41,8 @@ def render_general_performance(policies: list[str], scenarios: list[str]) -> Non
     with general_c3:
         selected_policies = st.multiselect(
             "Policy",
-            options=policies,
-            default=policies,
+            options=controllers,
+            default=controllers,
         )
         
     series_frames = []

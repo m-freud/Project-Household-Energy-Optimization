@@ -154,7 +154,7 @@ scenarios = {
     ),
 }
 
-
+scenarios["default_scenario"] = scenarios["02_default_benchmark"]
 default_scenario = scenarios["02_default_benchmark"]
 
 
@@ -188,6 +188,11 @@ SCENARIO_METADATA = {
         description="High EV targets at both checkpoints.",
     ),
 }
+
+SCENARIO_METADATA["default_scenario"] = ScenarioMetadata(
+    label="default_scenario",
+    description="Low start SOC with a high end-of-day EV target."
+)
 
 
 def _validate_scenario_metadata() -> None:

@@ -897,7 +897,7 @@ if __name__ == "__main__":
         ),
     }
 
-    scenarios_by_name = {scenario.name: scenario for scenario in scenario_catalog}
+    scenarios_by_name = scenario_catalog
 
     if args.controllers == "all":
         selected_controller_names = list(controller_factories_by_name.keys())
@@ -913,7 +913,7 @@ if __name__ == "__main__":
         selected_controller_names = requested_controller_names
 
     if args.scenarios == "all":
-        selected_scenarios = scenario_catalog
+        selected_scenarios = list(scenario_catalog.values())
     else:
         requested_scenario_names = [
             name.strip() for name in args.scenarios.split(",") if name.strip()
