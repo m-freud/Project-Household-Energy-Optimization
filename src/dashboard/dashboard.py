@@ -56,7 +56,7 @@ def main():
 	household_ids = load_household_ids()
 
 	with st.expander("Scenario Grid", expanded=False):
-		st.caption("Active benchmark scenarios (3x2 grid)")
+		st.caption("Active benchmark scenarios with dashboard labels and descriptions")
 		st.dataframe(scenario_summary, width="stretch")
 
 	if not scenarios or not household_ids:

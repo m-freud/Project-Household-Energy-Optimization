@@ -63,6 +63,12 @@ class Scenario:
     bess: DeviceScenario = field(default_factory=_empty_device_scenario)
 
 
+@dataclass(frozen=True)
+class ScenarioMetadata:
+    label: str
+    description: str
+
+
 FIXED_SOC_ALLOWED_RANGE = (0.2, 0.8)
 FIXED_BESS_FINAL_TARGET = 0.5
 
@@ -86,8 +92,8 @@ HIGH = DEFAULT_SOC_RANGE[1]
 
 
 scenarios = {
-    "00_no_targets_baseline": _build_uniform_scenario(
-        name="00_no_targets_baseline",
+    "00_baseline": _build_uniform_scenario(
+        name="00_baseline",
         start_soc=0.5,
         soc_allowed_range=DEFAULT_SOC_RANGE,
         ev_targets={},
@@ -101,8 +107,8 @@ scenarios = {
             96: MID
             },
     ),
-    "02": _build_uniform_scenario(
-        name="02",
+    "02_default_benchmark": _build_uniform_scenario(
+        name="02_default_benchmark",
         start_soc=LOW,
         soc_allowed_range=DEFAULT_SOC_RANGE,
         ev_targets={
@@ -110,8 +116,8 @@ scenarios = {
             96: HIGH
             },
     ),
-    "02a": _build_uniform_scenario(
-        name="02a",
+    "02a_wide_soc_range": _build_uniform_scenario(
+        name="02a_wide_soc_range",
         start_soc=LOW,
         soc_allowed_range=(0.05, 0.95),
         ev_targets={
@@ -119,8 +125,8 @@ scenarios = {
             96: HIGH
             },
     ),
-    "02b": _build_uniform_scenario(
-        name="02b",
+    "02b_tight_soc_range": _build_uniform_scenario(
+        name="02b_tight_soc_range",
         start_soc=LOW,
         soc_allowed_range=(0.3, 0.7),
         ev_targets={
@@ -128,8 +134,8 @@ scenarios = {
             96: HIGH
             },
     ),
-    "12": _build_uniform_scenario(
-        name="12",
+    "12_even_ramp_up": _build_uniform_scenario(
+        name="12_even_ramp_up",
         start_soc=LOW,
         soc_allowed_range=DEFAULT_SOC_RANGE,
         ev_targets={
@@ -137,8 +143,8 @@ scenarios = {
             96: HIGH
             },
     ),
-    "22": _build_uniform_scenario(
-        name="22",
+    "22_early_stress": _build_uniform_scenario(
+        name="22_early_stress",
         start_soc=LOW,
         soc_allowed_range=DEFAULT_SOC_RANGE,
         ev_targets={
@@ -149,19 +155,83 @@ scenarios = {
 }
 
 
-default_scenario = scenarios["02"]
+default_scenario = scenarios["02_default_benchmark"]
+
+
+SCENARIO_METADATA = {
+    "00_baseline": ScenarioMetadata(
+        label="00 Baseline",
+        description="No EV targets, default SOC range.",
+    ),
+    "01_relaxed_flexible": ScenarioMetadata(
+        label="01 Relaxed Flexible",
+        description="Low start SOC with a moderate final EV target.",
+    ),
+    "02_default_benchmark": ScenarioMetadata(
+        label="02 Default Benchmark",
+        description="Low start SOC with a high end-of-day EV target.",
+    ),
+    "02a_wide_soc_range": ScenarioMetadata(
+        label="02a Wide SOC Range",
+        description="Scenario 02 with a wider SOC operating band.",
+    ),
+    "02b_tight_soc_range": ScenarioMetadata(
+        label="02b Tight SOC Range",
+        description="Scenario 02 with a tighter SOC operating band.",
+    ),
+    "12_even_ramp_up": ScenarioMetadata(
+        label="12 Even Ramp Up",
+        description="Intermediate EV checkpoint before a high end-of-day target.",
+    ),
+    "22_early_stress": ScenarioMetadata(
+        label="22 Early Stress",
+        description="High EV targets at both checkpoints.",
+    ),
+}
+
+
+def _validate_scenario_metadata() -> None:
+    scenario_names = set(scenarios)
+    metadata_names = set(SCENARIO_METADATA)
+
+    missing_metadata = sorted(scenario_names - metadata_names)
+    extra_metadata = sorted(metadata_names - scenario_names)
+    if missing_metadata or extra_metadata:
+        details: list[str] = []
+        if missing_metadata:
+            details.append(f"missing metadata for {missing_metadata}")
+        if extra_metadata:
+            details.append(f"unused metadata for {extra_metadata}")
+        raise ValueError("Scenario metadata mismatch: " + "; ".join(details))
+
+
+_validate_scenario_metadata()
 
 
 def get_scenario_names() -> list[str]:
     return list(scenarios.keys())
 
 
+def get_scenario_metadata_map() -> dict[str, ScenarioMetadata]:
+    return dict(SCENARIO_METADATA)
+
+
+def get_scenario_label(scenario_name: str) -> str:
+    metadata = SCENARIO_METADATA.get(scenario_name)
+    if metadata is None:
+        return scenario_name
+    return metadata.label
+
+
 def get_scenario_summary_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for scenario_name, scenario in scenarios.items():
+        metadata = SCENARIO_METADATA[scenario_name]
         rows.append(
             {
                 "scenario": scenario_name,
+                "label": metadata.label,
+                "description": metadata.description,
                 "start_soc": scenario.ev1.start_soc,
                 "soc_allowed_range": f"{scenario.bess.soc_allowed_range[0]:.1f}-{scenario.bess.soc_allowed_range[1]:.1f}",
                 "bess_target_eod": scenario.bess.soc_targets.get(96),
@@ -205,7 +275,7 @@ if __name__ == "__main__":
     for row in get_scenario_summary_rows():
         print(row)
 
-    example_scenario_name = "02"
+    example_scenario_name = "02_default_benchmark"
     example_device_name = "ev1"
     example_value = "target_soc"
     example_value_result = get_scenario_value(

@@ -4,12 +4,13 @@ import streamlit as st
 
 #~
 
+from src.simulation.scenarios.scenario import get_scenario_label
 from src.dashboard.single_performance.debug_table import render_debug_table
 from src.dashboard.single_performance.kpi_table import render_kpi_strip
 from src.dashboard.single_performance.subplots.plot_bess import plot_bess
 from src.dashboard.single_performance.subplots.plot_ev import plot_ev
 from src.dashboard.single_performance.subplots.plot_pv import plot_pv
-from dashboard.single_performance.subplots.plot_base_load import plot_base_load
+from src.dashboard.single_performance.subplots.plot_base_load import plot_base_load
 from src.dashboard.single_performance.subplots.plot_net_load import plot_net_load
 
 
@@ -54,6 +55,7 @@ def render_single_performance(
 			"Scenario",
 			options=scenarios,
 			index=0,
+			format_func=get_scenario_label,
 			key="single_view_scenario",
 		)
 	with single_c3:

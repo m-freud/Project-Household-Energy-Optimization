@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 
+from src.simulation.scenarios.scenario import get_scenario_label
 from src.sqlite_connection import (
     load_avg_profile as db_load_avg_profile,
 )
@@ -29,7 +30,12 @@ def render_general_performance(policies: list[str], scenarios: list[str]) -> Non
     general_c1, general_c2, general_c3 = st.columns([1, 1, 2], gap="large")
 
     with general_c1:
-        selected_scenario = st.selectbox("Scenario", options=scenarios, index=0)
+        selected_scenario = st.selectbox(
+            "Scenario",
+            options=scenarios,
+            index=0,
+            format_func=get_scenario_label,
+        )
     with general_c2:
         selected_metric = st.selectbox("Metric", options=METRICS, index=0)
     with general_c3:
