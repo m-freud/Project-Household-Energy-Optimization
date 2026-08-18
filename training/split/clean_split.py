@@ -180,7 +180,6 @@ PARTITIONS = {
     }
 }
 
-print(PARTITIONS["inner"]["ev1_status"]["test"])
 
 
 if __name__ == "__main__":
@@ -206,6 +205,8 @@ if __name__ == "__main__":
         print(f"  Train: {len(train)}")
         print(f"  Test:  {len(test)}")
         print(f"  Ratio: {len(train)/(len(train)+len(test)):.1%}")
+        if "ev" in target:
+            continue
         print(f"  Train groups: {len(train_g)}")
         print(f"  Train group sizes: {sorted(map(len, train_g.values()), reverse=True)}")
         print(f"  Test groups: {len(test_g)}")
