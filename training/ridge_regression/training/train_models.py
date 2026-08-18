@@ -13,14 +13,14 @@ from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
 from training.model_artifacts import write_training_params_manifest
 
-repo_root = Config.ROOT_DIR
+repo_root = RuntimeConfig.ROOT_DIR
 
 TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "ridge_regression" / "tuning" / "results.csv"
 
@@ -68,8 +68,8 @@ RIDGE_PARAMS = _load_best_params_from_tuning(DEFAULT_RIDGE_PARAMS)
 
 def load_train_test_partition(fold_id: str, metric_name: str) -> tuple[list[int], list[int]]:
     """Load test and train ids for a given fold and target metric from Config."""
-    test_fold = Config.get_fold_members(metric_name, fold_id)
-    train_fold = Config.get_training_ids_for_fold(metric_name, fold_id)
+    test_fold = RuntimeConfig.get_fold_members(metric_name, fold_id)
+    train_fold = RuntimeConfig.get_training_ids_for_fold(metric_name, fold_id)
     return test_fold, train_fold
 
 
@@ -126,7 +126,7 @@ def run() -> None:
         print(f"\n=== Starting {target} ridge_regression models ===")
         print(f"  Using params: {RIDGE_PARAMS[target]}")
 
-        for fold_id in Config.FOLD_IDS:
+        for fold_id in RuntimeConfig.FOLD_IDS:
             print(f"- Training {target} for fold {fold_id}...")
             _, train_fold = load_train_test_partition(fold_id, target)
             print(f"  Loaded {len(train_fold)} training ids for fold {fold_id}")
@@ -142,13 +142,13 @@ def run() -> None:
             model.fit(X_train, y_train)
             print(f"  Finished training {target} model for fold {fold_id}")
 
-            model_save_path = Path(Config.RIDGE_METRIC_MODEL_DIRS[target] / f"{fold_id}.pkl")
+            model_save_path = Path(RuntimeConfig.RIDGE_METRIC_MODEL_DIRS[target] / f"{fold_id}.pkl")
             _save_model(model, model_save_path)
             write_training_params_manifest(
                 model_save_path.parent,
                 family="ridge",
                 target=target,
-                fold_ids=Config.FOLD_IDS,
+                fold_ids=RuntimeConfig.FOLD_IDS,
                 params=RIDGE_PARAMS[target],
             )
             print(f"  Saved model to {model_save_path}")

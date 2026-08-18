@@ -12,19 +12,19 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 
 from xgboost import XGBClassifier  # noqa: E402
 from training._features.ev_status_features import get_ev_status_features  # noqa: E402
 
 
-train_household_ids = list(Config.H_SET_TRAINING)
-test_household_ids = list(Config.H_SET_TESTING)
+train_household_ids = list(RuntimeConfig.H_SET_TRAINING)
+test_household_ids = list(RuntimeConfig.H_SET_TESTING)
 
 train = get_ev_status_features(train_household_ids)
 test = get_ev_status_features(test_household_ids)
 
-feature_columns = Config.XGB_FEATURES["EV_STATUS"]
+feature_columns = RuntimeConfig.XGB_FEATURES["EV_STATUS"]
 
 for f in feature_columns:
 	if f not in train.columns or f not in test.columns:
@@ -52,5 +52,5 @@ print(f"Test accuracy: {accuracy}")
 print(f"Train rows: {len(train)} | Test rows: {len(test)}")
 
 # save model
-model_path = Config.XGB_EV_STATUS_MODEL_PATH
+model_path = RuntimeConfig.XGB_EV_STATUS_MODEL_PATH
 model.save_model(model_path)

@@ -1,11 +1,11 @@
 import sqlite3
 import re
 import pandas as pd
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def create_sqlite_connection():
-    return sqlite3.connect(Config.SQLITE_PATH)
+    return sqlite3.connect(RuntimeConfig.SQLITE_PATH)
 
 
 def get_sqlite_cursor():
@@ -29,7 +29,7 @@ def load_series(
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
 
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             table_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
         except sqlite3.OperationalError:
@@ -98,7 +98,7 @@ def load_attribute(table_name: str, player_id: int, attribute_name: str):
     if not _is_safe_identifier(attribute_name):
         raise ValueError(f"Invalid attribute name: {attribute_name}")
 
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             row = conn.execute(
                 f"SELECT {attribute_name} FROM {table_name} WHERE player_id = ? LIMIT 1",
@@ -121,7 +121,7 @@ def load_avg_profile(
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
     
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             result = pd.read_sql_query(
                 f"""
@@ -155,7 +155,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
 
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
         except (pd.errors.DatabaseError, sqlite3.OperationalError):
@@ -183,7 +183,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
     if table_name == "pv_gen":
         # use only households with pv
         try:
-            with sqlite3.connect(Config.SQLITE_PATH) as conn:
+            with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
                 pv_households = pd.read_sql_query(
                     """
                     SELECT player_id
@@ -220,7 +220,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
 
 
 def load_policies() -> list[str]:
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT policy FROM results ORDER BY policy"
@@ -231,7 +231,7 @@ def load_policies() -> list[str]:
 
 
 def load_scenarios() -> list[str]:
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT scenario FROM results ORDER BY scenario"
@@ -242,7 +242,7 @@ def load_scenarios() -> list[str]:
 
 
 def load_household_ids_from_results() -> list[int]:
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT player_id FROM results ORDER BY player_id"
@@ -258,7 +258,7 @@ def load_source_household_ids() -> list[int]:
     This supports dashboard views that don't require simulation result rows.
     """
 
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         # Prefer fixed_costs as it should have one row per player.
         try:
             rows = conn.execute(
@@ -284,7 +284,7 @@ def load_household_result(
     scenario_name: str,
     policy_name: str,
 ) -> pd.DataFrame:
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         try:
             result = pd.read_sql_query(
                 """

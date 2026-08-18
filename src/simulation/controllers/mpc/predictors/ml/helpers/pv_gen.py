@@ -1,5 +1,5 @@
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TRegressor
 from src.simulation.controllers.mpc.predictors.shared import make_band
@@ -84,8 +84,8 @@ def _build_pv_gen_features(
 
 def _try_bypass(current_time: int) -> float | None:
     # post-midnight bypass is implied
-    if current_time < Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"] \
-       or current_time > Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]:
+    if current_time < RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["earliest_start"] \
+       or current_time > RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["latest_end"]:
         return 0.0
     return None
 
@@ -99,8 +99,8 @@ def _predict_pv_gen(
     if not household.has_pv:
         return [0.0] * horizon
 
-    daylight_start = Config.PV_GENERATION_WINDOW_ALLOWED["earliest_start"]
-    daylight_end = Config.PV_GENERATION_WINDOW_ALLOWED["latest_end"]
+    daylight_start = RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["earliest_start"]
+    daylight_end = RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["latest_end"]
 
     # current values
     current_timestep = household.current_timestep

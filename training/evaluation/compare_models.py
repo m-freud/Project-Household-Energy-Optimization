@@ -25,7 +25,7 @@ def _bootstrap_repo_root() -> Path:
 
 REPO_ROOT = _bootstrap_repo_root()
 
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig  # noqa: E402
 from training._features.base_load_features import get_base_load_features  # noqa: E402
 from training._features.ev_status_features import get_ev_status_features  # noqa: E402
@@ -166,13 +166,13 @@ def _feature_columns_for_target(family: str, target: str) -> list[str]:
 
 def _target_spec(target: str) -> tuple[list[int], Any, str, str]:
     if target == "base_load":
-        return list(Config.ALL_PLAYER_IDS), get_base_load_features, "next_value", "regression"
+        return list(RuntimeConfig.ALL_PLAYER_IDS), get_base_load_features, "next_value", "regression"
     if target == "pv_gen":
-        return list(Config.PLAYERS_WITH_PV), get_pv_gen_features, "next_value", "regression"
+        return list(RuntimeConfig.PLAYERS_WITH_PV), get_pv_gen_features, "next_value", "regression"
     if target == "ev1_status":
-        return list(Config.ALL_PLAYER_IDS), get_ev_status_features, "next_state", "classification"
+        return list(RuntimeConfig.ALL_PLAYER_IDS), get_ev_status_features, "next_state", "classification"
     if target == "ev2_status":
-        return list(Config.ALL_PLAYER_IDS), get_ev_status_features, "next_state", "classification"
+        return list(RuntimeConfig.ALL_PLAYER_IDS), get_ev_status_features, "next_state", "classification"
     raise ValueError(f"Unknown target '{target}'.")
 
 
@@ -180,7 +180,7 @@ def _apply_target_filter(feature_df: pd.DataFrame, target: str) -> pd.DataFrame:
     filtered_df = feature_df.copy()
 
     if target == "pv_gen":
-        window = Config.PV_GENERATION_WINDOW_ALLOWED
+        window = RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED
         return filtered_df.loc[
             filtered_df["timestep"].between(
                 int(window["earliest_start"]),
@@ -192,7 +192,7 @@ def _apply_target_filter(feature_df: pd.DataFrame, target: str) -> pd.DataFrame:
         ev_key = target.split("_")[0]
 
         keep_mask = pd.Series(False, index=filtered_df.index)
-        for commute_window in Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]:
+        for commute_window in RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]:
             keep_mask |= filtered_df["timestep"].between(
                 int(commute_window["earliest_start"]),
                 int(commute_window["latest_end"]),
@@ -226,13 +226,13 @@ def _normalise_training_params(family: str, raw_params: dict[str, Any]) -> dict[
 
 
 def _training_manifest_path(family: str, target: str) -> Path:
-    model_dir = Config.MODEL_FAMILY_CONFIGS[family].target_model_dirs[target]
+    model_dir = RuntimeConfig.MODEL_FAMILY_CONFIGS[family].target_model_dirs[target]
     return Path(model_dir) / "training_params.txt"
 
 
 def _model_path_for(family: str, target: str, fold_id: str) -> Path:
-    model_dir = Config.MODEL_FAMILY_CONFIGS[family].target_model_dirs[target]
-    suffix = Config.MODEL_FAMILY_CONFIGS[family].file_suffix
+    model_dir = RuntimeConfig.MODEL_FAMILY_CONFIGS[family].target_model_dirs[target]
+    suffix = RuntimeConfig.MODEL_FAMILY_CONFIGS[family].file_suffix
     return Path(model_dir / f"{fold_id}{suffix}")
 
 
@@ -240,7 +240,7 @@ def _manifest_text(family: str, target: str, params: dict[str, Any]) -> str:
     return render_training_params_manifest(
         family=family,
         target=target,
-        fold_ids=Config.FOLD_IDS,
+        fold_ids=RuntimeConfig.FOLD_IDS,
         params=params,
     )
 
@@ -267,13 +267,13 @@ def evaluate_models() -> tuple[pd.DataFrame, pd.DataFrame]:
 
             feature_df["household_id"] = feature_df["household_id"].astype(int)
             feature_df["fold_id"] = feature_df["household_id"].map(
-                lambda household_id: Config.get_fold_for_player(target, int(household_id))
+                lambda household_id: RuntimeConfig.get_fold_for_player(target, int(household_id))
             )
 
             y_true_parts: list[pd.Series] = []
             y_pred_parts: list[pd.Series] = []
 
-            for fold_id in Config.FOLD_IDS:
+            for fold_id in RuntimeConfig.FOLD_IDS:
                 fold_df = feature_df.loc[feature_df["fold_id"] == fold_id].copy()
                 if fold_df.empty:
                     continue

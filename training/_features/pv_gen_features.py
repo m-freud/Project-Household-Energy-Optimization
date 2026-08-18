@@ -5,7 +5,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 import pandas as pd  # noqa: E402
 import numpy as np  # noqa: E402
 
@@ -27,7 +27,7 @@ from training._features._shared import (  # noqa: E402
 
 
 def _add_steps_to_daylight_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
-    pv_window = Config.PV_GENERATION_WINDOW_ALLOWED
+    pv_window = RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED
     
     daylight_start = int(pv_window["earliest_start"])
     daylight_end = int(pv_window["latest_end"])

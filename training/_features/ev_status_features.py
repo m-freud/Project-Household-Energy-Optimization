@@ -9,7 +9,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor  # noqa: E402
 
 
@@ -151,7 +151,7 @@ def _add_phase_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _add_allowed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED
 
     feature_df["start1_earliest"] = feature_df["ev_key"].map(
         {"ev1": int(windows["ev1"][0]["earliest_start"]), "ev2": int(windows["ev2"][0]["earliest_start"])}
@@ -169,7 +169,7 @@ def _add_allowed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.DataF
 
 
 def _add_max_commute_steps(feature_df: pd.DataFrame) -> pd.DataFrame:
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED
 
     feature_df["max_commute_steps_1"] = feature_df["ev_key"].map(
         {"ev1": int(windows["ev1"][0]["max_unavailable_steps"]), "ev2": int(windows["ev2"][0]["max_unavailable_steps"])}

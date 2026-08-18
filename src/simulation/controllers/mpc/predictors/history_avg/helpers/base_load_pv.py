@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.household import Household
 
 
@@ -26,7 +26,7 @@ def _history_values(household: Household, key: str) -> list[float]:
 
 
 def _apply_pv_window_mask(household: Household, series: list[float]) -> list[float]:
-    window = Config.PV_GENERATION_WINDOW_OBSERVED
+    window = RuntimeConfig.PV_GENERATION_WINDOW_OBSERVED
     start_period = int(window["earliest_start"])
     end_period = int(window["latest_end"])
     current_period = int(household.current_timestep)
@@ -67,7 +67,7 @@ def predict_pv_gen(
 ) -> dict[str, list[float]]:
     values_since_sunlight = []
     for t, val in sorted(household.history.get("pv_gen", {}).items()):
-        if t >= Config.PV_GENERATION_WINDOW_OBSERVED["earliest_start"]:
+        if t >= RuntimeConfig.PV_GENERATION_WINDOW_OBSERVED["earliest_start"]:
             values_since_sunlight.append(float(val))
 
     pv_series = _forecast_history_average(

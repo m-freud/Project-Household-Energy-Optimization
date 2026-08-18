@@ -9,7 +9,7 @@ from sklearn.metrics import root_mean_squared_error, log_loss
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 from training.xgboost.training.train_models import load_train_test_partition
 
@@ -37,7 +37,7 @@ def _evaluate_fold(target: str, fold_id: str, params: dict) -> float:
     if target == "base_load":
         train_df = get_base_load_features(train_fold)
         test_df  = get_base_load_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["BASE_LOAD"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["BASE_LOAD"]
         X_train, y_train = train_df[feature_columns], train_df["next_value"]
         X_test,  y_test  = test_df[feature_columns],  test_df["next_value"]
         model = XGBRegressor(**params, verbosity=0)
@@ -47,7 +47,7 @@ def _evaluate_fold(target: str, fold_id: str, params: dict) -> float:
     elif target == "pv_gen":
         train_df = get_pv_gen_features(train_fold)
         test_df  = get_pv_gen_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["PV_GEN"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["PV_GEN"]
         X_train, y_train = train_df[feature_columns], train_df["next_value"]
         X_test,  y_test  = test_df[feature_columns],  test_df["next_value"]
         model = XGBRegressor(**params, verbosity=0)
@@ -57,7 +57,7 @@ def _evaluate_fold(target: str, fold_id: str, params: dict) -> float:
     elif target in ("ev1_status", "ev2_status"):
         train_df = get_ev_status_features(train_fold)
         test_df  = get_ev_status_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["EV_STATUS"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["EV_STATUS"]
         X_train, y_train = train_df[feature_columns], train_df["next_state"]
         X_test,  y_test  = test_df[feature_columns],  test_df["next_state"]
         model = XGBClassifier(**params, verbosity=0)

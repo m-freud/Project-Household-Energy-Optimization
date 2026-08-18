@@ -7,13 +7,13 @@ import pandas as pd
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 XGB_SUMMARY_PATH = Path(
-    Config.ROOT_DIR / "training" / "xgboost" / "features" / "importance_reports" / "all_targets_gain_summary.csv"
+    RuntimeConfig.ROOT_DIR / "training" / "xgboost" / "features" / "importance_reports" / "all_targets_gain_summary.csv"
 )
 RF_SUMMARY_PATH = Path(
-    Config.ROOT_DIR
+    RuntimeConfig.ROOT_DIR
     / "training"
     / "random_forest"
     / "features"
@@ -21,7 +21,7 @@ RF_SUMMARY_PATH = Path(
     / "all_targets_importance_summary.csv"
 )
 RIDGE_SUMMARY_PATH = Path(
-    Config.ROOT_DIR
+    RuntimeConfig.ROOT_DIR
     / "training"
     / "ridge_regression"
     / "features"
@@ -29,7 +29,7 @@ RIDGE_SUMMARY_PATH = Path(
     / "all_targets_coef_summary.csv"
 )
 
-OUTPUT_DIR = Path(Config.ROOT_DIR / "training" / "_features" / "relevance_comparison_reports")
+OUTPUT_DIR = Path(RuntimeConfig.ROOT_DIR / "training" / "_features" / "relevance_comparison_reports")
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
 
 

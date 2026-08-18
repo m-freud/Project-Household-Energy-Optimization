@@ -8,16 +8,16 @@ sys.path.insert(0, str(repo_root))
 
 from xgboost import XGBRegressor  # noqa: E402
 from training._features.base_load_features import get_base_load_features  # noqa: E402
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 import numpy as np  # noqa: E402
 
-train_household_ids = list(Config.H_SET_TRAINING)
-test_household_ids = list(Config.H_SET_TESTING)
+train_household_ids = list(RuntimeConfig.H_SET_TRAINING)
+test_household_ids = list(RuntimeConfig.H_SET_TESTING)
 
 train = get_base_load_features(train_household_ids)
 test = get_base_load_features(test_household_ids)
 
-feature_columns = Config.XGB_FEATURES["BASE_LOAD"]
+feature_columns = RuntimeConfig.XGB_FEATURES["BASE_LOAD"]
 
 for f in feature_columns:
 	if f not in train.columns or f not in test.columns:
@@ -62,6 +62,6 @@ print(f"Train households: {train_household_ids}")
 print(f"Test households: {test_household_ids}")
 
 # save model
-root = Config.ROOT_DIR
-model_path = Config.XGB_BASE_LOAD_MODEL_PATH
+root = RuntimeConfig.ROOT_DIR
+model_path = RuntimeConfig.XGB_BASE_LOAD_MODEL_PATH
 model.save_model(model_path)

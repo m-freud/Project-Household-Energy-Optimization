@@ -12,7 +12,7 @@ if repo_root is None:
     raise RuntimeError("Could not locate repository root containing 'src'.")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def _load_wide_table(conn: sqlite3.Connection, table_name: str) -> pd.DataFrame:
@@ -71,7 +71,7 @@ def export_household_plots(limit: int | None = None) -> None:
     plots_dir = repo_root / "plots"
     output_dirs = _ensure_dirs(plots_dir)
 
-    with sqlite3.connect(Config.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
         base_load = _load_wide_table(conn, "base_load")
         pv_gen = _load_wide_table(conn, "pv_gen")
         ev1_home = _load_wide_table(conn, "ev1_at_home")

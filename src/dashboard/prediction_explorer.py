@@ -13,7 +13,7 @@ import numpy as np
 import streamlit as st
 from xgboost import XGBClassifier, XGBRegressor 
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
 from src.simulation.controllers.mpc.predictors.ml.model_interface import (
@@ -65,8 +65,8 @@ def _load_models_by_fold(
     load_model_fn: Callable[[Path], TLoadedModel],
 ) -> dict[str, TLoadedModel]:
     models_by_fold: dict[str, TLoadedModel] = {}
-    for fold_id in Config.FOLD_IDS:
-        model_path = Config.get_model_path_for_fold(
+    for fold_id in RuntimeConfig.FOLD_IDS:
+        model_path = RuntimeConfig.get_model_path_for_fold(
             family=family,
             target=target,
             fold_id=fold_id,
@@ -139,25 +139,25 @@ def _load_predictor_model_bank(family: str) -> PredictorModelBank[Any, Any]:
             load_model_fn=_load_pickle_model,
         )
     else:
-        valid = ", ".join(sorted(Config.MODEL_FAMILY_CONFIGS.keys()))
+        valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
         raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
     return PredictorModelBank(
         base_load_model_bank=FoldModelBank(
             models_by_fold=base_load_models,
-            id_to_fold=Config.get_player_to_fold_map("base_load"),
+            id_to_fold=RuntimeConfig.get_player_to_fold_map("base_load"),
         ),
         pv_gen_model_bank=FoldModelBank(
             models_by_fold=pv_gen_models,
-            id_to_fold=Config.get_player_to_fold_map("pv_gen"),
+            id_to_fold=RuntimeConfig.get_player_to_fold_map("pv_gen"),
         ),
         ev1_status_model_bank=FoldModelBank(
             models_by_fold=ev1_status_models,
-            id_to_fold=Config.get_player_to_fold_map("ev1_status"),
+            id_to_fold=RuntimeConfig.get_player_to_fold_map("ev1_status"),
         ),
         ev2_status_model_bank=FoldModelBank(
             models_by_fold=ev2_status_models,
-            id_to_fold=Config.get_player_to_fold_map("ev2_status"),
+            id_to_fold=RuntimeConfig.get_player_to_fold_map("ev2_status"),
         ),
     )
 
@@ -294,7 +294,7 @@ def _build_mpc_controller(
         scenario=scenario,
         horizon=int(horizon),
         predictor=base_predictor,
-        duration_hours=float(Config.DURATION_TIMESTEP),
+        duration_hours=float(RuntimeConfig.DURATION_TIMESTEP),
     )
 
 
@@ -304,7 +304,7 @@ def render_prediction_explorer(
     st.header("Prediction Explorer")
 
     only_show_test_ids = st.checkbox("Only show test ids", value=False)
-    test_household_ids = getattr(Config, "RUNTIME_SIM_PLAYER_IDS", [])
+    test_household_ids = getattr(RuntimeConfig, "RUNTIME_SIM_PLAYER_IDS", [])
 
     available_household_ids = list(test_household_ids) if only_show_test_ids else list(household_ids)
     if not available_household_ids:
@@ -418,8 +418,8 @@ def render_prediction_explorer(
         axis.plot(x, actual_values, color="black", linewidth=1.8, label="actual")
 
         if show_pv_unavailable_shadow and profile_name == "pv_gen":
-            pv_window = getattr(Config, "PV_GENERATION_WINDOW_OBSERVED", None) or getattr(
-                Config,
+            pv_window = getattr(RuntimeConfig, "PV_GENERATION_WINDOW_OBSERVED", None) or getattr(
+                RuntimeConfig,
                 "PV_GENERATION_WINDOW_ALLOWED",
                 None,
             )

@@ -7,7 +7,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def _run_training_script(script_path: Path) -> None:
@@ -20,8 +20,8 @@ def main() -> None:
     training_dir = repo_root / "training" / "xgboost" / "training"
 
     print("Using Config-backed household split for all XGBoost models")
-    print(f"Training households ({len(Config.H_SET_TRAINING)}): {list(Config.H_SET_TRAINING)}")
-    print(f"Testing households ({len(Config.H_SET_TESTING)}): {list(Config.H_SET_TESTING)}")
+    print(f"Training households ({len(RuntimeConfig.H_SET_TRAINING)}): {list(RuntimeConfig.H_SET_TRAINING)}")
+    print(f"Testing households ({len(RuntimeConfig.H_SET_TESTING)}): {list(RuntimeConfig.H_SET_TESTING)}")
 
     scripts = [
         training_dir / "base_load_regressor.py",

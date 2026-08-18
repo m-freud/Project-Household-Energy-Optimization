@@ -19,7 +19,7 @@ repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
 from training.split._archive.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def _format_ids(ids: list[int]) -> str:
@@ -37,7 +37,7 @@ def _build_train_set(fold_complement: list[int], target: str) -> list[int]:
 
     if target == "pv_gen":
         # filter out any non-pv households
-        complement = [player_id for player_id in complement if player_id in Config.PLAYERS_WITH_PV]
+        complement = [player_id for player_id in complement if player_id in RuntimeConfig.PLAYERS_WITH_PV]
 
     return sorted(complement)
 

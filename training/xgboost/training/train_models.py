@@ -8,14 +8,14 @@ from xgboost import XGBClassifier, XGBRegressor
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 from training.model_artifacts import write_training_params_manifest
 
-repo_root = Config.ROOT_DIR
+repo_root = RuntimeConfig.ROOT_DIR
 
-TUNING_RESULTS_CSV_PATH = Path(Config.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv")
+TUNING_RESULTS_CSV_PATH = Path(RuntimeConfig.ROOT_DIR / "training" / "xgboost" / "tuning" / "results.csv")
 
 
 def _feature_columns_for_target(target: str) -> list[str]:
@@ -27,8 +27,8 @@ def _feature_columns_for_target(target: str) -> list[str]:
 
 def load_train_test_partition(fold_id: str, metric_name: str):
     """Load the train and test partition ids for a given fold from Config."""
-    test_fold = Config.get_fold_members(metric_name, fold_id)
-    train_fold = Config.get_training_ids_for_fold(metric_name, fold_id)
+    test_fold = RuntimeConfig.get_fold_members(metric_name, fold_id)
+    train_fold = RuntimeConfig.get_training_ids_for_fold(metric_name, fold_id)
     return test_fold, train_fold
 
 
@@ -69,7 +69,7 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
         f"n_estimators={target_params['n_estimators']}, "
         f"max_depth={target_params['max_depth']}"
     )
-    for fold_id in Config.FOLD_IDS:
+    for fold_id in RuntimeConfig.FOLD_IDS:
         print(f"- Training {target} for fold {fold_id}...")
         _, train_fold = load_train_test_partition(fold_id, target)
         print(f"  Loaded {len(train_fold)} training ids for fold {fold_id}")
@@ -94,14 +94,14 @@ for target in ["base_load", "pv_gen", "ev1_status", "ev2_status"]:
         model.fit(X_train, y_train)
         print(f"  Finished training {target} model for fold {fold_id}")
 
-        model_save_path = Path(Config.XGB_METRIC_MODEL_DIRS[target] / f"{fold_id}.json")
+        model_save_path = Path(RuntimeConfig.XGB_METRIC_MODEL_DIRS[target] / f"{fold_id}.json")
         model_save_path.parent.mkdir(parents=True, exist_ok=True)
         model.save_model(str(model_save_path))
         write_training_params_manifest(
             model_save_path.parent,
             family="xgb",
             target=target,
-            fold_ids=Config.FOLD_IDS,
+            fold_ids=RuntimeConfig.FOLD_IDS,
             params=target_params,
         )
         print(f"  Saved model to {model_save_path}")

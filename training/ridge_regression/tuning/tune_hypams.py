@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
@@ -61,17 +61,17 @@ def _evaluate_fold(target: str, fold_id: str, params: dict) -> float:
     if target == "base_load":
         train_df = get_base_load_features(train_fold)
         test_df = get_base_load_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["BASE_LOAD"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["BASE_LOAD"]
         y_col = "next_value"
     elif target == "pv_gen":
         train_df = get_pv_gen_features(train_fold)
         test_df = get_pv_gen_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["PV_GEN"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["PV_GEN"]
         y_col = "next_value"
     elif target in ("ev1_status", "ev2_status"):
         train_df = get_ev_status_features(train_fold)
         test_df = get_ev_status_features(test_fold)
-        feature_columns = Config.XGB_FEATURES["EV_STATUS"]
+        feature_columns = RuntimeConfig.XGB_FEATURES["EV_STATUS"]
         y_col = "next_state"
     else:
         raise ValueError(f"Unknown target: {target}")

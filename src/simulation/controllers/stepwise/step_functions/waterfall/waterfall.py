@@ -1,6 +1,6 @@
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 ARBITRAGE_MARGIN = 0.03
@@ -49,7 +49,7 @@ def _is_trajectory_urgent(
     if max_power <= 0 or efficiency <= 0:
         return True
 
-    remaining_hours = max(deadline - timestep, 0) * Config.DURATION_TIMESTEP
+    remaining_hours = max(deadline - timestep, 0) * RuntimeConfig.DURATION_TIMESTEP
     required_hours = (target_soc - current_soc) / (max_power * efficiency)
     return remaining_hours <= (required_hours + buffer_hours)
 
@@ -63,8 +63,8 @@ def _trajectory_power(
     if deficit_kwh <= 0:
         return 0.0
 
-    max_by_deficit = deficit_kwh / (Config.DURATION_TIMESTEP * efficiency)
-    even_power = (deficit_kwh / (max(remaining_steps, 1) * Config.DURATION_TIMESTEP)) / efficiency
+    max_by_deficit = deficit_kwh / (RuntimeConfig.DURATION_TIMESTEP * efficiency)
+    even_power = (deficit_kwh / (max(remaining_steps, 1) * RuntimeConfig.DURATION_TIMESTEP)) / efficiency
     return min(max_charge, max_by_deficit, even_power)
 
 
@@ -73,7 +73,7 @@ def _windows_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool
 
 
 def _estimated_unavailable_steps(ev_name: str, timestep: int, deadline: int) -> int:
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED.get(ev_name, [])
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED.get(ev_name, [])
     if not windows:
         return 0
 
@@ -100,7 +100,7 @@ def _required_soc_floor(
     max_charge: float,
     efficiency: float,
 ) -> float:
-    remaining_hours = max(deadline - timestep, 0) * Config.DURATION_TIMESTEP
+    remaining_hours = max(deadline - timestep, 0) * RuntimeConfig.DURATION_TIMESTEP
     max_addable = remaining_hours * max_charge * efficiency
     return max(0.0, target_soc - max_addable)
 
@@ -183,12 +183,12 @@ def waterfall_policy(household: Household, scenario: Scenario|None = None) -> di
         if urgent and deficit > 0:
             controls[power_key] = _trajectory_power(deficit, remaining_steps, ev.max_charge, ev.efficiency)
         elif pv_surplus > 0 and deficit > 0 and ev.at_home:
-            max_by_deficit = deficit / (Config.DURATION_TIMESTEP * ev.efficiency)
+            max_by_deficit = deficit / (RuntimeConfig.DURATION_TIMESTEP * ev.efficiency)
             power = min(pv_surplus, ev.max_charge, max_by_deficit)
             controls[power_key] = power
             pv_surplus -= power
         elif ev_price_cheap and deficit > 0:
-            max_by_deficit = deficit / (Config.DURATION_TIMESTEP * ev.efficiency)
+            max_by_deficit = deficit / (RuntimeConfig.DURATION_TIMESTEP * ev.efficiency)
             controls[power_key] = min(ev.max_charge, max_by_deficit)
         elif ev_price_expensive and not urgent:
             pass
@@ -227,8 +227,8 @@ def waterfall_policy(household: Household, scenario: Scenario|None = None) -> di
     ev2_home_power = controls["ev2_power"] if household.ev2 and household.ev2.at_home else 0.0
     net_load_excl_bess = base_load + ev1_home_power + ev2_home_power - pv_gen
 
-    if Config.DURATION_TIMESTEP > 0:
-        max_discharge_by_free = (free_energy_kwh * bess.efficiency) / Config.DURATION_TIMESTEP
+    if RuntimeConfig.DURATION_TIMESTEP > 0:
+        max_discharge_by_free = (free_energy_kwh * bess.efficiency) / RuntimeConfig.DURATION_TIMESTEP
     else:
         max_discharge_by_free = 0.0
     discharge_to_load = min(
@@ -248,17 +248,17 @@ def waterfall_policy(household: Household, scenario: Scenario|None = None) -> di
     if urgent and deficit > 0:
         controls["bess_power"] = _trajectory_power(deficit, remaining_steps, bess.max_charge, bess.efficiency)
     elif pv_surplus > 0 and deficit > 0:
-        max_by_deficit = deficit / (Config.DURATION_TIMESTEP * bess.efficiency)
+        max_by_deficit = deficit / (RuntimeConfig.DURATION_TIMESTEP * bess.efficiency)
         controls["bess_power"] = min(pv_surplus, bess.max_charge, max_by_deficit)
     elif price_cheap and deficit > 0:
-        max_by_deficit = deficit / (Config.DURATION_TIMESTEP * bess.efficiency)
+        max_by_deficit = deficit / (RuntimeConfig.DURATION_TIMESTEP * bess.efficiency)
         controls["bess_power"] = min(bess.max_charge, max_by_deficit)
     elif price_expensive and not urgent:
         if discharge_to_load > 0 and discharge_profitable:
             controls["bess_power"] = -discharge_to_load
     elif deficit > 0:
         base_charge = _trajectory_power(deficit, remaining_steps, bess.max_charge, bess.efficiency)
-        max_by_deficit = deficit / (Config.DURATION_TIMESTEP * bess.efficiency)
+        max_by_deficit = deficit / (RuntimeConfig.DURATION_TIMESTEP * bess.efficiency)
         controls["bess_power"] = min(base_charge + pv_surplus, bess.max_charge, max_by_deficit)
     elif discharge_to_load > 0 and discharge_profitable:
         controls["bess_power"] = -discharge_to_load

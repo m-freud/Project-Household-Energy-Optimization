@@ -4,7 +4,7 @@ from typing import Callable, cast
 import cvxpy as cp
 import numpy as np
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
@@ -170,7 +170,7 @@ class MPCController(BaseController):
         efficiency: float,
     ) -> float:
         remaining_steps = max(deadline - current_timestep, 0)
-        return remaining_steps * Config.DURATION_TIMESTEP * max_charge_kw * efficiency
+        return remaining_steps * RuntimeConfig.DURATION_TIMESTEP * max_charge_kw * efficiency
 
     def _ev_max_addable_from(
         self,
@@ -195,7 +195,7 @@ class MPCController(BaseController):
         max_charge = _as_float_array(profiles.get(f"{ev_name}_max_charge", [])[start_idx:end_idx], end_idx - start_idx)
 
         availability = _is_available(at_home, at_station)
-        return float(np.sum(availability * np.maximum(0.0, max_charge)) * Config.DURATION_TIMESTEP * efficiency)
+        return float(np.sum(availability * np.maximum(0.0, max_charge)) * RuntimeConfig.DURATION_TIMESTEP * efficiency)
 
     def _build_fallback_controls(self, household: Household) -> dict[str, float]:
         controls = {
@@ -230,7 +230,7 @@ class MPCController(BaseController):
     def set_controls(self, household: Household, scenario: Scenario, *args, **kwargs):
         horizon = self.horizon
         pred = self._build_oracle_prediction(household, horizon)
-        dt = float(Config.DURATION_TIMESTEP)
+        dt = float(RuntimeConfig.DURATION_TIMESTEP)
 
         constraints = []
         objective_terms = []

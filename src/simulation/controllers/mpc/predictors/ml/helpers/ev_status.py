@@ -1,6 +1,6 @@
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TClassifier
 from src.simulation.household import Household
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 
@@ -63,7 +63,7 @@ def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
     we mostly separate fetching from building
     status is converted to 012 format
     """
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
     current_timestep = household.current_timestep
 
     at_home_history = household.history.get(f"{ev_key}_at_home", {})
@@ -225,7 +225,7 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
             return 0, 1
         raise ValueError(f"Unexpected EV status class: {status}")
 
-    windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
     start1_earliest = windows[0]["earliest_start"]
     end1_latest = windows[0]["latest_end"]
     start2_earliest = windows[1]["earliest_start"]

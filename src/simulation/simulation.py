@@ -11,7 +11,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.mpc_controller import MPCController
@@ -178,7 +178,7 @@ class Simulation:
 
         self.num_households = 250
         self.num_timesteps = 96
-        self.duration_hours = float(Config.DURATION_TIMESTEP)
+        self.duration_hours = float(RuntimeConfig.DURATION_TIMESTEP)
 
         self.env_inputs = [ # time series table names
             "base_load",
@@ -775,8 +775,8 @@ if __name__ == "__main__":
         load_model_fn: Callable[[Path], TLoadedModel],
     ) -> dict[str, TLoadedModel]:
         models_by_fold: dict[str, TLoadedModel] = {}
-        for fold_id in Config.FOLD_IDS:
-            model_path = Config.get_model_path_for_fold(
+        for fold_id in RuntimeConfig.FOLD_IDS:
+            model_path = RuntimeConfig.get_model_path_for_fold(
                 family=family,
                 target=target,
                 fold_id=fold_id,
@@ -837,25 +837,25 @@ if __name__ == "__main__":
                 load_model_fn=_load_pickle_model,
             )
         else:
-            valid = ", ".join(sorted(Config.MODEL_FAMILY_CONFIGS.keys()))
+            valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
             raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
         return PredictorModelBank(
             base_load_model_bank=FoldModelBank(
                 models_by_fold=base_load_models,
-                id_to_fold=Config.get_player_to_fold_map("base_load"),
+                id_to_fold=RuntimeConfig.get_player_to_fold_map("base_load"),
             ),
             pv_gen_model_bank=FoldModelBank(
                 models_by_fold=pv_gen_models,
-                id_to_fold=Config.get_player_to_fold_map("pv_gen"),
+                id_to_fold=RuntimeConfig.get_player_to_fold_map("pv_gen"),
             ),
             ev1_status_model_bank=FoldModelBank(
                 models_by_fold=ev1_status_models,
-                id_to_fold=Config.get_player_to_fold_map("ev1_status"),
+                id_to_fold=RuntimeConfig.get_player_to_fold_map("ev1_status"),
             ),
             ev2_status_model_bank=FoldModelBank(
                 models_by_fold=ev2_status_models,
-                id_to_fold=Config.get_player_to_fold_map("ev2_status"),
+                id_to_fold=RuntimeConfig.get_player_to_fold_map("ev2_status"),
             ),
         )
     
@@ -928,7 +928,7 @@ if __name__ == "__main__":
     if args.households == "all":
         selected_household_ids = None
     elif args.households == "test_set":
-        selected_household_ids = list(Config.INDEPENDENT_TEST_SET)
+        selected_household_ids = list(RuntimeConfig.INDEPENDENT_TEST_SET)
     else:
         selected_household_ids = [
             int(token.strip()) for token in args.households.split(",") if token.strip()

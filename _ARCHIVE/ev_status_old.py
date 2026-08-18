@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from src.simulation.household import Household
 
 
@@ -80,7 +80,7 @@ def _worst_case_two_commute_starts(
 ) -> tuple[int, int]:
     # assume worst case scenario in terms of cost
     # -> charge during cheap windows before it's too late
-    commute_windows = Config.EV_COMMUTE_WINDOWS_ALLOWED[ev_name]
+    commute_windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_name]
     first_window = commute_windows[0]
     second_window = commute_windows[1]
 

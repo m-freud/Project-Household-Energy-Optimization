@@ -7,12 +7,12 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.config import Config
+from runtime_config import RuntimeConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
 
-FOLD_CSV_PATH = Path(Config.ROOT_DIR / "training" / "split" / "test_folds.csv")
+FOLD_CSV_PATH = Path(RuntimeConfig.ROOT_DIR / "training" / "split" / "test_folds.csv")
 
 FOLD_IDS = list("ABCDE")
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
@@ -128,11 +128,11 @@ def load_train_test_partition(fold_id: str, metric_name: str) -> tuple[list[int]
 
 def _feature_columns_for_target(target: str) -> list[str]:
     if target == "base_load":
-        return Config.XGB_FEATURES["BASE_LOAD"]
+        return RuntimeConfig.XGB_FEATURES["BASE_LOAD"]
     if target == "pv_gen":
-        return Config.XGB_FEATURES["PV_GEN"]
+        return RuntimeConfig.XGB_FEATURES["PV_GEN"]
     if target in ("ev1_status", "ev2_status"):
-        return Config.XGB_FEATURES["EV_STATUS"]
+        return RuntimeConfig.XGB_FEATURES["EV_STATUS"]
     raise ValueError(f"Unknown target: {target}")
 
 

@@ -12,7 +12,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 def _clamp_01(value: float) -> float:
     if value < 0.0:
@@ -31,7 +31,7 @@ def _latest_possible_start_time(current_soc: float,
     if soc_deficit <= 0:
         return 0
 
-    per_step_kwh = max_charge * Config.DURATION_TIMESTEP * max(efficiency, 1e-9)
+    per_step_kwh = max_charge * RuntimeConfig.DURATION_TIMESTEP * max(efficiency, 1e-9)
     if per_step_kwh <= 0:
         return 0
 
@@ -70,7 +70,7 @@ def _required_charge_power(current_soc: float,
     remaining_timesteps = max(effective_deadline - current_timestep, 1)
     safe_efficiency = max(efficiency, 1e-9)
 
-    avg_needed_power = soc_deficit / (remaining_timesteps * Config.DURATION_TIMESTEP) * (1.0 / safe_efficiency)
+    avg_needed_power = soc_deficit / (remaining_timesteps * RuntimeConfig.DURATION_TIMESTEP) * (1.0 / safe_efficiency)
     return min(max(avg_needed_power, 0.0), max_charge) # atleast 0 but at most max_charge
 
 

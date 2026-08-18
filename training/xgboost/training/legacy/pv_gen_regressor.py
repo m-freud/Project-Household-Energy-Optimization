@@ -9,16 +9,16 @@ sys.path.insert(0, str(repo_root))
 
 from xgboost import XGBRegressor  # noqa: E402
 from training._features.pv_gen_features import get_pv_gen_features  # noqa: E402
-from src.config import Config  # noqa: E402
+from runtime_config import RuntimeConfig  # noqa: E402
 import numpy as np  # noqa: E402
 
-train_household_ids = list(Config.H_SET_TRAINING)
-test_household_ids = list(Config.H_SET_TESTING)
+train_household_ids = list(RuntimeConfig.H_SET_TRAINING)
+test_household_ids = list(RuntimeConfig.H_SET_TESTING)
 
 train = get_pv_gen_features(train_household_ids)
 test = get_pv_gen_features(test_household_ids)
 
-feature_columns = Config.XGB_FEATURES["PV_GEN"]
+feature_columns = RuntimeConfig.XGB_FEATURES["PV_GEN"]
 
 for f in feature_columns:
 	if f not in train.columns or f not in test.columns:
@@ -59,9 +59,9 @@ r2 = _r2_score(y_test.to_numpy(), y_pred_test)
 mae = _mae(y_test.to_numpy(), y_pred_test)
 rmse = _rmse(y_test.to_numpy(), y_pred_test)
 
-pv_window = getattr(Config, "PV_GENERATION_WINDOW_ALLOWED", None)
+pv_window = getattr(RuntimeConfig, "PV_GENERATION_WINDOW_ALLOWED", None)
 if pv_window is None:
-	pv_window = getattr(Config, "PV_GENERATION_WINDOW_OBSERVED", None)
+	pv_window = getattr(RuntimeConfig, "PV_GENERATION_WINDOW_OBSERVED", None)
 
 if pv_window is None:
 	raise ValueError("Config must define PV_GENERATION_WINDOW_ALLOWED or PV_GENERATION_WINDOW_OBSERVED")
@@ -96,6 +96,6 @@ print(f"Train households: {train_household_ids}")
 print(f"Test households: {test_household_ids}")
 
 # save model
-root = Config.ROOT_DIR
-model_path = Config.XGB_PV_GEN_MODEL_PATH
+root = RuntimeConfig.ROOT_DIR
+model_path = RuntimeConfig.XGB_PV_GEN_MODEL_PATH
 model.save_model(model_path)

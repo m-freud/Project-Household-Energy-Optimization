@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from src.ingestion.table_config import table_config
 from src.sqlite_connection import sqlite_conn
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def extract_df_from_xlsx(wb, sheet_name, rectangle, column_names, transpose=False):
@@ -194,7 +194,7 @@ def load_all_tables(wb, table_instructions):
 
 
 if __name__ == "__main__":
-    wb = load_workbook(Config.EXCEL_FILE_PATH, data_only=True)
+    wb = load_workbook(RuntimeConfig.EXCEL_FILE_PATH, data_only=True)
 
     load_all_tables(wb, table_config)
 

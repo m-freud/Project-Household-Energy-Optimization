@@ -1,5 +1,5 @@
 import math
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 def encode_time_cyclic(timestep: int) -> tuple[float, float]:
     """
@@ -11,6 +11,6 @@ def encode_time_cyclic(timestep: int) -> tuple[float, float]:
     Returns:
         tuple[float, float]: A tuple containing the sine and cosine values for the encoded timestep.
     """
-    total_timesteps = Config.TOTAL_TIMESTEPS_DAY
+    total_timesteps = RuntimeConfig.TOTAL_TIMESTEPS_DAY
     angle = 2 * math.pi * (timestep / total_timesteps)
     return math.sin(angle), math.cos(angle)

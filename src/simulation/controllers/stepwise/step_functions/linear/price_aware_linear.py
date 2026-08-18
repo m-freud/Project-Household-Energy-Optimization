@@ -2,7 +2,7 @@ from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control as no_control_policy
-from src.config import Config
+from runtime_config import RuntimeConfig
 
 
 def _q25_threshold(profile: list[float]) -> float | None:
@@ -50,7 +50,7 @@ def _is_trajectory_urgent(
     if max_power <= 0 or efficiency <= 0:
         return True
 
-    remaining_hours = max(deadline - current_timestep, 0) * Config.DURATION_TIMESTEP
+    remaining_hours = max(deadline - current_timestep, 0) * RuntimeConfig.DURATION_TIMESTEP
     required_hours = (target_soc - current_soc) / (max_power * efficiency)
     return remaining_hours <= (required_hours + buffer_hours)
 
@@ -65,16 +65,16 @@ def _even_bess_power_to_target(
     efficiency: float,
 ) -> float:
     remaining_steps = max(deadline - current_timestep, 1)
-    horizon_hours = remaining_steps * Config.DURATION_TIMESTEP
+    horizon_hours = remaining_steps * RuntimeConfig.DURATION_TIMESTEP
 
     if target_soc > current_soc:
         required_power = (target_soc - current_soc) / (horizon_hours * efficiency)
-        max_power_by_deficit = (target_soc - current_soc) / (Config.DURATION_TIMESTEP * efficiency)
+        max_power_by_deficit = (target_soc - current_soc) / (RuntimeConfig.DURATION_TIMESTEP * efficiency)
         return min(required_power, max_charge, max_power_by_deficit)
 
     if current_soc > target_soc:
         required_power = ((current_soc - target_soc) * efficiency) / horizon_hours
-        max_power_by_surplus = ((current_soc - target_soc) * efficiency) / Config.DURATION_TIMESTEP
+        max_power_by_surplus = ((current_soc - target_soc) * efficiency) / RuntimeConfig.DURATION_TIMESTEP
         return -min(required_power, max_discharge, max_power_by_surplus)
 
     return 0.0
@@ -179,10 +179,10 @@ def price_aware_linear(
 
     if soc_deficit < 0 and price_expensive:
         soc_surplus = -soc_deficit
-        max_discharge_by_surplus = (soc_surplus * bess.efficiency) / Config.DURATION_TIMESTEP
+        max_discharge_by_surplus = (soc_surplus * bess.efficiency) / RuntimeConfig.DURATION_TIMESTEP
         controls["bess_power"] = -min(bess.max_discharge, max_discharge_by_surplus, max_discharge_by_load)
     elif soc_deficit > 0 and price_cheap:
-        max_charge_by_deficit = soc_deficit / (Config.DURATION_TIMESTEP * bess.efficiency)
+        max_charge_by_deficit = soc_deficit / (RuntimeConfig.DURATION_TIMESTEP * bess.efficiency)
         controls["bess_power"] = min(bess.max_charge, max_charge_by_deficit)
 
     return controls
