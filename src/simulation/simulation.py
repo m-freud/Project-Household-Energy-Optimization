@@ -249,7 +249,7 @@ class Simulation:
         self.sqlite_conn.commit()
 
 
-    def create_household(self, player_id:int, run_context: RunContext):
+    def create_household(self, player_id:int, run_context: RunContext, bess_for_all: bool=True):
         scenario = run_context.scenario
         start_time = run_context.start_time
         household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
@@ -269,7 +269,7 @@ class Simulation:
             household.pv = PV()
 
         # plug in BESS
-        if has_bess:
+        if has_bess or bess_for_all:
             bess_data = self.sqlite_cursor.execute(
                 '''SELECT capacity, charge, discharge, efficiency, initial_soc
                 FROM bess
