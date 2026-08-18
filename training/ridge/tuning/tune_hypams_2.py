@@ -41,9 +41,9 @@ from training._features.base_load_features import get_base_load_features
 from training._features.ev_status_features import get_ev_status_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training.split.clean_split import PARTITIONS
-from src.runtime_config import ROOT_DIR
+from src.runtime_config import RuntimeConfig
 
-CSV_REPORT_PATH = Path(ROOT_DIR) / "training" / "ridge" / "tuning" / "tuning_results1234.csv"
+CSV_REPORT_PATH = Path(RuntimeConfig.ROOT_DIR) / "training" / "ridge" / "tuning" / "tuning_results1234.csv"
 
 HYPAM_GRID = {
     "alpha": [0.01, 0.1, 1.0, 10.0, 100.0],
