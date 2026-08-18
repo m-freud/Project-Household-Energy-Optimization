@@ -13,7 +13,7 @@ from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features

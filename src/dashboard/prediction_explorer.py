@@ -13,7 +13,7 @@ import numpy as np
 import streamlit as st
 from xgboost import XGBClassifier, XGBRegressor 
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
 from src.simulation.controllers.mpc.predictors.ml.model_interface import (

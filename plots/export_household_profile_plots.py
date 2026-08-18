@@ -12,7 +12,7 @@ if repo_root is None:
     raise RuntimeError("Could not locate repository root containing 'src'.")
 sys.path.insert(0, str(repo_root))
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 
 
 def _load_wide_table(conn: sqlite3.Connection, table_name: str) -> pd.DataFrame:

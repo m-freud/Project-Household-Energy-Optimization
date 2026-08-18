@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from src.simulation.household import Household
 
 

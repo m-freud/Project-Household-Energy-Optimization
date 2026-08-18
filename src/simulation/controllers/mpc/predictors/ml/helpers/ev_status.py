@@ -1,6 +1,6 @@
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TClassifier
 from src.simulation.household import Household
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 

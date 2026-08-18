@@ -8,7 +8,7 @@ sys.path.insert(0, str(repo_root))
 
 from xgboost import XGBRegressor  # noqa: E402
 from training._features.base_load_features import get_base_load_features  # noqa: E402
-from runtime_config import RuntimeConfig  # noqa: E402
+from src.runtime_conig import RuntimeConfig  # noqa: E402
 import numpy as np  # noqa: E402
 
 train_household_ids = list(RuntimeConfig.H_SET_TRAINING)

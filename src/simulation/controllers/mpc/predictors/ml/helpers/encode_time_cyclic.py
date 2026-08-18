@@ -1,5 +1,5 @@
 import math
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 
 def encode_time_cyclic(timestep: int) -> tuple[float, float]:
     """

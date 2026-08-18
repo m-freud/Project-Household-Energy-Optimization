@@ -4,7 +4,7 @@ from typing import Callable, cast
 import cvxpy as cp
 import numpy as np
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario

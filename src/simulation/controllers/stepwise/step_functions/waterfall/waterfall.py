@@ -1,6 +1,6 @@
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 
 
 ARBITRAGE_MARGIN = 0.03
