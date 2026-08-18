@@ -12,7 +12,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 def _clamp_01(value: float) -> float:
     if value < 0.0:

@@ -8,7 +8,7 @@ from xgboost import XGBClassifier, XGBRegressor
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 from training.model_artifacts import write_training_params_manifest

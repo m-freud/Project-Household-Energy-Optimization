@@ -2,7 +2,7 @@ from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control as no_control_policy
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 
 def _q25_threshold(profile: list[float]) -> float | None:

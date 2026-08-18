@@ -7,7 +7,7 @@ import pandas as pd
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 XGB_SUMMARY_PATH = Path(
     RuntimeConfig.ROOT_DIR / "training" / "xgboost" / "features" / "importance_reports" / "all_targets_gain_summary.csv"

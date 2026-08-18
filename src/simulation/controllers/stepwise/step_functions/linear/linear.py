@@ -1,6 +1,6 @@
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 
 def get_next_target(current_timestep: int, target_soc_dict: dict[int, float]) -> tuple[float, int]:

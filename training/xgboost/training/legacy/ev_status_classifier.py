@@ -12,7 +12,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.runtime_conig import RuntimeConfig  # noqa: E402
+from src.runtime_config import RuntimeConfig  # noqa: E402
 
 from xgboost import XGBClassifier  # noqa: E402
 from training._features.ev_status_features import get_ev_status_features  # noqa: E402

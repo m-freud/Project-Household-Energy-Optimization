@@ -19,7 +19,7 @@ repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
 from training.split._archive.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SUBSETS, EXTRA_IDS
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 
 def _format_ids(ids: list[int]) -> str:

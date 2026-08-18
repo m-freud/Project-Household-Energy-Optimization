@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 from src.simulation.household import Household
 
 

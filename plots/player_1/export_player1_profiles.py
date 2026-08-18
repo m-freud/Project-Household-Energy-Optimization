@@ -17,7 +17,7 @@ if REPO_ROOT is None:
 
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 
 PLAYER_ID = 1

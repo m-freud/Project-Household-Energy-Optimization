@@ -6,7 +6,7 @@ from xgboost import XGBClassifier, XGBRegressor
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 
 FOLD_CSV_PATH = Path(RuntimeConfig.ROOT_DIR / "training" / "split" / "test_folds.csv")

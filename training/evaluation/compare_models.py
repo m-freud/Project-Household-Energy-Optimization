@@ -25,7 +25,7 @@ def _bootstrap_repo_root() -> Path:
 
 REPO_ROOT = _bootstrap_repo_root()
 
-from src.runtime_conig import RuntimeConfig  # noqa: E402
+from src.runtime_config import RuntimeConfig  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig  # noqa: E402
 from training._features.base_load_features import get_base_load_features  # noqa: E402
 from training._features.ev_status_features import get_ev_status_features  # noqa: E402

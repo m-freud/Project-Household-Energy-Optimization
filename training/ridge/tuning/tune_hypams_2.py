@@ -108,7 +108,10 @@ def _train_test_frames_for_target(target: str, train_ids: list[int], test_ids: l
     else:
         raise ValueError(f"Unknown target: {target}")
 
-    feature_columns = MODEL_FEATURES_BY_FAMILY["ridge"][target]
+    if "ev" in target:
+        feature_columns = MODEL_FEATURES_BY_FAMILY["ridge"]["ev_status"]
+    else:
+        feature_columns = MODEL_FEATURES_BY_FAMILY["ridge"][target]
     return train_df, test_df, feature_columns, y_col
 
 

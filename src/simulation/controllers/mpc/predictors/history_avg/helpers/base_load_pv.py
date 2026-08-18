@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 from src.simulation.household import Household
 
 

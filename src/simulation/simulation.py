@@ -11,7 +11,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.runtime_conig import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.mpc_controller import MPCController
