@@ -7,9 +7,11 @@ from src.simulation.controllers.mpc.predictors.ml.model_config import (
     build_model_family_configs,
 )
 
+from training.split.clean_split import PARTITIONS
+
 load_dotenv()
 
-class RuntimeConfig:
+class RuntimeConfig: # TODO remove ABCDE fold logic
     ROOT_DIR = Path(__file__).parent.parent
     MODEL_FAMILY_CONFIGS = build_model_family_configs(ROOT_DIR)
 
@@ -73,6 +75,8 @@ class RuntimeConfig:
     # minimal set that covers all base load groups while no households share any profile shapes
     # used for quick testing of the simulation and ML models
     INDEPENDENT_TEST_SET = [1, 12, 27, 42, 52, 68, 85, 92, 110, 114, 118, 131, 153, 159, 167, 199, 202, 215, 229, 238]
+
+    PARTITIONS = PARTITIONS
 
     FOLD_IDS = ("fold_1", "fold_2", "fold_3", "fold_4", "fold_5")
 

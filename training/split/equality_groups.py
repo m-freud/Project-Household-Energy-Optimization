@@ -33,15 +33,15 @@ def _series_profile(player_id: int, table_name: str) -> list[float]:
 
 
 
-def find_equal_groups(table_name:str):
+def find_equal_groups(table_name:str, household_ids=range(1, 251))-> dict[int, list[int]]:
     profiles = {}
-    for id in range(1, 251):
+    for id in household_ids:
         profiles[id] = _series_profile(id, table_name)
 
     assigned_ids = []
     equality_groups = {}
-    for i in range(1, 251):
-        for j in range(1, 251):
+    for i in household_ids:
+        for j in household_ids:
             if i == j:
                 continue
 
@@ -59,10 +59,13 @@ def find_equal_groups(table_name:str):
                 else:
                     equality_groups[i].append(j)
 
-    independent_ids = [id for id in range(1, 251) if id not in assigned_ids]
+    independent_ids = [id for id in household_ids if id not in assigned_ids]
 
     for id in independent_ids:
         equality_groups[id] = [id]
+
+    # sort by length
+    # equality_groups = dict(sorted(equality_groups.items(), key=lambda item: len(item[1]), reverse=True))
 
     return equality_groups
 
