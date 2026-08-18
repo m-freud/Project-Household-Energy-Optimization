@@ -9,7 +9,7 @@ from sklearn.metrics import root_mean_squared_error, log_loss
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from runtime_config import RuntimeConfig
+from src.runtime_conig import RuntimeConfig
 from training.xgboost.features import get_base_load_features, get_pv_gen_features, get_ev_status_features
 from training.xgboost.training.train_models import load_train_test_partition
 
