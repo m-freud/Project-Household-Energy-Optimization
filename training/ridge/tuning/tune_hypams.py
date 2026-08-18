@@ -16,7 +16,7 @@ from runtime_config import RuntimeConfig
 from training._features.base_load_features import get_base_load_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training._features.ev_status_features import get_ev_status_features
-from training.ridge_regression.training.train_models import load_train_test_partition
+from training.ridge.training.train_models import load_train_test_partition
 
 FOLD_IDS = list("ABCDE")
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]

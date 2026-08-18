@@ -1,7 +1,7 @@
 import sqlite3
 import re
 import pandas as pd
-from runtime_config import RuntimeConfig
+from src.runtime_config import RuntimeConfig
 
 
 def create_sqlite_connection():
