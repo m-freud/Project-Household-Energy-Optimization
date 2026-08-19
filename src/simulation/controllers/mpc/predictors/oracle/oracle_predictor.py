@@ -6,23 +6,44 @@ from src.simulation.household import Household
 class OraclePredictor(BasePredictor):
     """Predictor that uses the household's existing profile data as future forecasts."""
 
+    def _pad_to_horizon(self, series: list, horizon: int, default: float = 0.0) -> list:
+        if len(series) < horizon:
+            fill_value = series[-1] if series else default
+            series.extend([float(fill_value)] * (horizon - len(series)))
+        return series
+
     def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
-        start_idx = household.current_timestep - 1
-        return {
-            "ev1_at_home": household.oracle_profiles.get("ev1_at_home", [])[start_idx:start_idx + horizon],
-            "ev1_at_charging_station": household.oracle_profiles.get("ev1_at_charging_station", [])[start_idx:start_idx + horizon],
-            "ev2_at_home": household.oracle_profiles.get("ev2_at_home", [])[start_idx:start_idx + horizon],
-            "ev2_at_charging_station": household.oracle_profiles.get("ev2_at_charging_station", [])[start_idx:start_idx + horizon],
+        profiles = household.oracle_profiles
+        start = max(0, min(len(profiles.get("ev1_at_home", [])), household.current_timestep - 1))
+
+        predictions = {
+            "ev1_at_home": profiles.get("ev1_at_home", [])[start:start + horizon], # len 96
+            "ev1_at_charging_station": profiles.get("ev1_at_charging_station", [])[start:start + horizon],
+            "ev2_at_home": profiles.get("ev2_at_home", [])[start:start + horizon],
+            "ev2_at_charging_station": profiles.get("ev2_at_charging_station", [])[start:start + horizon],
         }
+
+        for key, values in list(predictions.items()):
+            predictions[key] = self._pad_to_horizon(values, horizon, default=0)
+
+        return predictions
 
     def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict|None = None) -> dict[str, list[float]]:
         _ = ev_status_pred  # just for compatibility with ModularPredictor
-        start_idx = household.current_timestep - 1
-        return {"base_load": household.oracle_profiles.get("base_load", [])[start_idx:start_idx + horizon]}
+        profiles = household.oracle_profiles
+        start_index = max(0, min(len(profiles.get("base_load", [])), household.current_timestep - 1))
+        pred = {"base_load": profiles.get("base_load", [])[start_index:start_index + horizon]}
+
+        pred["base_load"] = self._pad_to_horizon(pred["base_load"], horizon, default=0.0)
+        return pred
+
 
     def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:
-        start_idx = household.current_timestep - 1
-        return {"pv_gen": household.oracle_profiles.get("pv_gen", [])[start_idx:start_idx + horizon]}
+        profiles = household.oracle_profiles
+        start_index = max(0, min(len(profiles.get("pv_gen", [])), household.current_timestep - 1))
+        pred = {"pv_gen": profiles.get("pv_gen", [])[start_index:start_index + horizon]}
+        pred["pv_gen"] = self._pad_to_horizon(pred["pv_gen"], horizon, default=0.0)
+        return pred
 
     def predict(self, household: Household, horizon: int) -> dict:
         profiles = household.oracle_profiles

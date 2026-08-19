@@ -315,7 +315,7 @@ class MPCController(BaseController):
         tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
         # fetch predictions (lists starting at 0 = current timestep) and fill with defaults if missing
-        # default padding is only necessary if planning_horizon < horizon, so mostly not used, but we keep it for safety/testing
+        # default padding is only necessary if planning_horizon < horizon, so mostly not used, but we keep it for safety/testing. exception: oracle predictor returns only until t=96
         base_load_profile = self._prediction_series(predictions, "base_load", planning_horizon, default=base_load)
         pv_profile = self._prediction_series(predictions, "pv_gen", planning_horizon, default=pv_generation)
         ev1_load_profile = self._prediction_series(predictions, "ev1_load", planning_horizon, default=ev1_load)

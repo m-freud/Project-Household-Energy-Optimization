@@ -822,6 +822,23 @@ if __name__ == "__main__":
             "ev_status": HistoryAveragePredictor(conf_interval_frct=0.0),
         },
     )
+    _oracle = OraclePredictor()
+    predictor_modular_oracle = ModularPredictor(
+        default_predictor=HistoryAveragePredictor(conf_interval_frct=0.0),
+        target_predictors={
+            "base_load": _oracle,
+            "pv_gen": _oracle,
+            "ev_status": _oracle,
+        },
+    )
+    predictor_modular_avg = ModularPredictor(
+        default_predictor=HistoryAveragePredictor(conf_interval_frct=0.0),
+        target_predictors={
+            "base_load": HistoryAveragePredictor(conf_interval_frct=0.0),
+            "pv_gen": HistoryAveragePredictor(conf_interval_frct=0.0),
+            "ev_status": HistoryAveragePredictor(conf_interval_frct=0.0),
+        },
+    )
 
     controller_factories_by_name = {
         "no_control": make_function_controller("no_control", no_control),
@@ -859,6 +876,16 @@ if __name__ == "__main__":
             "mpc_modular",
             horizon=96,
             predictor=predictor_modular,
+        ),
+        "mpc_modular_oracle": make_mpc_controller(
+            "mpc_modular_oracle",
+            horizon=96,
+            predictor=predictor_modular_oracle,
+        ),
+        "mpc_modular_avg": make_mpc_controller(
+            "mpc_modular_avg",
+            horizon=96,
+            predictor=predictor_modular_avg,
         ),
     }
 

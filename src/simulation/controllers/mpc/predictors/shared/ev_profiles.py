@@ -39,6 +39,9 @@ def predict_ev_load(
     ev1_load_pred: list[float] = []
     ev2_load_pred: list[float] = []
 
+    if len(ev_status["ev1_at_home"]) < horizon or len(ev_status["ev1_at_charging_station"]) < horizon:
+        raise ValueError(f"EV status predictions {len(ev_status['ev1_at_home'])} are shorter than the requested horizon: {horizon}")
+
     for i in range(horizon):
         ev1_available = max(ev_status["ev1_at_home"][i], ev_status["ev1_at_charging_station"][i])
         ev2_available = max(ev_status["ev2_at_home"][i], ev_status["ev2_at_charging_station"][i])
