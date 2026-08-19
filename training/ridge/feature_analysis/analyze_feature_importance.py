@@ -23,7 +23,7 @@ EXCLUDED_FOLDS_BY_TARGET = {
     "pv_gen": {"E"},
 }
 
-TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "ridge_regression" / "tuning" / "results.csv"
+TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "ridge" / "tuning" / "results.csv"
 
 RIDGE_PARAMS = {
     "base_load": {"alpha": 1.0},
@@ -64,7 +64,7 @@ def _load_best_params_from_tuning(default_params: dict[str, dict]) -> dict[str, 
 
 RIDGE_PARAMS = _load_best_params_from_tuning(RIDGE_PARAMS)
 
-OUTPUT_DIR = Path(repo_root) / "training" / "ridge_regression" / "features" / "importance_reports"
+OUTPUT_DIR = Path(repo_root) / "training" / "ridge" / "features" / "importance_reports"
 
 
 def _parse_id_list(value: object) -> list[int]:
@@ -174,7 +174,7 @@ def analyze_target(target: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
     per_fold_frames = []
     effective_folds = _effective_fold_ids(target)
 
-    print(f"\n=== Feature relevance for {target} (ridge_regression) ===")
+    print(f"\n=== Feature relevance for {target} (ridge) ===")
     if len(effective_folds) != len(FOLD_IDS):
         skipped = sorted(set(FOLD_IDS).difference(effective_folds))
         print(f"  Skipping folds for {target}: {', '.join(skipped)}")

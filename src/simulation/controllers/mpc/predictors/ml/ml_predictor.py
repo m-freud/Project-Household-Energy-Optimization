@@ -1,8 +1,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Generic, Protocol, TypeVar
+from typing import Generic
 
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
@@ -22,45 +21,47 @@ from src.simulation.controllers.mpc.predictors.shared import (
 from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     TRegressor,
     TClassifier,
-    PredictorModelBankLike,
 )
 
 
 class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     """Base class for ML predictors (XGB, RF, Ridge, or more).
-    Accepts PredictorModelBankLike that can be constructed from any ML model with a predict() function
+    Accepts one model per target.
     """
 
-    def __init__(self, model_bank: PredictorModelBankLike[TRegressor, TClassifier]):
-        self.model_bank = model_bank
+    def __init__(
+        self,
+        *,
+        base_load_model: TRegressor,
+        pv_gen_model: TRegressor,
+        ev1_status_model: TClassifier,
+        ev2_status_model: TClassifier,
+    ):
+        self.base_load_model = base_load_model
+        self.pv_gen_model = pv_gen_model
+        self.ev1_status_model = ev1_status_model
+        self.ev2_status_model = ev2_status_model
 
 
     def predict(self, household: Household, horizon: int) -> dict:
-        # select models based on household and metric
-        household_id = household.player_id
-        base_load_model: TRegressor = self.model_bank.base_load_model_bank.get_predictor_model(household_id)
-        ev1_status_model: TClassifier = self.model_bank.ev1_status_model_bank.get_predictor_model(household_id)
-        ev2_status_model: TClassifier = self.model_bank.ev2_status_model_bank.get_predictor_model(household_id)
-
         # use models to predict each metric
         prediction: dict[str, list] = {}
 
         ev_status = predict_ev_status(
-            model_ev1=ev1_status_model,
-            model_ev2=ev2_status_model,
+            model_ev1=self.ev1_status_model,
+            model_ev2=self.ev2_status_model,
             household=household,
             horizon=horizon,
         )
         base_load = predict_base_load(
-            model=base_load_model,
+            model=self.base_load_model,
             household=household,
             horizon=horizon,
             predicted_ev_status=ev_status,
         )
         if household.has_pv:
-            pv_gen_model: TRegressor = self.model_bank.pv_gen_model_bank.get_predictor_model(household_id)
             pv_gen = predict_pv_gen(
-                model=pv_gen_model,
+                model=self.pv_gen_model,
                 household=household,
                 horizon=horizon,
             )

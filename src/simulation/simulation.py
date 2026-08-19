@@ -17,7 +17,6 @@ from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBuf
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
-from src.simulation.controllers.mpc.predictors.ml.model_interface import (FoldModelBank,ModelLike,PredictorModelBank,)
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
@@ -769,99 +768,51 @@ if __name__ == "__main__":
         except Exception as exc:
             raise RuntimeError(f"Failed to load pickle model from '{model_path}'.") from exc
 
-    def _load_models_by_fold(
-        family: str,
-        target: str,
-        load_model_fn: Callable[[Path], TLoadedModel],
-    ) -> dict[str, TLoadedModel]:
-        models_by_fold: dict[str, TLoadedModel] = {}
-        for fold_id in RuntimeConfig.FOLD_IDS:
-            model_path = RuntimeConfig.get_model_path_for_fold(
-                family=family,
-                target=target,
-                fold_id=fold_id,
-            )
-            if not model_path.exists():
-                raise FileNotFoundError(f"Missing {family}:{target} model for fold '{fold_id}': {model_path}")
+    def _single_model_path(family: str, target: str) -> Path:
+        family_key = str(family).lower()
+        family_config = RuntimeConfig.MODEL_FAMILY_CONFIGS[family_key]
+        model_dir = family_config.target_model_dirs[target]
+        suffix = family_config.file_suffix
 
-            model = load_model_fn(model_path)
-            print(f"Loaded {family}:{target} model for fold '{fold_id}': {model_path}")
+        preferred = Path(model_dir / f"model{suffix}")
+        if preferred.exists():
+            return preferred
 
-            models_by_fold[fold_id] = model
+        fallback = Path(model_dir / f"fold_1{suffix}")
+        if fallback.exists():
+            return fallback
 
-        return models_by_fold
+        raise FileNotFoundError(
+            f"Missing single model for {family_key}:{target}. Looked for {preferred} and {fallback}."
+        )
 
-    def _build_predictor_model_bank(family: str) -> PredictorModelBank[ModelLike, ModelLike]:
+    def _build_predictor(family: str) -> MLPredictor:
         family_key = str(family).lower()
 
         if family_key == "xgb":
-            base_load_models = _load_models_by_fold(
-                family="xgb",
-                target="base_load",
-                load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
-            )
-            pv_gen_models = _load_models_by_fold(
-                family="xgb",
-                target="pv_gen",
-                load_model_fn=lambda p: _load_xgb_model(p, XGBRegressor),
-            )
-            ev1_status_models = _load_models_by_fold(
-                family="xgb",
-                target="ev1_status",
-                load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
-            )
-            ev2_status_models = _load_models_by_fold(
-                family="xgb",
-                target="ev2_status",
-                load_model_fn=lambda p: _load_xgb_model(p, XGBClassifier),
-            )
+            base_load_model = _load_xgb_model(_single_model_path("xgb", "base_load"), XGBRegressor)
+            pv_gen_model = _load_xgb_model(_single_model_path("xgb", "pv_gen"), XGBRegressor)
+            ev1_status_model = _load_xgb_model(_single_model_path("xgb", "ev1_status"), XGBClassifier)
+            ev2_status_model = _load_xgb_model(_single_model_path("xgb", "ev2_status"), XGBClassifier)
         elif family_key in {"rf", "ridge"}:
-            base_load_models = _load_models_by_fold(
-                family=family_key,
-                target="base_load",
-                load_model_fn=_load_pickle_model,
-            )
-            pv_gen_models = _load_models_by_fold(
-                family=family_key,
-                target="pv_gen",
-                load_model_fn=_load_pickle_model,
-            )
-            ev1_status_models = _load_models_by_fold(
-                family=family_key,
-                target="ev1_status",
-                load_model_fn=_load_pickle_model,
-            )
-            ev2_status_models = _load_models_by_fold(
-                family=family_key,
-                target="ev2_status",
-                load_model_fn=_load_pickle_model,
-            )
+            base_load_model = _load_pickle_model(_single_model_path(family_key, "base_load"))
+            pv_gen_model = _load_pickle_model(_single_model_path(family_key, "pv_gen"))
+            ev1_status_model = _load_pickle_model(_single_model_path(family_key, "ev1_status"))
+            ev2_status_model = _load_pickle_model(_single_model_path(family_key, "ev2_status"))
         else:
             valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
             raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
-        return PredictorModelBank(
-            base_load_model_bank=FoldModelBank(
-                models_by_fold=base_load_models,
-                id_to_fold=RuntimeConfig.get_player_to_fold_map("base_load"),
-            ),
-            pv_gen_model_bank=FoldModelBank(
-                models_by_fold=pv_gen_models,
-                id_to_fold=RuntimeConfig.get_player_to_fold_map("pv_gen"),
-            ),
-            ev1_status_model_bank=FoldModelBank(
-                models_by_fold=ev1_status_models,
-                id_to_fold=RuntimeConfig.get_player_to_fold_map("ev1_status"),
-            ),
-            ev2_status_model_bank=FoldModelBank(
-                models_by_fold=ev2_status_models,
-                id_to_fold=RuntimeConfig.get_player_to_fold_map("ev2_status"),
-            ),
+        return MLPredictor(
+            base_load_model=base_load_model,
+            pv_gen_model=pv_gen_model,
+            ev1_status_model=ev1_status_model,
+            ev2_status_model=ev2_status_model,
         )
-    
-    predictor_xgb = MLPredictor(_build_predictor_model_bank("xgb"))
-    predictor_rf = MLPredictor(_build_predictor_model_bank("rf"))
-    predictor_ridge = MLPredictor(_build_predictor_model_bank("ridge"))
+
+    predictor_xgb = _build_predictor("xgb")
+    predictor_rf = _build_predictor("rf")
+    predictor_ridge = _build_predictor("ridge")
 
     controller_factories_by_name = {
         "no_control": make_function_controller("no_control", no_control),

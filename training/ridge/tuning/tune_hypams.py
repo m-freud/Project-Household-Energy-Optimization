@@ -28,7 +28,7 @@ HYPAM_GRID = {
     "alpha": [0.01, 0.1, 1.0, 10.0, 100.0],
 }
 
-OUTPUT_PATH = Path(repo_root) / "training" / "ridge_regression" / "tuning" / "results.csv"
+OUTPUT_PATH = Path(repo_root) / "training" / "ridge" / "tuning" / "results.csv"
 
 
 def _build_param_grid(grid: dict) -> list[dict]:

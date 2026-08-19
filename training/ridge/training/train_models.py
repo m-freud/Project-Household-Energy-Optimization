@@ -22,7 +22,7 @@ from training.model_artifacts import write_training_params_manifest
 
 repo_root = RuntimeConfig.ROOT_DIR
 
-TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "ridge_regression" / "tuning" / "results.csv"
+TUNING_RESULTS_CSV_PATH = Path(repo_root) / "training" / "ridge" / "tuning" / "results.csv"
 
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
 
@@ -123,7 +123,7 @@ def _save_model(model, save_path: Path) -> None:
 
 def run() -> None:
     for target in TARGETS:
-        print(f"\n=== Starting {target} ridge_regression models ===")
+        print(f"\n=== Starting {target} ridge models ===")
         print(f"  Using params: {RIDGE_PARAMS[target]}")
 
         for fold_id in RuntimeConfig.FOLD_IDS:
@@ -153,7 +153,7 @@ def run() -> None:
             )
             print(f"  Saved model to {model_save_path}")
 
-    print("\nAll ridge_regression models trained and saved.")
+    print("\nAll ridge models trained and saved.")
 
 
 if __name__ == "__main__":

@@ -377,7 +377,7 @@ class ModelConfig:
     def build_model_family_configs(root_dir: Path) -> dict[str, "ModelFamilyConfig"]:
         xgb_dir = Path(root_dir / "training" / "xgboost" / "models")
         rf_dir = Path(root_dir / "training" / "random_forest" / "models")
-        ridge_dir = Path(root_dir / "training" / "ridge_regression" / "models")
+        ridge_dir = Path(root_dir / "training" / "ridge" / "models")
 
         return {
             "xgb": ModelFamilyConfig(

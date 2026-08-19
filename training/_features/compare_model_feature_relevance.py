@@ -23,7 +23,7 @@ RF_SUMMARY_PATH = Path(
 RIDGE_SUMMARY_PATH = Path(
     RuntimeConfig.ROOT_DIR
     / "training"
-    / "ridge_regression"
+    / "ridge"
     / "features"
     / "importance_reports"
     / "all_targets_coef_summary.csv"
@@ -41,7 +41,7 @@ def _require_file(path: Path) -> None:
             "Generate reports first using:\n"
             "- training/xgboost/features/analyze_feature_gain.py\n"
             "- training/random_forest/features/analyze_feature_importance.py\n"
-            "- training/ridge_regression/features/analyze_feature_importance.py"
+            "- training/ridge/features/analyze_feature_importance.py"
         )
 
 
