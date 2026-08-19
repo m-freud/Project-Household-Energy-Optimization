@@ -365,6 +365,8 @@ class ModelConfig:
             if family:
                 return family
 
+        return "ridge" #TODO don't
+
         raise ValueError(
             f"model family not found for class '{model.__class__.__name__}'. function needs fixing"
         )

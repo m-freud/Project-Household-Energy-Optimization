@@ -482,7 +482,7 @@ class Simulation:
         household.sell_price = profiles["sell_price"][profile_time_index]
 
 
-    def run_household(self, player_id, run_context: RunContext):
+    def run_household(self, player_id, run_context: RunContext, write_results_to_sqlite: bool = True) -> Household:
         scenario = run_context.scenario
         current_run_id = run_context.run_id
 
@@ -498,14 +498,14 @@ class Simulation:
         for t in range(start_time, self.num_timesteps + 1):
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
-        self.load_household_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
-        
-        self.load_household_results_to_sqlite(
-            household,
-            policy_name=controller.name,
-            scenario_name=scenario.name,
-            run_id=current_run_id,
-        )
+        if write_results_to_sqlite:
+            self.load_household_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
+            self.load_household_results_to_sqlite(
+                household,
+                policy_name=controller.name,
+                scenario_name=scenario.name,
+                run_id=current_run_id,
+            )
 
         return household
 
@@ -517,6 +517,7 @@ class Simulation:
         max_households: int | None = None,
         parallel_households: bool = True,
         parallel_workers: int | None = 6, # optimal number depends on CPUs of your machine
+        write_results_to_sqlite: bool = True,
     ):
         if household_ids is None:
             selected_households = list(range(1, self.num_households + 1))
@@ -531,15 +532,23 @@ class Simulation:
             selected_households = selected_households[:max_households]
 
         if parallel_households and len(selected_households) > 1:
-            self.run_all_households_parallel(
+            return self.run_all_households_parallel(
                 run_context,
                 selected_households,
                 parallel_workers=parallel_workers,
             )
-            return
+
+        results = {
+            "total_costs": [],
+            "total_consumptions": [],
+        }
 
         for player_id in selected_households:
-            self.run_household(player_id, run_context)
+            household = self.run_household(player_id, run_context, write_results_to_sqlite=write_results_to_sqlite)
+            results["total_costs"].append(float(household.total_cost))
+            results["total_consumptions"].append(float(household.total_consumption))
+
+        return results
 
 
     def run_all_households_parallel(
@@ -548,6 +557,11 @@ class Simulation:
         selected_households: list[int],
         parallel_workers: int | None = 6,
     ):
+        results = {
+            "total_costs": [],
+            "total_consumptions": [],
+        }
+
         with ProcessPoolExecutor(max_workers=parallel_workers) as executor:
             future_to_household = {
                 executor.submit(_run_household_worker, player_id, run_context): player_id
@@ -559,10 +573,14 @@ class Simulation:
                 payload = future.result()
                 self.load_history_payload_to_sqlite(payload)
                 self.load_results_payload_to_sqlite(payload)
+                results["total_costs"].append(payload["total_cost"])
+                results["total_consumptions"].append(payload["total_consumption"])
                 print(
                     f"completed household {player_id} in scenario {payload['scenario']} "
                     f"with controller {payload['policy']}, run_id = {payload['run_id']}"
                 )
+
+        return results
 
 
     def run_batch(
@@ -572,15 +590,27 @@ class Simulation:
         max_households: int | None = None,
         parallel_households: bool = False,
         parallel_workers: int | None = 6,
+        write_results_to_sqlite: bool = True,
     ):
+        results = {
+            "total_costs": [],
+            "total_consumptions": [],
+        }
+
         for run_context in run_contexts:
-            self.run_all_households(
+            batch_results = self.run_all_households(
                 run_context,
                 household_ids=household_ids,
                 max_households=max_households,
                 parallel_households=parallel_households,
                 parallel_workers=parallel_workers,
+                write_results_to_sqlite=write_results_to_sqlite,
             )
+            if batch_results is not None:
+                results["total_costs"].extend(batch_results.get("total_costs", []))
+                results["total_consumptions"].extend(batch_results.get("total_consumptions", []))
+
+        return results
 
 
     def load_household_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
