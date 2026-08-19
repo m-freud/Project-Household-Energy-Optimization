@@ -6,12 +6,12 @@ from pathlib import Path
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
 
 
-MODEL_TARGETS: tuple[str, ...] = (
+MODEL_TARGETS: list[str] = [
     "base_load",
     "pv_gen",
     "ev1_status",
     "ev2_status",
-)
+]
 
 
 MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
