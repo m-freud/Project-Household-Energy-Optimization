@@ -249,7 +249,7 @@ class Simulation:
         self.sqlite_conn.commit()
 
 
-    def create_household(self, player_id:int, run_context: RunContext, bess_for_all: bool=True):
+    def create_household(self, player_id:int, run_context: RunContext, bess_for_all: bool=False):
         scenario = run_context.scenario
         start_time = run_context.start_time
         household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
