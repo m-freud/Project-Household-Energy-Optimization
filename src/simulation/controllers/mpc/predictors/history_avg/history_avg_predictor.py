@@ -28,18 +28,37 @@ class HistoryAveragePredictor(BasePredictor):
     ):
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
 
+    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
+        return predict_ev_status(household, horizon)
+
+    def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict[str, list[int]] | None = None) -> dict[str, list[float]]:
+        _ = ev_status_pred  # just for compatibility with ModularPredictor
+        return predict_base_load(
+            household,
+            horizon,
+            interval_width_fraction=self.interval_width_fraction,
+        )
+
+    def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:
+        return predict_pv_gen(
+            household,
+            horizon,
+            interval_width_fraction=self.interval_width_fraction,
+        )
+
     def predict(self, household: Household, horizon: int) -> dict[str, list[float]]:
-        base_load = predict_base_load(
-            household,
-            horizon,
-            interval_width_fraction=self.interval_width_fraction,
-        )
-        pv_gen = predict_pv_gen(
-            household,
-            horizon,
-            interval_width_fraction=self.interval_width_fraction,
-        )
-        ev_status = predict_ev_status(household, horizon)
+        ev_status = self.predict_ev_status(household, horizon)
+        base_load = self.predict_base_load(household, horizon)
+
+        if household.has_pv:
+            pv_gen = self.predict_pv_gen(household, horizon)
+        else:
+            pv_gen = {
+                "pv_gen": [0.0] * horizon,
+                "pv_gen_lb": [0.0] * horizon,
+                "pv_gen_ub": [0.0] * horizon,
+            }
+
         ev_load = predict_ev_load(household, horizon, ev_status)
         ev_buy_price = predict_ev_buy_price(household, horizon, ev_status)
         ev_max_charge = predict_ev_max_charge(household, horizon, ev_status)

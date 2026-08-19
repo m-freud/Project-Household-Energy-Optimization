@@ -28,7 +28,7 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     """Base class for ML predictors (XGB, RF, Ridge, or more).
     Accepts one model per target.
     """
-
+    #TODO conf intervals if needed
     def __init__(
         self,
         *,
@@ -42,35 +42,46 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         self.ev1_status_model = ev1_status_model
         self.ev2_status_model = ev2_status_model
 
-
-    def predict(self, household: Household, horizon: int) -> dict:
-        # use models to predict each metric
-        prediction: dict[str, list] = {}
-
-        ev_status = predict_ev_status(
+    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
+        return predict_ev_status(
             model_ev1=self.ev1_status_model,
             model_ev2=self.ev2_status_model,
             household=household,
             horizon=horizon,
         )
-        base_load = predict_base_load(
+
+    def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict[str, list[int]]) -> dict[str, list[float]]:
+        return predict_base_load(
             model=self.base_load_model,
             household=household,
             horizon=horizon,
-            predicted_ev_status=ev_status,
+            ev_status_pred=ev_status_pred,
         )
-        if household.has_pv:
-            pv_gen = predict_pv_gen(
-                model=self.pv_gen_model,
-                household=household,
-                horizon=horizon,
-            )
-        else:
-            pv_gen = {
+
+    def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:
+        if not household.has_pv:
+            return {
                 "pv_gen": [0.0] * horizon,
                 "pv_gen_lb": [0.0] * horizon,
                 "pv_gen_ub": [0.0] * horizon,
             }
+        return predict_pv_gen(
+            model=self.pv_gen_model,
+            household=household,
+            horizon=horizon,
+        )
+
+
+    def predict(self, household: Household, horizon: int) -> dict:
+        # use models to predict each metric
+        prediction: dict[str, list] = {}
+
+        ev_status = self.predict_ev_status(household, horizon)
+        base_load = self.predict_base_load(household, horizon, ev_status_pred=ev_status)
+        pv_gen = self.predict_pv_gen(
+            household=household,
+            horizon=horizon,
+            )
         
         ev_load = predict_ev_load(household, horizon, ev_status)
         buy_price = predict_buy_price_home(household, horizon)

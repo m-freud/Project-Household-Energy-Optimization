@@ -22,3 +22,12 @@ class BasePredictor(ABC):
         any other future signals that are relevant to the optimization problem.
         """
         raise NotImplementedError
+
+    def predict_ev_status(self, household: Household, horizon: int) -> dict:
+        raise NotImplementedError
+
+    def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict) -> dict:
+        raise NotImplementedError
+
+    def predict_pv_gen(self, household: Household, horizon: int) -> dict:
+        raise NotImplementedError

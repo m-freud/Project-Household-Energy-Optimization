@@ -46,7 +46,7 @@ class Household:
         self.ev1_station_buy_price = 0.0  # constant buy price at charging station for ev1
         self.ev2_station_buy_price = 0.0  # constant buy price at charging station for ev2
 
-        self.oracle_profiles: dict[str, list[float]] = {} # full day profiles -> future values
+        self.oracle_profiles: dict[str, list] = {} # full day profiles -> future values
         
         # histories are 1-based dicts
         self.history = { # histories from start_time to now

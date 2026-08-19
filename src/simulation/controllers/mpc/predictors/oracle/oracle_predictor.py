@@ -6,6 +6,24 @@ from src.simulation.household import Household
 class OraclePredictor(BasePredictor):
     """Predictor that uses the household's existing profile data as future forecasts."""
 
+    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
+        start_idx = household.current_timestep - 1
+        return {
+            "ev1_at_home": household.oracle_profiles.get("ev1_at_home", [])[start_idx:start_idx + horizon],
+            "ev1_at_charging_station": household.oracle_profiles.get("ev1_at_charging_station", [])[start_idx:start_idx + horizon],
+            "ev2_at_home": household.oracle_profiles.get("ev2_at_home", [])[start_idx:start_idx + horizon],
+            "ev2_at_charging_station": household.oracle_profiles.get("ev2_at_charging_station", [])[start_idx:start_idx + horizon],
+        }
+
+    def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict|None = None) -> dict[str, list[float]]:
+        _ = ev_status_pred  # just for compatibility with ModularPredictor
+        start_idx = household.current_timestep - 1
+        return {"base_load": household.oracle_profiles.get("base_load", [])[start_idx:start_idx + horizon]}
+
+    def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:
+        start_idx = household.current_timestep - 1
+        return {"pv_gen": household.oracle_profiles.get("pv_gen", [])[start_idx:start_idx + horizon]}
+
     def predict(self, household: Household, horizon: int) -> dict:
         profiles = household.oracle_profiles
 

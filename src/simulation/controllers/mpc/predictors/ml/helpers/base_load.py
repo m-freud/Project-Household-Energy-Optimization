@@ -159,14 +159,14 @@ def predict_base_load(
     model: TRegressor,
     household: Household,
     horizon: int,
-    predicted_ev_status: dict[str, list[int]],
+    ev_status_pred: dict[str, list[int]],
     interval_width_frct: float = 0.0,
 ) -> dict[str, list[float]]:
     base_load = _predict_base_load(
         model=model,
         household=household,
         horizon=horizon,
-        predicted_ev_status=predicted_ev_status,
+        predicted_ev_status=ev_status_pred,
     )
     base_load_lb, base_load_ub = make_band(base_load, interval_width_frct)
 
