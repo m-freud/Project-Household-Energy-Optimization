@@ -887,6 +887,18 @@ if __name__ == "__main__":
             horizon=96,
             predictor=predictor_modular_avg,
         ),
+        "mpc_modular_xgb": make_mpc_controller(
+            "mpc_modular_xgb",
+            horizon=96,
+            predictor=ModularPredictor(
+                default_predictor=predictor_xgb,
+                target_predictors={
+                    "base_load": predictor_xgb,
+                    "pv_gen": predictor_xgb,
+                    "ev_status": predictor_xgb,
+                },
+            ),
+        )
     }
 
     scenarios_by_name = scenario_catalog
