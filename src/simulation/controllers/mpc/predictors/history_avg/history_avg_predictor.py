@@ -47,7 +47,7 @@ class HistoryAveragePredictor(BasePredictor):
         buy_price = predict_buy_price_home(household, horizon)
         sell_price = predict_sell_price_home(household, horizon)
 
-        prediction: dict[str, list[float]] = {}
+        prediction: dict[str, list] = {}
         prediction.update(base_load)
         prediction.update(pv_gen)
         prediction.update(ev_load)

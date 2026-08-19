@@ -77,7 +77,7 @@ def predict_single_ev_status(
         household: Household,
         ev_key: str,
         horizon: int,
-        ) -> tuple[list[float], list[float]]:
+        ) -> tuple[list[int], list[int]]:
     """
     Predicts the status of a given EV (at_home, at_charging_station) for the given household and horizon.
     Uses list of state strings internally and translates to binary home/station profiles.
@@ -156,7 +156,7 @@ def predict_single_ev_status(
 def predict_ev_status(
     household: Household,
     horizon: int,
-) -> dict[str, list[float]]:
+) -> dict[str, list[int]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
     
     ev1_at_home, ev1_at_charging_station = predict_single_ev_status(household, "ev1", horizon)
