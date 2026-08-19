@@ -17,6 +17,7 @@ from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBuf
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
@@ -813,6 +814,14 @@ if __name__ == "__main__":
     predictor_xgb = _build_predictor("xgb")
     predictor_rf = _build_predictor("rf")
     predictor_ridge = _build_predictor("ridge")
+    predictor_modular = ModularPredictor(
+        default_predictor=OraclePredictor(),
+        target_predictors={
+            "base_load": predictor_xgb,
+            "pv_gen": OraclePredictor(),
+            "ev_status": HistoryAveragePredictor(conf_interval_frct=0.0),
+        },
+    )
 
     controller_factories_by_name = {
         "no_control": make_function_controller("no_control", no_control),
@@ -845,6 +854,11 @@ if __name__ == "__main__":
             "mpc_ridge",
             horizon=96,
             predictor=predictor_ridge,
+        ),
+        "mpc_modular": make_mpc_controller(
+            "mpc_modular",
+            horizon=96,
+            predictor=predictor_modular,
         ),
     }
 
