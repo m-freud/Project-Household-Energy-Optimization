@@ -203,7 +203,7 @@ def _try_bypass(current_time: int, features: dict) -> int | None:
     return None
 
 
-def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: str, horizon: int=96) -> tuple[list[int], list[int]]:
+def _predict_single_ev_status(model: TClassifier | None, household: Household, ev_key: str, horizon: int=96) -> tuple[list[int], list[int]]:
     """
     Predicts the status of a single EV (at_home, at_charging_station) for the given household and horizon.
 
@@ -213,8 +213,11 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
         horizon (int): The number of time steps to predict.
 
     Returns:
-        tuple[list[float], list[float]]: Two lists representing the predicted status of the EV at home and at the charging station.
+        tuple[list[int], list[int]]: Two lists representing the predicted status of the EV at home and at the charging station.
     """
+    if model is None:
+        return [0] * horizon, [0] * horizon
+
     def _status_to_home_station(status: int) -> tuple[int, int]:
         # prediction has shape of at_home, at_station, so we convert back for pred
         if status == 0:
@@ -305,8 +308,8 @@ def _predict_single_ev_status(model: TClassifier, household: Household, ev_key: 
     
 
 def predict_ev_status(
-    model_ev1: TClassifier,
-    model_ev2: TClassifier,
+    model_ev1: TClassifier|None,
+    model_ev2: TClassifier|None,
     household: Household,
     horizon: int,
 ) -> dict[str, list[int]]:

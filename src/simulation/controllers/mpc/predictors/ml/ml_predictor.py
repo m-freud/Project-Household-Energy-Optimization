@@ -32,10 +32,10 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     def __init__(
         self,
         *,
-        base_load_model: TRegressor,
-        pv_gen_model: TRegressor,
-        ev1_status_model: TClassifier,
-        ev2_status_model: TClassifier,
+        base_load_model: TRegressor | None,
+        pv_gen_model: TRegressor | None,
+        ev1_status_model: TClassifier | None,
+        ev2_status_model: TClassifier | None,
     ):
         self.base_load_model = base_load_model
         self.pv_gen_model = pv_gen_model
@@ -43,7 +43,13 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         self.ev2_status_model = ev2_status_model
 
     def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
-        return predict_ev_status(
+        if self.ev1_status_model is None or self.ev2_status_model is None:
+            return {
+                "ev1_status": [0] * horizon,
+                "ev2_status": [0] * horizon,
+            }
+        
+        return predict_ev_status( #TODO return None instead?
             model_ev1=self.ev1_status_model,
             model_ev2=self.ev2_status_model,
             household=household,
@@ -51,6 +57,13 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         )
 
     def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict[str, list[int]]) -> dict[str, list[float]]:
+        if self.base_load_model is None:
+            return {
+                "base_load": [0.0] * horizon,
+                "base_load_lb": [0.0] * horizon,
+                "base_load_ub": [0.0] * horizon,
+            }
+        
         return predict_base_load(
             model=self.base_load_model,
             household=household,
@@ -59,12 +72,13 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         )
 
     def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:
-        if not household.has_pv:
+        if not household.has_pv or self.pv_gen_model is None:
             return {
                 "pv_gen": [0.0] * horizon,
                 "pv_gen_lb": [0.0] * horizon,
                 "pv_gen_ub": [0.0] * horizon,
             }
+        
         return predict_pv_gen(
             model=self.pv_gen_model,
             household=household,
