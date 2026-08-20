@@ -57,7 +57,7 @@ from training._features.ev_status_features import get_ev_status_features
 from training._features.pv_gen_features import get_pv_gen_features
 from training.split.clean_split import PARTITIONS
 
-CSV_REPORT_PATH = Path(RuntimeConfig.ROOT_DIR) / "training" / "ridge" / "tuning" / "tuning_results123456.csv"
+CSV_REPORT_PATH = Path(RuntimeConfig.ROOT_DIR) / "training" / "ridge" / "tuning" / "tuning_results_18.csv"
 
 HYPAM_GRID = {
     "alpha": [0.01, 0.1, 1.0, 10.0, 100.0],
@@ -181,8 +181,8 @@ def _score_sim_total_cost_for_target(
             run_contexts,
             household_ids=test_households,
             max_households=len(test_households),
-            parallel_households=False,
-            parallel_workers=1,
+            parallel_households=True,
+            parallel_workers=6,
             write_results_to_sqlite=False,
         )
 
@@ -233,8 +233,8 @@ def tune_single_target(target: str, grid: dict, *, partitions: dict | None = Non
     """
     param_configs = _build_param_grid(grid)
     partition_map = partitions or PARTITIONS
-    train_ids = partition_map["inner"][target]["train"][:1]
-    test_ids = partition_map["inner"][target]["test"][:1]
+    train_ids = partition_map["inner"][target]["train"]
+    test_ids = partition_map["inner"][target]["test"][:18]
 
     train_df, test_df, feature_columns, y_col = _train_test_frames_for_target(target, train_ids, test_ids)
 
