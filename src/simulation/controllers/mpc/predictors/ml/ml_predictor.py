@@ -42,11 +42,13 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
         self.ev1_status_model = ev1_status_model
         self.ev2_status_model = ev2_status_model
 
-    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
-        if self.ev1_status_model is None or self.ev2_status_model is None:
+    def predict_ev_status(self, household: Household, horizon: int, ev_key: str|None = None) -> dict[str, list[int]]:
+        if self.ev1_status_model is None and self.ev2_status_model is None:
             return {
-                "ev1_status": [0] * horizon,
-                "ev2_status": [0] * horizon,
+                "ev1_at_home": [0] * horizon,
+                "ev1_at_charging_station": [0] * horizon,
+                "ev2_at_home": [0] * horizon,
+                "ev2_at_charging_station": [0] * horizon,
             }
         
         return predict_ev_status( #TODO return None instead?
@@ -54,6 +56,7 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
             model_ev2=self.ev2_status_model,
             household=household,
             horizon=horizon,
+            ev_key=ev_key,
         )
 
     def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict[str, list[int]]) -> dict[str, list[float]]:

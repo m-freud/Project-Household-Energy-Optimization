@@ -12,7 +12,7 @@ class OraclePredictor(BasePredictor):
             series.extend([float(fill_value)] * (horizon - len(series)))
         return series
 
-    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
+    def predict_ev_status(self, household: Household, horizon: int, ev_key: str|None = None) -> dict[str, list[int]]:
         profiles = household.oracle_profiles
         start = max(0, min(len(profiles.get("ev1_at_home", [])), household.current_timestep - 1))
 
@@ -22,6 +22,12 @@ class OraclePredictor(BasePredictor):
             "ev2_at_home": profiles.get("ev2_at_home", [])[start:start + horizon],
             "ev2_at_charging_station": profiles.get("ev2_at_charging_station", [])[start:start + horizon],
         }
+
+        if ev_key in ["ev1", "ev2"]:
+            predictions = {
+                f"{ev_key}_at_home": predictions[f"{ev_key}_at_home"],
+                f"{ev_key}_at_charging_station": predictions[f"{ev_key}_at_charging_station"],
+            }
 
         for key, values in list(predictions.items()):
             predictions[key] = self._pad_to_horizon(values, horizon, default=0)

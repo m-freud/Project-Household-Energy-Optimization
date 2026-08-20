@@ -28,8 +28,8 @@ class HistoryAveragePredictor(BasePredictor):
     ):
         self.interval_width_fraction = max(0.0, float(conf_interval_frct))
 
-    def predict_ev_status(self, household: Household, horizon: int) -> dict[str, list[int]]:
-        return predict_ev_status(household, horizon)
+    def predict_ev_status(self, household: Household, horizon: int, ev_key: str|None = None) -> dict[str, list[int]]:
+        return predict_ev_status(household, horizon, ev_key=ev_key)
 
     def predict_base_load(self, household: Household, horizon: int, ev_status_pred: dict[str, list[int]] | None = None) -> dict[str, list[float]]:
         _ = ev_status_pred  # just for compatibility with ModularPredictor

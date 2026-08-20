@@ -156,8 +156,18 @@ def predict_single_ev_status(
 def predict_ev_status(
     household: Household,
     horizon: int,
+    ev_key: str | None=None
 ) -> dict[str, list[int]]:
     '''Predicts ev1 and ev2 status (at_home, at_charging_station) for the given household, horizon'''
+
+    if ev_key in ["ev1", "ev2"]:
+        ev_home, ev_station = predict_single_ev_status(household, ev_key, horizon)
+        return {
+            f"{ev_key}_at_home": ev_home,
+                f"{ev_key}_at_charging_station": ev_station
+        }
+    elif ev_key is not None:
+        raise ValueError("wrong ev_key, expected ev1 or ev2")
     
     ev1_at_home, ev1_at_charging_station = predict_single_ev_status(household, "ev1", horizon)
     ev2_at_home, ev2_at_charging_station = predict_single_ev_status(household, "ev2", horizon)

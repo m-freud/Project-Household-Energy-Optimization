@@ -11,6 +11,8 @@ this lets us compare the next val score to net costs of different scenarios,
 -> see how prediction accuracy timing impacts different scenarios
 
 '''
+from src.sqlite_connection import sqlite_conn
+
 import argparse
 import itertools
 from sklearn.pipeline import Pipeline
@@ -18,6 +20,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.metrics import root_mean_squared_error
 from simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.simulation import Simulation
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 import json
 import pandas as pd
@@ -117,14 +120,14 @@ class HypamBenchmark:
             ev2_status_model=model if self.target == "ev2_status" else None,
         )
 
-        if "ev" in 
-
         benchmark_predictor = ModularPredictor(
             default_predictor=default_predictor,
             target_predictors={
                 self.target: target_predictor,
             },
         )
+
+        sim = Simulation(sqlite_conn, ensure_schema=False)
 
         return 9.58
 
