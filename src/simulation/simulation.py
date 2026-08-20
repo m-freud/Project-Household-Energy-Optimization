@@ -556,6 +556,7 @@ class Simulation:
         run_context: RunContext,
         selected_households: list[int],
         parallel_workers: int | None = 6,
+        write_results_to_sqlite: bool = True,
     ):
         results = {
             "total_costs": [],
@@ -571,8 +572,9 @@ class Simulation:
             for future in as_completed(future_to_household):
                 player_id = future_to_household[future]
                 payload = future.result()
-                self.load_history_payload_to_sqlite(payload)
-                self.load_results_payload_to_sqlite(payload)
+                if write_results_to_sqlite:
+                    self.load_history_payload_to_sqlite(payload)
+                    self.load_results_payload_to_sqlite(payload)
                 results["total_costs"].append(payload["total_cost"])
                 results["total_consumptions"].append(payload["total_consumption"])
                 print(
