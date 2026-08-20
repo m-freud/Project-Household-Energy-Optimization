@@ -31,6 +31,15 @@ class ModularPredictor(BasePredictor):
         self.target_predictors = dict(target_predictors or {})
 
     def predict(self, household: Household, horizon: int) -> dict:
+        if "ev1_status" in self.target_predictors.keys() or "ev2_status" in self.target_predictors.keys():
+            pre_ev_status = self.target_predictors["ev_status"].predict_ev_status(household, horizon)
+            ev_status = {}
+            for ev_status_key in ["ev1_status", "ev2_status"]:
+                if ev_status_key in self.target_predictors.keys():
+                    ev_status[ev_status_key] = pre_ev_status[ev_status_key]
+                else:
+                    ev_status[ev_status_key] = self.default_predictor.predict_ev_status(household, horizon)
+
         if "ev_status" in self.target_predictors.keys():
             ev_status = self.target_predictors["ev_status"].predict_ev_status(household, horizon)
         else:
