@@ -56,17 +56,6 @@ DEFAULT_HISTORY_MEASUREMENTS = [
 ]
 
 
-class ConstantRegressor:
-    """Simple fallback regressor for smoke runs when no trained model exists."""
-
-    def __init__(self, value: float = 0.0):
-        self.value = float(value)
-
-    def predict(self, features):
-        n_rows = len(features) if hasattr(features, "__len__") else 1
-        return np.full(int(n_rows), self.value, dtype=float)
-
-
 def build_function_controller(
     household: Household,
     scenario: Scenario,
@@ -76,6 +65,13 @@ def build_function_controller(
 ) -> StepwiseController:
     _ = (household, scenario)
     return StepwiseController(name=name, step_function=step_function)
+
+
+def make_function_controller( # for parallel runs
+    name: str,
+    step_function: Callable[..., dict],
+) -> Callable[[Household, Scenario], StepwiseController]:
+    return partial(build_function_controller, name=name, step_function=step_function)
 
 
 def build_mpc_controller(
@@ -97,13 +93,6 @@ def build_mpc_controller(
         duration_hours=duration_hours,
         buffer_config=buffer_config,
     )
-
-
-def make_function_controller( # for parallel runs
-    name: str,
-    step_function: Callable[..., dict],
-) -> Callable[[Household, Scenario], StepwiseController]:
-    return partial(build_function_controller, name=name, step_function=step_function)
 
 
 def make_mpc_controller(
@@ -199,7 +188,7 @@ class Simulation:
         ]
 
         self.household_profiles = {}
-        
+
         if ensure_results_table:
             self._ensure_results_table()
 
@@ -518,15 +507,20 @@ class Simulation:
                 run_context,
                 selected_households,
                 parallel_workers=parallel_workers,
+                write_results_to_sqlite=write_results_to_sqlite,
             )
 
         results = {
+            "net_costs": [],
+            "net_loads": [],
             "total_costs": [],
             "total_consumptions": [],
         }
 
         for player_id in selected_households:
             household = self.run_household(player_id, run_context, write_results_to_sqlite=write_results_to_sqlite)
+            results["net_costs"].append(household.net_cost)
+            results["net_loads"].append(household.net_load)
             results["total_costs"].append(float(household.total_cost))
             results["total_consumptions"].append(float(household.total_consumption))
 
@@ -541,6 +535,8 @@ class Simulation:
         write_results_to_sqlite: bool = True,
     ):
         results = {
+            "net_costs": [],
+            "net_loads": [],
             "total_costs": [],
             "total_consumptions": [],
         }
@@ -557,6 +553,8 @@ class Simulation:
                 if write_results_to_sqlite:
                     self.load_history_payload_to_sqlite(payload)
                     self.load_results_payload_to_sqlite(payload)
+                results["net_costs"].append(payload["net_cost"])
+                results["net_loads"].append(payload["net_load"])
                 results["total_costs"].append(payload["total_cost"])
                 results["total_consumptions"].append(payload["total_consumption"])
                 print(
@@ -572,11 +570,13 @@ class Simulation:
         run_contexts: list[RunContext],
         household_ids: list[int] | None = None,
         max_households: int | None = None,
-        parallel_households: bool = False,
+        parallel_households: bool = True,
         parallel_workers: int | None = 6,
         write_results_to_sqlite: bool = True,
     ):
         results = {
+            "net_costs": [],
+            "net_loads": [],
             "total_costs": [],
             "total_consumptions": [],
         }
@@ -591,8 +591,10 @@ class Simulation:
                 write_results_to_sqlite=write_results_to_sqlite,
             )
             if batch_results is not None:
-                results["total_costs"].extend(batch_results.get("total_costs", []))
-                results["total_consumptions"].extend(batch_results.get("total_consumptions", []))
+                results["net_costs"].extend(batch_results["net_costs"])
+                results["net_loads"].extend(batch_results["net_loads"])
+                results["total_costs"].extend(batch_results["total_costs"])
+                results["total_consumptions"].extend(batch_results["total_consumptions"])
 
         return results
 
@@ -719,6 +721,11 @@ class Simulation:
             )
 
         self.sqlite_conn.commit()
+
+
+    def make_mpc_controller(self, name: str, horizon: int, predictor: BasePredictor, duration_hours: float = 0.25, buffer_config: DeviceBufferConfig | None = None) -> Callable[[Household, Scenario], MPCController]:
+        # convenience
+        return make_mpc_controller(name=name, horizon=horizon, predictor=predictor, duration_hours=duration_hours, buffer_config=buffer_config)
 
 
 if __name__ == "__main__":

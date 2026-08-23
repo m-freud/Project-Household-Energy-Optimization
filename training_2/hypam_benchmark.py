@@ -11,33 +11,51 @@ this lets us compare the next val score to net costs of different scenarios,
 -> see how prediction accuracy timing impacts different scenarios
 
 '''
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+from xgboost import XGBRegressor, XGBClassifier
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+from src.simulation.run_context import RunContext
 from src.sqlite_connection import sqlite_conn
 
 import argparse
 import itertools
+import time
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.metrics import root_mean_squared_error
-from simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
-from simulation.simulation import Simulation
+from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from src.simulation.simulation import Simulation
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 import json
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
+from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from training.split.clean_split import PARTITIONS
 from training._features.base_load_features import get_base_load_features
 from training._features.ev_status_features import get_ev_status_features
 from training._features.pv_gen_features import get_pv_gen_features
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY, MODEL_TARGETS
-
+from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 
 GRID_MAP = {
     "ridge": {
         "grid_1": {
             "alpha": [0.01, 0.1, 1.0, 10.0, 100.0],
+        },
+    },
+    "xgboost": {
+        "grid_1": {
+            "n_estimators": [50, 100, 200],
+            "max_depth": [3, 5, 7],
+            "learning_rate": [0.01, 0.1, 0.2],
         },
     },
 }
@@ -50,25 +68,51 @@ FEATURE_COUNTS = {
     "ev_status": len(MODEL_FEATURES_BY_FAMILY["ridge"]["ev_status"]),
 }
 
-class HypamBenchmark:
-    def __init__(self, model_family, target, grid_id, scenarios, n_test_ids):
+class HypamBenchmark: #TODO round floats in csv
+    def __init__(self, model_family, target, grid_id, scenario_names, n_test_ids):
         self.model_family = model_family
         self.target = target
-        self.scenarios = scenarios
+        self.scenarios = [scenario_catalog[name] for name in scenario_names]
+        self.grid_id = grid_id
         self.grid = GRID_MAP[model_family][grid_id]
         self.param_configs = self._build_param_grid()
         self.n_test_ids = n_test_ids
+
+    def _print_benchmark_sim_progress(self):
+        elapsed_seconds = time.perf_counter() - self._progress_started_at
+        done = self._progress_done
+        total = self._progress_total
+        remaining = max(total - done, 0)
+
+        if done == 0:
+            print(f"[0/{total}] starting simulation benchmarks...")
+            return
+
+        avg_seconds_per_sim = elapsed_seconds / done
+        eta_seconds = avg_seconds_per_sim * remaining
+        print(
+            f"[{done}/{total}] "
+            f"elapsed={elapsed_seconds/60.0:.1f}m "
+            f"avg={avg_seconds_per_sim:.1f}s/sim "
+            f"eta={eta_seconds/60.0:.1f}m"
+        )
         
     def _build_param_grid(self) -> list[dict]:
         keys = list(self.grid.keys())
         return [dict(zip(keys, combo)) for combo in itertools.product(*self.grid.values())]
 
     def _build_model(self, target: str, params: dict):
-        if self.model_family == "ridge":
-            if target in ("base_load", "pv_gen"):
+        if target in ("base_load", "pv_gen"):
+            if self.model_family == "ridge":
                 estimator = Ridge(**params)
-            else:
+            if self.model_family == "xgboost":
+                estimator = XGBRegressor(**params)
+        else:
+            if self.model_family == "ridge":
                 estimator = RidgeClassifier(**params)
+            if self.model_family == "xgboost":
+                estimator = XGBClassifier(**params)
+
 
         return Pipeline( # this is the model saved to .pkl and later used in runtime
             steps=[
@@ -129,11 +173,33 @@ class HypamBenchmark:
 
         sim = Simulation(sqlite_conn, ensure_results_table=False)
 
-        return 9.58
+        run_context = RunContext(
+            controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=benchmark_predictor),
+            controller_name="mpc_iso_benchmark",
+            scenario=scenario,
+            start_time=1,
+        )
+
+        results = sim.run_batch(
+            run_contexts=[run_context],
+            household_ids=PARTITIONS["inner"][self.target]["test"][:self.n_test_ids],
+            parallel_households=True,
+            parallel_workers=6,
+            write_results_to_sqlite=False
+        )
+
+        avg_net_cost = np.mean(results["net_costs"])
+
+        return avg_net_cost
 
 
     def run_benchmark(self):
         rows = []
+
+        self._progress_total = len(self.param_configs) * len(self.scenarios)
+        self._progress_done = 0
+        self._progress_started_at = time.perf_counter()
+        self._print_benchmark_sim_progress()
         
         train_df, test_df, feature_columns, y_col = self._get_train_test_frames()
 
@@ -150,12 +216,15 @@ class HypamBenchmark:
                 "params": json.dumps(params, sort_keys=True),
                 "next_val_score": self.benchmark_direct_score(model, X_test, y_test),
             }
+
             for scenario in self.scenarios:
-                row[f"sim_score_{scenario}"] = self.benchmark_sim_net_cost(model, scenario)
+                row[f"sim_score_{scenario.name}"] = self.benchmark_sim_net_cost(model, scenario)
+                self._progress_done += 1
+                self._print_benchmark_sim_progress()
 
             rows.append(row)
 
-        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}.csv"
+        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}_{self.n_test_ids}_{self.grid_id}_{'_'.join([scenario.name for scenario in self.scenarios])}_peter.csv"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(rows).to_csv(out_path, index=False)
         print(f"Saved benchmark to {out_path}")
@@ -166,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--models",
         default="ridge",
-        help="Comma-separated model names (default: ridge). Options: ridge, xgb, rf.",
+        help="Comma-separated model names (default: ridge). Options: ridge, xgboost, rf.",
     )
     parser.add_argument(
         "--targets",

@@ -61,6 +61,10 @@ Therefore:
 
 Using oracle predictions for the other targets isolates the control impact of the predictor currently being tuned.
 
+
+Note: How do we decide a grid of hypams to test?
+-> tune for next value accuracy
+-> use as basis for cost performance
 ---
 
 ## 4. Select Best Hyperparameters
