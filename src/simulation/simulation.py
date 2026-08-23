@@ -129,7 +129,7 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
 
     worker_conn = create_sqlite_connection()
     try:
-        sim = Simulation(worker_conn, ensure_schema=False)
+        sim = Simulation(worker_conn, ensure_results_table=False)
         scenario = run_context.scenario
 
         start_time = run_context.start_time
@@ -172,13 +172,14 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, ensure_schema: bool = True):
+    def __init__(self, sqlite_conn, ensure_results_table: bool = True):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
 
         self.num_households = 250
         self.num_timesteps = 96
         self.duration_hours = float(RuntimeConfig.DURATION_TIMESTEP)
+        self.current_timestep = 1
 
         self.env_inputs = [ # time series table names
             "base_load",
@@ -198,54 +199,35 @@ class Simulation:
         ]
 
         self.household_profiles = {}
-
-        self.current_timestep = 1  # current timestep in the simulation.
-
-        if ensure_schema:
-            self.sqlite_cursor.execute('''
-                CREATE TABLE IF NOT EXISTS results (
-                    run_id TEXT,
-                    policy TEXT,
-                    scenario TEXT,
-                    player_id INTEGER,
-                    has_pv BOOLEAN,
-                    has_bess BOOLEAN,
-                    total_cost REAL,
-                    total_consumption REAL,
-                    net_cost REAL,
-                    net_load REAL
-                )''')
-
-            self._ensure_results_columns()
+        
+        if ensure_results_table:
+            self._ensure_results_table()
 
 
-    def _ensure_results_columns(self):
-        columns = {
-            row[1]
-            for row in self.sqlite_cursor.execute("PRAGMA table_info(results)").fetchall()
-        }
-
-        required_columns = [
-            ("run_id", "TEXT"),
-            ("net_cost", "REAL"),
-            ("net_load", "REAL"),
-            ("target_met_bess", "BOOLEAN"),
-            ("target_met_ev1", "BOOLEAN"),
-            ("target_met_ev2", "BOOLEAN"),
-            ("target_met_all_bess", "BOOLEAN"),
-            ("target_met_all_ev1", "BOOLEAN"),
-            ("target_met_all_ev2", "BOOLEAN"),
-            ("soc_at_deadline_bess", "REAL"),
-            ("soc_at_deadline_ev1", "REAL"),
-            ("soc_at_deadline_ev2", "REAL"),
-        ]
-
-        for column_name, column_type in required_columns:
-            if column_name not in columns:
-                self.sqlite_cursor.execute(
-                    f"ALTER TABLE results ADD COLUMN {column_name} {column_type}"
-                )
-
+    def _ensure_results_table(self):
+        self.sqlite_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS results (
+                run_id TEXT,
+                policy TEXT,
+                scenario TEXT,
+                player_id INTEGER,
+                has_pv BOOLEAN,
+                has_bess BOOLEAN,
+                total_cost REAL,
+                total_consumption REAL,
+                net_cost REAL,
+                net_load REAL,
+                target_met_bess BOOLEAN,
+                target_met_ev1 BOOLEAN,
+                target_met_ev2 BOOLEAN,
+                target_met_all_bess BOOLEAN,
+                target_met_all_ev1 BOOLEAN,
+                target_met_all_ev2 BOOLEAN,
+                soc_at_deadline_bess REAL,
+                soc_at_deadline_ev1 REAL,
+                soc_at_deadline_ev2 REAL
+            )''')
+        
         self.sqlite_conn.commit()
 
 

@@ -142,7 +142,7 @@ def _compute_snapshot(
 
     connection = create_sqlite_connection()
     try:
-        sim = Simulation(connection, ensure_schema=False)
+        sim = Simulation(connection, ensure_results_table=False)
         run_context = RunContext(scenario=scenario, start_time=1)
         household = sim.create_household(player_id, run_context)
 
@@ -484,7 +484,7 @@ def render_prediction_explorer(
         connection = create_sqlite_connection()
         try:
             # Fresh databases may not have results schema yet.
-            sim = Simulation(connection, ensure_schema=True)
+            sim = Simulation(connection, ensure_results_table=True)
             controller_factory = _build_mpc_controller_factory(
                 policy_name=effective_policy_name,
                 horizon=96,

@@ -127,7 +127,7 @@ class HypamBenchmark:
             },
         )
 
-        sim = Simulation(sqlite_conn, ensure_schema=False)
+        sim = Simulation(sqlite_conn, ensure_results_table=False)
 
         return 9.58
 

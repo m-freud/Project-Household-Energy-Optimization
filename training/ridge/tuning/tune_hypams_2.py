@@ -150,7 +150,7 @@ def _score_sim_total_cost_for_target(
         ev2_status_model=(model if target == "ev2_status" else dummy_classifier),
     )
 
-    sim = Simulation(sqlite_conn, ensure_schema=False)
+    sim = Simulation(sqlite_conn, ensure_results_table=False)
     all_total_costs: list[float] = []
 
     for scenario_name in scenario_names:
