@@ -194,7 +194,12 @@ class HypamBenchmark: #TODO round floats in csv
 
 
     def run_benchmark(self):
-        rows = []
+        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}_{self.n_test_ids}_{self.grid_id}_{'_'.join([scenario.name for scenario in self.scenarios])}_paul.csv"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Initialize output file early so partial progress survives crashes.
+        output_columns = ["params", "next_val_score", "scenario", "sim_score"]
+        pd.DataFrame(columns=output_columns).to_csv(out_path, index=False)
 
         self._progress_total = len(self.param_configs) * len(self.scenarios)
         self._progress_done = 0
@@ -212,21 +217,24 @@ class HypamBenchmark: #TODO round floats in csv
             model = self._build_model(self.target, params)
             model.fit(X_train, y_train)
 
-            row = {
-                "params": json.dumps(params, sort_keys=True),
-                "next_val_score": self.benchmark_direct_score(model, X_test, y_test),
-            }
+            params_json = json.dumps(params, sort_keys=True)
+            next_val_score = self.benchmark_direct_score(model, X_test, y_test)
 
             for scenario in self.scenarios:
-                row[f"sim_score_{scenario.name}"] = self.benchmark_sim_net_cost(model, scenario)
+                sim_score = self.benchmark_sim_net_cost(model, scenario)
+                pd.DataFrame(
+                    [
+                        {
+                            "params": params_json,
+                            "next_val_score": next_val_score,
+                            "scenario": scenario.name,
+                            "sim_score": sim_score,
+                        }
+                    ]
+                ).to_csv(out_path, mode="a", header=False, index=False)
                 self._progress_done += 1
                 self._print_benchmark_sim_progress()
 
-            rows.append(row)
-
-        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}_{self.n_test_ids}_{self.grid_id}_{'_'.join([scenario.name for scenario in self.scenarios])}_peter.csv"
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(rows).to_csv(out_path, index=False)
         print(f"Saved benchmark to {out_path}")
 
 
