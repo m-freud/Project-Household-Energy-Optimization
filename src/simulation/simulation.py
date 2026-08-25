@@ -2,11 +2,13 @@
 from pathlib import Path
 import sys
 
+
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
 
+from training.split.clean_split import PARTITIONS
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
@@ -953,7 +955,7 @@ if __name__ == "__main__":
     if args.households == "all":
         selected_household_ids = None
     elif args.households == "test_set":
-        selected_household_ids = list(RuntimeConfig.INDEPENDENT_TEST_SET)
+        selected_household_ids = list(PARTITIONS["inner"]["base_load"]["test"])
     else:
         selected_household_ids = [
             int(token.strip()) for token in args.households.split(",") if token.strip()

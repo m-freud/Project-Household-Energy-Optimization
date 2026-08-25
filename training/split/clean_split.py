@@ -1,3 +1,11 @@
+# paste this to enable src. imports
+from pathlib import Path
+import sys
+
+# find the repository root that contains 'src'
+repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
+sys.path.insert(0, str(repo_root))
+
 from training.split.equality_groups import eg_base_load, eg_pv_gen, eg_ev1, eg_ev2, find_equal_groups
 import networkx as nx
 

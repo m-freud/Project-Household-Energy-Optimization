@@ -48,14 +48,14 @@ from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 GRID_MAP = {
     "ridge": {
         "grid_1": {
-            "alpha": [0.01, 0.1, 1.0, 10.0, 100.0],
+            "alpha": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 100.0],
         },
     },
     "xgboost": {
         "grid_1": {
-            "n_estimators": [50, 100, 200],
+            "n_estimators": [100, 200, 600],
             "max_depth": [3, 5, 7],
-            "learning_rate": [0.01, 0.1, 0.2],
+            "learning_rate": [0.01, 0.05, 0.1],
         },
     },
 }
@@ -194,7 +194,7 @@ class HypamBenchmark: #TODO round floats in csv
 
 
     def run_benchmark(self):
-        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}_{self.n_test_ids}_{self.grid_id}_{'_'.join([scenario.name for scenario in self.scenarios])}_paul.csv"
+        out_path = BENCHMARK_CSV_DIR / self.model_family / f"{self.target}_{self.n_test_ids}_{self.grid_id}_{'_'.join([scenario.name for scenario in self.scenarios])}_stefan.csv"
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Initialize output file early so partial progress survives crashes.
@@ -219,9 +219,11 @@ class HypamBenchmark: #TODO round floats in csv
 
             params_json = json.dumps(params, sort_keys=True)
             next_val_score = self.benchmark_direct_score(model, X_test, y_test)
+            next_val_score = round(next_val_score, 5)
 
             for scenario in self.scenarios:
                 sim_score = self.benchmark_sim_net_cost(model, scenario)
+                sim_score = round(sim_score, 5)
                 pd.DataFrame(
                     [
                         {
@@ -257,8 +259,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--n_test_ids",
-        type=int,
-        default=18,
+        type=str,
+        default="18",
         help="Number of test households to use for benchmarking (default: 18)",
     )
     parser.add_argument(
@@ -272,10 +274,12 @@ if __name__ == "__main__":
     targets = args.targets.split(",")
     scenarios = args.scenarios.split(",")
     n_test_ids = args.n_test_ids
+    n_test_ids = int(n_test_ids) if n_test_ids.isdigit() else n_test_ids
     grids = args.grids.split(",")
 
     for model_family in models:
         for i, target in enumerate(targets):
+            n_test_ids = len(PARTITIONS["inner"][target]["test"]) if n_test_ids in ["auto", "all"] else n_test_ids
             grid_id = grids[i % len(grids)] # Cycle through grids if fewer grids than targets
             benchmark = HypamBenchmark(model_family, target, grid_id, scenarios, n_test_ids)
 

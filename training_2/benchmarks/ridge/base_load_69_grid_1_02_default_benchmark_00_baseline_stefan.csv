@@ -1,0 +1,4 @@
+params,next_val_score,scenario,sim_score
+"{""alpha"": 0.01}",0.6100273049135791,02_default_benchmark,12.176573352928992
+"{""alpha"": 0.01}",0.6100273049135791,00_baseline,3.7817721897354715
+"{""alpha"": 0.02}",0.6100274214665078,02_default_benchmark,12.176557442423949
