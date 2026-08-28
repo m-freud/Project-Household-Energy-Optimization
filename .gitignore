@@ -1,5 +1,6 @@
 data/EC_EV_dataset (fixed error).xlsx
-*.db
+energy.db
+backups/
 *.pyc
 ~lock.*#
 data/.~lock.A.xlsx#
