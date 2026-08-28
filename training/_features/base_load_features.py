@@ -57,7 +57,7 @@ def _add_n_evs_at_home(feature_df: pd.DataFrame, household_ids: list[int]) -> pd
 	# convert to df with columns: household_id, timestep, n_evs_at_home
 	ev_home_df = _init_feature_df(
 		_get_n_evs_at_home_profiles_df(ev_home_profiles),
-		value_name="n_evs_at_home",
+		target_name="n_evs_at_home",
 	)
 
 	feature_df = feature_df.merge(
@@ -72,7 +72,7 @@ def _add_n_evs_at_home(feature_df: pd.DataFrame, household_ids: list[int]) -> pd
 def get_base_load_features(household_ids: list[int], round_values: bool = False) -> pd.DataFrame:
 	raw_profiles = _fetch_profiles(household_ids, "base_load")
 	standardized_df = _get_profiles_df(raw_profiles)
-	feature_df = _init_feature_df(standardized_df, value_name="base_load")
+	feature_df = _init_feature_df(standardized_df, target_name="base_load")
 
 	feature_df = _add_n_evs_at_home(feature_df, household_ids)
 	feature_df = _add_trig_time_features(feature_df)

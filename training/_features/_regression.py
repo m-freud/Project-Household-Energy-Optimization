@@ -10,7 +10,7 @@ import pandas as pd
 from src.sqlite_connection import fetch_timeseries, sqlite_cursor
 
 
-def _fetch_profiles(household_ids: list[int], table_name: str) -> dict:
+def _fetch_profiles(household_ids: list[int], table_name: str) -> dict[int, list[float]]:
 	profiles = {}
 
 	for household_id in household_ids:
@@ -32,10 +32,10 @@ def _get_profiles_df(profiles_dict: dict) -> pd.DataFrame:
 	return pd.DataFrame(rows)
 
 
-def _init_feature_df(profiles_df: pd.DataFrame, value_name: str) -> pd.DataFrame:
+def _init_feature_df(profiles_df: pd.DataFrame, target_name: str) -> pd.DataFrame:
 	'''
 	create initial feature df that is then populated with derived features.
-	init columns: household_id, timestep, value_name
+	init columns: household_id, timestep, target
 	'''
 
 	columns = sorted(
@@ -50,14 +50,14 @@ def _init_feature_df(profiles_df: pd.DataFrame, value_name: str) -> pd.DataFrame
 		id_vars=["household_id"],
 		value_vars=columns,
 		var_name="timestep_col",
-		value_name=value_name,
+		value_name=target_name,
 	)
 
 	feature_df["timestep"] = feature_df["timestep_col"].str[1:].astype(int)
 	feature_df["household_id"] = feature_df["household_id"].astype(int)
-	feature_df[value_name] = feature_df[value_name].astype(float)
+	feature_df[target_name] = feature_df[target_name].astype(float)
 
-	feature_df = feature_df[["household_id", "timestep", value_name]]
+	feature_df = feature_df[["household_id", "timestep", target_name]]
 	feature_df = feature_df.sort_values(["household_id", "timestep"]).reset_index(drop=True)
 
 	return feature_df
