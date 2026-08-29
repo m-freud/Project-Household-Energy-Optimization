@@ -56,7 +56,6 @@ MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
     "BASE_LOAD": [
         "timestep",
         "base_load",
-        "n_evs_at_home",
         "time_sin",
         "time_cos",
         "base_load_lag_1",
@@ -146,7 +145,6 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "base_load_std_8",
             "base_load_delta_2",
             "base_load_lag_1",
-            #"n_evs_at_home",
         ],
         "pv_gen": [
             "pv_gen",
@@ -217,7 +215,6 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "base_load_std_8",
             "base_load_lag_12",
             "base_load_lag_2",
-            "n_evs_at_home",
         ],
         "pv_gen": [
             "pv_gen",
@@ -290,7 +287,6 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "timestep",
             "base_load_std_8",
             "base_load_lag_4",
-            "n_evs_at_home",
             "base_load_lag_12",
         ],
         "pv_gen": [

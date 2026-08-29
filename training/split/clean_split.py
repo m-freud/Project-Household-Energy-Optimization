@@ -101,12 +101,6 @@ train_groups = {
     "ev2_status": find_equal_groups("ev2_status", household_ids=train_set)
 }
 
-# print("--------------------------base load")
-# print(train_groups["base_load"])
-# print("--------------------------pv")
-# print(train_groups["pv_gen"])
-# print(len(train_groups["base_load"]))
-# print(len(train_groups["pv_gen"]))
 
 from itertools import combinations
 
@@ -191,9 +185,6 @@ PARTITIONS = {
 
 
 if __name__ == "__main__":
-    # print extensive metadata for PARTITIONS
-    # import pprint
-    # pprint.pprint(PARTITIONS)
     print("\n=== PARTITION METADATA ===")
     print(f"Global train: {len(PARTITIONS['global']['train'])}")
     print(f"Global test:  {len(PARTITIONS['global']['test'])}")

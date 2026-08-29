@@ -22,7 +22,6 @@ The recursive rollout (96 steps × one `pd.DataFrame` + `model.predict` call eac
 Make sure training and inference are exactly aligned and the code is clean.
 
 - [ ] Verify `MODEL_FEATURE_COLUMNS` in every runtime predictor matches the training DataFrame column order exactly (already tested by parity script — keep that test green)
-- [ ] Check that `n_evs_at_home` in the base-load runtime predictor uses the EV-status classifier output, not the frozen household state (already patched — confirm end-to-end)
 - [ ] Confirm the EV-status recursive prediction index alignment (off-by-one risk between `prediction_index` and the returned at-home sequences)
 - [ ] Review `_regression.py` helper names vs. what `base_load_features.py` and `pv_gen_features.py` actually import — resolve any alias confusion
 - [ ] Remove dead code in training scripts (unused imports, old `root`-based path constructions)
@@ -43,7 +42,6 @@ Train better models; don't change the feature set until tuning is done.
 - [ ] Evaluate whether a separate model for the daylight window vs. outside improves accuracy
 
 ### Base-load regressor
-- [ ] Check whether `n_evs_at_home` is actually used by the tree (feature importance) — remove if it adds noise without signal
 - [ ] Consider a rolling-window cross-validation over the 96-step day profile rather than a random train/test split
 
 ### EV-status classifier

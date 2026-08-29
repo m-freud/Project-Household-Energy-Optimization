@@ -71,7 +71,6 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
             model=self.base_load_model,
             household=household,
             horizon=horizon,
-            ev_status_pred=ev_status_pred,
         )
 
     def predict_pv_gen(self, household: Household, horizon: int) -> dict[str, list[float]]:

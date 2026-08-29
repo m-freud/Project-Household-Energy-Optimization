@@ -24,7 +24,6 @@ def _build_base_load_features(
     current_timestep: int,
     current_base_load: float,
     base_load_history: list[float], # dict is converted to list for calculations
-    n_evs_at_home: int,
     round_values: bool = False,
 ) -> dict:
     base_load_seq = base_load_history + [current_base_load]
@@ -56,7 +55,6 @@ def _build_base_load_features(
     features = {
         "timestep": current_timestep,
         "base_load": current_base_load,
-        "n_evs_at_home": n_evs_at_home,
         "time_sin": time_sin,
         "time_cos": time_cos,
         "base_load_lag_1": lag_1,
@@ -98,7 +96,6 @@ def _predict_base_load(
     model: TRegressor,
     household: Household,
     horizon: int,
-    predicted_ev_status: dict[str, list[int]],
 ) -> list[float]:
     # current values
     current_timestep = household.current_timestep
@@ -119,16 +116,10 @@ def _predict_base_load(
             current_timestep += 1
             continue
 
-        n_evs_at_home = _count_evs_at_home( # predictions are 0-indexed so we can just use this range
-            predicted_ev_status=predicted_ev_status,
-            prediction_index=prediction_index,
-        )
-
         all_features = _build_base_load_features(
             current_timestep=current_timestep,
             current_base_load=current_base_load,
             base_load_history=sim_base_load_history,
-            n_evs_at_home=n_evs_at_home,
         )
 
         model_family_name = ModelConfig.get_model_family_name(model)
@@ -159,14 +150,12 @@ def predict_base_load(
     model: TRegressor,
     household: Household,
     horizon: int,
-    ev_status_pred: dict[str, list[int]],
     interval_width_frct: float = 0.0,
 ) -> dict[str, list[float]]:
     base_load = _predict_base_load(
         model=model,
         household=household,
         horizon=horizon,
-        predicted_ev_status=ev_status_pred,
     )
     base_load_lb, base_load_ub = make_band(base_load, interval_width_frct)
 
