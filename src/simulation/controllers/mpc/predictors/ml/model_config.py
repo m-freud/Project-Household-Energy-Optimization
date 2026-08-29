@@ -146,7 +146,7 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "base_load_std_8",
             "base_load_delta_2",
             "base_load_lag_1",
-            "n_evs_at_home",
+            #"n_evs_at_home",
         ],
         "pv_gen": [
             "pv_gen",
