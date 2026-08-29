@@ -9,13 +9,12 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
+from training.split.clean_split import PARTITIONS
+
 
 from training._features.base_load_features import get_base_load_features
 
 from training._features._regression import (  # noqa: E402
-	_fetch_profiles,
-	_get_profiles_df,
-	_init_feature_df,
 	_add_history_average_features,
 	_add_std_features,
 	_add_delta_features,
@@ -28,7 +27,8 @@ from training._features._shared import ( # noqa: E402
     _add_next_value_target
   )  
 
-sqlite_path = "sqlite/ch_smart_meters.db"
+sqlite_path = Path(__file__).parent.parent / "sqlite/ch_smart_meters.db"
+feature_df_dir = Path(__file__).parent / "feature_dataframes"
 
 with sqlite3.connect(sqlite_path) as conn:
     load_df = pd.read_sql("SELECT * FROM load", conn)
@@ -47,14 +47,37 @@ split_idx = int(n_days * 0.8) * 96
 train_df = load_df.iloc[:split_idx]
 val_df = load_df.iloc[split_idx:]
 
-def make_feature_df(load_df: pd.DataFrame, round_values: bool = True) -> pd.DataFrame:
+def make_feature_df(
+    load_df: pd.DataFrame,
+    round_values: bool = True,
+    output_dir: Path = feature_df_dir,
+    n_players: int = 10,
+    n_months: int = 12,
+) -> pd.DataFrame:
     print("lets make feature df")
     feature_df = pd.DataFrame()
+    first_date = pd.to_datetime(load_df["timestamp_utc"].iloc[0]).date()
+    month = first_date.month
+    year = first_date.year
+    months_processed = 0
 
     for date, day_df in load_df.groupby(
         pd.to_datetime(load_df["timestamp_utc"]).dt.date
         ):
-        for player_id in day_df.columns[2:]:
+
+        if date.month != month:
+            print(f"finished month {month:02d}-{year}, now on month {date.month:02d}-{date.year}")
+            feature_df.to_parquet(output_dir / f"load_features_{month:02d}-{year}.parquet", index=False)
+            feature_df = pd.DataFrame()
+            months_processed += 1
+            if months_processed >= n_months:
+                return feature_df
+        month = date.month
+        year = date.year
+
+        for player_id in day_df.columns[2:(2 + n_players)]:
+            print(f"processing player {player_id} for date {date}")
+
             player_day_df = pd.DataFrame({
                 "timestep": day_df["period"].to_numpy(),
                 "household_id": int(player_id),
@@ -105,6 +128,8 @@ def make_feature_df(load_df: pd.DataFrame, round_values: bool = True) -> pd.Data
                 player_day_df = _round_float_features(player_day_df, digits=3)
 
             feature_df = pd.concat([feature_df, player_day_df], ignore_index=True)
+
+    feature_df.to_parquet(output_dir / f"load_features_{month:02d}-{year}.parquet", index=False)
 
     return feature_df
 
