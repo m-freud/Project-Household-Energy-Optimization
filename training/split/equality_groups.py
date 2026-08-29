@@ -64,9 +64,6 @@ def find_equal_groups(table_name:str, household_ids=range(1, 251))-> dict[int, l
     for id in independent_ids:
         equality_groups[id] = [id]
 
-    # sort by length
-    # equality_groups = dict(sorted(equality_groups.items(), key=lambda item: len(item[1]), reverse=True))
-
     return equality_groups
 
 
@@ -74,11 +71,6 @@ eg_base_load = find_equal_groups("base_load")
 eg_pv_gen = find_equal_groups("pv_gen")
 eg_ev1 = find_equal_groups("ev1_status")
 eg_ev2 = find_equal_groups("ev2_status")
-
-# print("BASE LOAD", eg_base_load)
-# print("PV GEN", eg_pv_gen)
-# print("EV1 STATUS", eg_ev1)
-# print("EV2 STATUS", eg_ev2)
 
 
 def plot_group_distributions():
