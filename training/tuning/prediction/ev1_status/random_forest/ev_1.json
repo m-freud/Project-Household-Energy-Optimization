@@ -1,0 +1,20 @@
+{
+  "n_estimators": [
+    100,
+    300,
+    500
+  ],
+  "max_depth": [
+    10
+  ],
+  "min_samples_leaf": [
+    2,
+    3,
+    5
+  ],
+  "max_features": [
+    "sqrt",
+    0.5,
+    1.0
+  ]
+}

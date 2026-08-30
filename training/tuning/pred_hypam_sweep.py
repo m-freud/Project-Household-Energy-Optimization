@@ -39,12 +39,25 @@ GRID_MAP = {
         "grid_1": {
             "alpha": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 100.0],
         },
+        "grid_A": { # grid 1 but used with xgb features
+            "alpha": [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 100.0],
+        },
     },
     "xgboost": {
         "grid_1": {
             "n_estimators": [100, 200, 300, 400, 500, 600],
             "max_depth": [3, 5, 7, 9],
             "learning_rate": [0.01, 0.05, 0.1, 0.2, 0.5],
+        },
+        "pv_1": {
+            "n_estimators": [100, 200, 300, 400, 500, 600],
+            "max_depth": [2, 3],
+            "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
+        },
+        "ev_1": {
+            "n_estimators": [100, 200, 300, 400, 500, 600],
+            "max_depth": [2,3,4],
+            "learning_rate": [0.01, 0.02, 0.05, 0.1],
         },
         "grid_2": {
             "n_estimators": [100, 200, 300, 400, 500, 600],
@@ -61,6 +74,7 @@ GRID_MAP = {
             "max_depth": [2, 3],
             "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
         },
+
     },
     "random_forest": {
         "grid_1": {
@@ -69,7 +83,25 @@ GRID_MAP = {
             "min_samples_leaf": [1, 2, 5],
             "max_features": ["sqrt", 0.5, 1.0],
         },
-        "grid_A": {
+        "pv_1": {
+            "n_estimators": [100, 300, 500],
+            "max_depth": [None, 10, 20],
+            "min_samples_leaf": [3, 4, 5],
+            "max_features": ["sqrt"],
+        },
+        "ev_1": {
+            "n_estimators": [100, 300, 500],
+            "max_depth": [10],
+            "min_samples_leaf": [2, 3, 5],
+            "max_features": ["sqrt", 0.5, 1.0],
+        },
+        "load_1": {
+            "n_estimators": [100, 300, 500],
+            "max_depth": [10],
+            "min_samples_leaf": [1, 2, 5],
+            "max_features": ["sqrt"],
+        },
+        "grid_A": { # grid 1 but used with xgb features
             "n_estimators": [100, 300, 500],
             "max_depth": [None, 10, 20],
             "min_samples_leaf": [1, 2, 5],
@@ -118,9 +150,9 @@ def get_train_test_frames(target, model_family) -> tuple[pd.DataFrame, pd.DataFr
         raise ValueError(f"Unknown target: {target}")
 
     if "ev" in target:
-        feature_columns = MODEL_FEATURES_BY_FAMILY["xgboost"]["ev_status"]
+        feature_columns = MODEL_FEATURES_BY_FAMILY[model_family]["ev_status"]
     else:
-        feature_columns = MODEL_FEATURES_BY_FAMILY["xgboost"][target]
+        feature_columns = MODEL_FEATURES_BY_FAMILY[model_family][target]
     return train_df, test_df, feature_columns, y_col
 
 
@@ -159,7 +191,7 @@ def hypam_sweep(target: str, model: str, grid: str):
     X_test = test_df[feature_columns]
     y_test = test_df[y_col]
 
-    out_dir = OUTPUT_DIR / target / model
+    out_dir = OUTPUT_DIR / "prediction" / target / model
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{grid}.csv"
     json_path = out_dir / f"{grid}.json"
@@ -183,45 +215,50 @@ def hypam_sweep(target: str, model: str, grid: str):
     print(f"Saved hypam grid to {json_path}")
 
 
+def normalize_target(target: str) -> str:
+    return {"pv": "pv_gen", "load": "base_load", "ev1": "ev1_status", "ev2": "ev2_status"}.get(target, target)
+
+
+def normalize_model(model: str) -> str:
+    return {"rf": "random_forest", "xgb": "xgboost"}.get(model, model)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         type=str,
-        default="pv_gen",
-        help="target. choose between base_load,pv_gen,ev1_status,ev2_status",
+        nargs="+",
+        default=["pv_gen"],
+        help="target(s). choose between base_load,pv_gen,ev1_status,ev2_status",
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="xgboost",
-        help="inference model. choose between xgboost, random_forest, ridge",
+        nargs="+",
+        default=["xgboost"],
+        help="inference model(s). choose between xgboost, random_forest, ridge",
     )
     parser.add_argument(
         "--grid",
         type=str,
-        default="grid_1",
-        help="grid",
+        nargs="+",
+        default=["grid_1"],
+        help="grid(s)",
     )
     args = parser.parse_args()
 
-    target = args.target
-    if target == 'pv':
-        target = 'pv_gen'
-    elif target == 'load':
-        target = 'base_load'
-    elif target == 'ev1':
-        target = 'ev1_status'
-    elif target == 'ev2':
-        target = 'ev2_status'
+    targets = [normalize_target(t) for t in args.target]
+    models = [normalize_model(m) for m in args.model]
+    grids = args.grid
 
-    model = args.model
-    if model == 'rf':
-        model = 'random_forest'
-    elif model == 'xgb':
-        model = 'xgboost'
-
-    hypam_sweep(target=target, model=model, grid=args.grid)
+    for model in models:
+        for target in targets:
+            for grid in grids:
+                if grid not in GRID_MAP.get(model, {}):
+                    print(f"Skipping {target}/{model}/{grid}: grid not defined for model")
+                    continue
+                hypam_sweep(target=target, model=model, grid=grid)
 
 
 
