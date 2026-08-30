@@ -186,10 +186,10 @@ def hypam_sweep(target: str, model: str, grid: str):
 
     train_df, test_df, feature_columns, y_col = get_train_test_frames(target=target, model_family=model)
 
-    X_train = train_df[feature_columns]
-    y_train = train_df[y_col]
-    X_test = test_df[feature_columns]
-    y_test = test_df[y_col]
+    X_train = train_df[feature_columns].to_numpy()  # avoid column names, we rely on fixed feature order
+    y_train = train_df[y_col].to_numpy()
+    X_test = test_df[feature_columns].to_numpy()
+    y_test = test_df[y_col].to_numpy()
 
     out_dir = OUTPUT_DIR / "prediction" / target / model
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -249,6 +249,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     targets = [normalize_target(t) for t in args.target]
+    if targets == ["all"]:
+        targets = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
+
     models = [normalize_model(m) for m in args.model]
     grids = args.grid
 
