@@ -7,7 +7,7 @@ sys.path.insert(0, str(repo_root))
 
 import pandas as pd  # noqa: E402
 
-from training._features._regression import (  # noqa: E402
+from training.features._regression import (  # noqa: E402
 	_fetch_profiles,
 	_get_profiles_df,
 	_init_feature_df,
@@ -17,7 +17,7 @@ from training._features._regression import (  # noqa: E402
 	_add_accel_feature,
 	_round_float_features,
 )
-from training._features._shared import ( # noqa: E402
+from training.features._shared import ( # noqa: E402
     _add_trig_time_features, 
 	_add_lag_features, 
     _add_next_value_target
