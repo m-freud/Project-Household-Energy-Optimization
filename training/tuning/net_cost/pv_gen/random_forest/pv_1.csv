@@ -1,0 +1,7 @@
+params,scenario,score
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 3, ""n_estimators"": 100}",default_scenario,11.11973
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 3, ""n_estimators"": 100}",00_baseline,2.77281
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 4, ""n_estimators"": 100}",default_scenario,11.11985
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 4, ""n_estimators"": 100}",00_baseline,2.77265
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 5, ""n_estimators"": 100}",default_scenario,11.12381
+"{""max_depth"": null, ""max_features"": ""sqrt"", ""min_samples_leaf"": 5, ""n_estimators"": 100}",00_baseline,2.76874

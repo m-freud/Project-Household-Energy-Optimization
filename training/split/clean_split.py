@@ -92,8 +92,6 @@ def count_pv(id_set):
 
     return pv_count, pv_count / len(id_set)
 
-# print(count_pv(test_set))
-
 train_groups = {
     "base_load": find_equal_groups("base_load", household_ids=train_set),
     "pv_gen": find_equal_groups("pv_gen", household_ids=train_set),

@@ -12,3 +12,14 @@ params,scenario,score
 "{""alpha"": 0.5}",default_scenario,11.77796
 "{""alpha"": 0.5}",00_baseline,2.77269
 "{""alpha"": 1.0}",default_scenario,11.77796
+"{""alpha"": 1.0}",00_baseline,2.77269
+"{""alpha"": 2.0}",default_scenario,11.77686
+"{""alpha"": 2.0}",00_baseline,2.77269
+"{""alpha"": 5.0}",default_scenario,11.77693
+"{""alpha"": 5.0}",00_baseline,2.77269
+"{""alpha"": 10.0}",default_scenario,11.77868
+"{""alpha"": 10.0}",00_baseline,2.77269
+"{""alpha"": 20.0}",default_scenario,11.77723
+"{""alpha"": 20.0}",00_baseline,2.77269
+"{""alpha"": 100.0}",default_scenario,11.77723
+"{""alpha"": 100.0}",00_baseline,2.77269
