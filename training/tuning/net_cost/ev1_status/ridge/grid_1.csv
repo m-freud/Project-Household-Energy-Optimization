@@ -1,0 +1,25 @@
+params,scenario,score
+"{""alpha"": 0.01}",default_scenario,11.72951
+"{""alpha"": 0.01}",00_baseline,2.80746
+"{""alpha"": 0.02}",default_scenario,11.72951
+"{""alpha"": 0.02}",00_baseline,2.80746
+"{""alpha"": 0.05}",default_scenario,11.72951
+"{""alpha"": 0.05}",00_baseline,2.80746
+"{""alpha"": 0.1}",default_scenario,11.72951
+"{""alpha"": 0.1}",00_baseline,2.80746
+"{""alpha"": 0.2}",default_scenario,11.72951
+"{""alpha"": 0.2}",00_baseline,2.80746
+"{""alpha"": 0.5}",default_scenario,11.72951
+"{""alpha"": 0.5}",00_baseline,2.80746
+"{""alpha"": 1.0}",default_scenario,11.72951
+"{""alpha"": 1.0}",00_baseline,2.80746
+"{""alpha"": 2.0}",default_scenario,11.72951
+"{""alpha"": 2.0}",00_baseline,2.80746
+"{""alpha"": 5.0}",default_scenario,11.71995
+"{""alpha"": 5.0}",00_baseline,2.80746
+"{""alpha"": 10.0}",default_scenario,11.71955
+"{""alpha"": 10.0}",00_baseline,2.80746
+"{""alpha"": 20.0}",default_scenario,11.73143
+"{""alpha"": 20.0}",00_baseline,2.80746
+"{""alpha"": 100.0}",default_scenario,11.73143
+"{""alpha"": 100.0}",00_baseline,2.80746

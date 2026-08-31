@@ -78,21 +78,21 @@ def score_model(model, target: str, scenario_name: str, n_test_ids: int | None) 
     return float(np.mean(results["net_costs"]))
 
 
-def _print_progress(done: int, total: int, started_at: float):
+def _print_progress(done: int, total: int, started_at: float, label: str = "sweep"):
     if done == 0:
-        print(f"[0/{total}] starting simulation sweep...")
+        print(f"[{label}] [0/{total}] starting...")
         return
 
     elapsed_seconds = time.perf_counter() - started_at
     avg_seconds = elapsed_seconds / done
     eta_seconds = avg_seconds * max(total - done, 0)
     print(
-        f"[{done}/{total}] elapsed={elapsed_seconds/60.0:.1f}m "
+        f"[{label}] [{done}/{total}] elapsed={elapsed_seconds/60.0:.1f}m "
         f"avg={avg_seconds:.1f}s/run eta={eta_seconds/60.0:.1f}m"
     )
 
 
-def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test_ids: int | None):
+def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test_ids: int | None, full_progress: dict | None = None):
     '''do a hypam sweep by training models for all grid configs and scoring them via simulated net cost'''
 
     train_df, _test_df, feature_columns, y_col = get_train_test_frames(target=target, model_family=model)
@@ -117,7 +117,7 @@ def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test
     total_runs = len(param_configs) * len(scenarios)
     done_runs = 0
     started_at = time.perf_counter()
-    _print_progress(done_runs, total_runs, started_at)
+    _print_progress(done_runs, total_runs, started_at, label="current sweep")
 
     for i, params in enumerate(param_configs, 1):
         estimator = build_model(model, target, params)
@@ -127,7 +127,15 @@ def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test
             score = score_model(estimator, target, scenario, n_test_ids)
             done_runs += 1
             print(f"  [{i:3d}/{len(param_configs)}] params={params} scenario={scenario} -> net_cost={score:.5f}")
-            _print_progress(done_runs, total_runs, started_at)
+            _print_progress(done_runs, total_runs, started_at, label="current sweep")
+            if full_progress is not None:
+                full_progress["done"] += 1
+                _print_progress(
+                    full_progress["done"],
+                    full_progress["total"],
+                    full_progress["started_at"],
+                    label="full run",
+                )
             row = {
                 "params": json.dumps(params, sort_keys=True),
                 "scenario": scenario,
@@ -185,6 +193,20 @@ if __name__ == "__main__":
     models = [normalize_model(m) for m in args.model]
     grids = args.grid
 
+    full_total_runs = 0
+    for model in models:
+        for target in targets:
+            for grid in grids:
+                if grid in GRID_MAP.get(model, {}):
+                    full_total_runs += len(build_param_grid(GRID_MAP[model][grid])) * len(args.scenario)
+
+    full_progress = {
+        "done": 0,
+        "total": full_total_runs,
+        "started_at": time.perf_counter(),
+    }
+    _print_progress(0, full_total_runs, full_progress["started_at"], label="full run")
+
     for model in models:
         for target in targets:
             for grid in grids:
@@ -197,4 +219,5 @@ if __name__ == "__main__":
                     grid=grid,
                     scenarios=args.scenario,
                     n_test_ids=args.n_test_ids,
+                    full_progress=full_progress,
                 )
