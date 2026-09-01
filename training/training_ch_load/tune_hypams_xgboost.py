@@ -12,16 +12,16 @@ sys.path.insert(0, str(repo_root))
 from training.split.clean_split import PARTITIONS
 
 
-from training._features.base_load_features import get_base_load_features
+from training.features.base_load_features import get_base_load_features
 
-from training._features._regression import (  # noqa: E402
+from training.features._regression import (  # noqa: E402
 	_add_history_average_features,
 	_add_std_features,
 	_add_delta_features,
 	_add_accel_feature,
 	_round_float_features,
 )
-from training._features._shared import ( # noqa: E402
+from training.features._shared import ( # noqa: E402
     _add_trig_time_features, 
 	_add_lag_features, 
     _add_next_value_target
@@ -37,7 +37,8 @@ with sqlite3.connect(sqlite_path) as conn:
 load_df = load_df[
     load_df["timestamp_utc"].between(
         "2023-01-01 00:00:00",
-        "2024-12-30 23:45:00"
+        "2024-01-01 23:45:00", # 1 year
+        # "2024-12-30 23:45:00" # 2 years (too much data)
     )
 ]
 

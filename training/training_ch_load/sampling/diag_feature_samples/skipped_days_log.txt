@@ -1,0 +1,41 @@
+creating diag feature df for start_idx=0 (id=100354)
+Skipping day with NaN values: 2023-08-29, player 192815
+Skipping day with NaN values: 2023-08-30, player 198650
+Skipping day with NaN values: 2024-10-06, player 191701
+creating diag feature df for start_idx=1 (id=100707)
+Skipping day with NaN values: 2023-08-29, player 198650
+Skipping day with NaN values: 2024-07-11, player 188093
+creating diag feature df for start_idx=2 (id=102016)
+Skipping day with NaN values: 2024-10-07, player 199888
+Skipping day with NaN values: 2024-10-13, player 106298
+Skipping day with NaN values: 2024-11-20, player 152601
+creating diag feature df for start_idx=3 (id=103995)
+Skipping day with NaN values: 2024-10-02, player 191628
+Skipping day with NaN values: 2024-10-06, player 199888
+Skipping day with NaN values: 2024-10-07, player 100354
+Skipping day with NaN values: 2024-10-13, player 106793
+Skipping day with NaN values: 2024-10-14, player 107448
+Skipping day with NaN values: 2024-11-18, player 151740
+creating diag feature df for start_idx=4 (id=104481)
+Skipping day with NaN values: 2024-10-07, player 100707
+creating diag feature df for start_idx=5 (id=105366)
+Skipping day with NaN values: 2024-05-11, player 118984
+Skipping day with NaN values: 2024-09-09, player 166206
+Skipping day with NaN values: 2024-10-06, player 100707
+Skipping day with NaN values: 2024-10-07, player 102016
+Skipping day with NaN values: 2024-10-13, player 108517
+Skipping day with NaN values: 2024-10-14, player 108795
+Skipping day with NaN values: 2024-11-20, player 160216
+creating diag feature df for start_idx=6 (id=106298)
+Skipping day with NaN values: 2024-10-06, player 102016
+creating diag feature df for start_idx=7 (id=106793)
+Skipping day with NaN values: 2024-10-06, player 104481
+creating diag feature df for start_idx=8 (id=107448)
+Skipping day with NaN values: 2024-10-06, player 105366
+Skipping day with NaN values: 2024-10-07, player 106298
+Skipping day with NaN values: 2024-10-14, player 113377
+creating diag feature df for start_idx=9 (id=108517)
+Skipping day with NaN values: 2024-10-02, player 100707
+Skipping day with NaN values: 2024-10-06, player 106298
+Skipping day with NaN values: 2024-10-07, player 106793
+Skipping day with NaN values: 2024-11-20, player 163595
