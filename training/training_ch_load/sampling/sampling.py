@@ -90,13 +90,13 @@ def create_diag_sample_feature_df(
             "timestamp_utc": day_df["timestamp_utc"].to_numpy(),
             "timestep": day_df["period"].to_numpy(),
             "household_id": day_df["household_id"].to_numpy(),
-            "load": day_df["load"].to_numpy(),
+            "base_load": day_df["load"].to_numpy(),
         })
 
         player_day_df = _add_trig_time_features(player_day_df)
         player_day_df = _add_lag_features(
             player_day_df,
-            source_column="load",
+            source_column="base_load",
             group_cols=("household_id",),
             lags=(1, 2, 4, 8, 12),
             pad_value=-1.0,
@@ -107,18 +107,18 @@ def create_diag_sample_feature_df(
         player_day_df = _add_history_average_features(
             player_day_df,
             windows=(2, 4, 8, 16),
-            value_column="load",
+            value_column="base_load",
             prefix="base_load",
         )
         player_day_df = _add_std_features(
             player_day_df,
             windows=(4, 8),
-            value_column="load",
+            value_column="base_load",
             prefix="base_load",
         )
         player_day_df = _add_delta_features(
             player_day_df,
-            value_column="load",
+            value_column="base_load",
             prefix="base_load",
         )
         player_day_df = _add_accel_feature(
@@ -127,7 +127,7 @@ def create_diag_sample_feature_df(
         )
         player_day_df = _add_next_value_target(
             player_day_df,
-            source_column="load",
+            source_column="base_load",
             group_cols=("household_id",),
             target_column="next_value",
             fill_value=0.0,
@@ -144,6 +144,12 @@ def create_diag_sample_feature_df(
     feature_df.to_parquet(output_dir / f"diag_{start_id}_features.parquet", index=False)
 
     return feature_df
+
+
+def create_random_sample_feature_df(start_id=100354, n_days=365, round_values=True):
+    # random would be slightly better than chronological since we dont use the full year
+    # to stay deteministic we just use steps of 20 days instead of one, or sth like that
+    pass #TBD
 
 
 
