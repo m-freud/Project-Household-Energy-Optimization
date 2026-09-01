@@ -25,14 +25,17 @@ FILTERED_SMART_METER_DATA_DIR = DATASET_DIR / 'smart_meter_data_filtered'
 def filter_single_family_houses(raw_metadata: pd.DataFrame) -> pd.DataFrame:
     """Filter metadata for single-family houses without additional devices."""
     single_family_houses = raw_metadata[raw_metadata['0_installation_type'] == 'Single-family house']
-    filtered_sfh_metadata = single_family_houses[(~single_family_houses['1_ewh']) &
-                                     (~single_family_houses['1_hp']) &
-                                     (~single_family_houses['1_hp-add']) &
-                                     (~single_family_houses['1_hp-wh']) &
-                                     (~single_family_houses['1_ev']) &
-                                     (~single_family_houses['1_storage_heating']) &
-                                     (~single_family_houses['1_direct_heating']) &
-                                     (~single_family_houses['1_change'])]
+    filtered_sfh_metadata = single_family_houses[
+                                    (~single_family_houses['1_ewh']) &
+                                    (~single_family_houses['1_hp']) &
+                                    (~single_family_houses['1_hp-add']) &
+                                    (~single_family_houses['1_hp-wh']) &
+                                    (~single_family_houses['1_ev']) &
+                                    (~single_family_houses['1_storage_heating']) &
+                                    (~single_family_houses['1_direct_heating']) &
+                                    (~single_family_houses['1_change']) &
+                                    (single_family_houses['0_num_data_points'] >= 70000)
+                                ]
 
     return filtered_sfh_metadata
 
@@ -57,7 +60,7 @@ def write_filtered_dataset(filtered_metadata: pd.DataFrame) -> None:
 def main():
     raw_metadata = pd.read_csv(METADATA_PATH, sep=';', index_col=0)
     filtered_sfh_metadata = filter_single_family_houses(raw_metadata)
-    print(f"Filtered metadata contains {len(filtered_sfh_metadata)} single family houses without additional devices.")
+    print(f"Filtered metadata contains {len(filtered_sfh_metadata)} single family houses without additional devices. (70000+ datapoints each)")
     write_filtered_dataset(filtered_sfh_metadata)
     print(f"Wrote {FILTERED_METADATA_PATH.name} and copied csvs to {FILTERED_SMART_METER_DATA_DIR.name}/")
 
