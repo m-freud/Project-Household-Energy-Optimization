@@ -67,6 +67,34 @@ def find_equal_groups(table_name:str, household_ids=range(1, 251))-> dict[int, l
     return equality_groups
 
 
+def select_balanced_group_members(
+    groups: dict[int, list[int]], household_ids: list[int], count: int
+) -> list[int]:
+    """Select IDs round-robin across equality groups for balanced subsets."""
+    grouped_ids = [
+        sorted(set(group) & set(household_ids))
+        for _, group in sorted(groups.items())
+    ]
+    grouped_ids = [group for group in grouped_ids if group]
+
+    available_count = sum(len(group) for group in grouped_ids)
+    if count < 0 or count > available_count:
+        raise ValueError(f"count must be between 0 and {available_count}, got {count}")
+
+    selected_ids = []
+    group_positions = [0] * len(grouped_ids)
+    while len(selected_ids) < count:
+        for group_index, group in enumerate(grouped_ids):
+            if group_positions[group_index] >= len(group):
+                continue
+            selected_ids.append(group[group_positions[group_index]])
+            group_positions[group_index] += 1
+            if len(selected_ids) == count:
+                break
+
+    return selected_ids
+
+
 eg_base_load = find_equal_groups("base_load")
 eg_pv_gen = find_equal_groups("pv_gen")
 eg_ev1 = find_equal_groups("ev1_status")
