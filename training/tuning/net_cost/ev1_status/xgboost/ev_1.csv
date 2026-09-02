@@ -1,0 +1,9 @@
+params,scenario,score
+"{""learning_rate"": 0.01, ""max_depth"": 2, ""n_estimators"": 100}",default_scenario,11.63009
+"{""learning_rate"": 0.01, ""max_depth"": 2, ""n_estimators"": 100}",00_baseline,2.80579
+"{""learning_rate"": 0.02, ""max_depth"": 2, ""n_estimators"": 100}",default_scenario,11.63011
+"{""learning_rate"": 0.02, ""max_depth"": 2, ""n_estimators"": 100}",00_baseline,2.80579
+"{""learning_rate"": 0.05, ""max_depth"": 2, ""n_estimators"": 100}",default_scenario,11.63011
+"{""learning_rate"": 0.05, ""max_depth"": 2, ""n_estimators"": 100}",00_baseline,2.80579
+"{""learning_rate"": 0.1, ""max_depth"": 2, ""n_estimators"": 100}",default_scenario,11.40897
+"{""learning_rate"": 0.1, ""max_depth"": 2, ""n_estimators"": 100}",00_baseline,2.80579
