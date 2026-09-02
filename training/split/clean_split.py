@@ -208,3 +208,39 @@ if __name__ == "__main__":
         print(f"  Train group sizes: {sorted(map(len, train_g.values()), reverse=True)}")
         print(f"  Test groups: {len(test_g)}")
         print(f"  Test group sizes:  {sorted(map(len, test_g.values()), reverse=True)}")
+
+"""
+out:
+=== PARTITION METADATA ===
+Global train: 174
+Global test:  76
+
+base_load
+  Train: 105
+  Test:  69
+  Ratio: 60.3%
+  Train groups: 8
+  Train group sizes: [16, 16, 16, 13, 13, 13, 13, 5]
+  Test groups: 5
+  Test group sizes:  [16, 16, 16, 16, 5]
+
+pv_gen
+  Train: 104
+  Test:  70
+  Ratio: 59.8%
+  Train groups: 8
+  Train group sizes: [34, 12, 11, 11, 10, 10, 10, 6]
+  Test groups: 7
+  Test group sizes:  [11, 11, 11, 11, 11, 10, 5]
+
+ev1_status
+  Train: 104
+  Test:  70
+  Ratio: 59.8%
+
+ev2_status
+  Train: 104
+  Test:  70
+  Ratio: 59.8%
+
+"""

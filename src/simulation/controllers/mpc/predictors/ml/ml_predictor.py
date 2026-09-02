@@ -32,10 +32,10 @@ class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     def __init__(
         self,
         *,
-        base_load_model: TRegressor | None,
-        pv_gen_model: TRegressor | None,
-        ev1_status_model: TClassifier | None,
-        ev2_status_model: TClassifier | None,
+        base_load_model: TRegressor | None = None,
+        pv_gen_model: TRegressor | None = None,
+        ev1_status_model: TClassifier | None = None,
+        ev2_status_model: TClassifier | None = None,
     ):
         self.base_load_model = base_load_model
         self.pv_gen_model = pv_gen_model

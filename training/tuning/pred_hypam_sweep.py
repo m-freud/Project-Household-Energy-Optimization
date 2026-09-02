@@ -70,8 +70,8 @@ GRID_MAP = {
             "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1, 0.2],
         },
         "load_2": {
-            "n_estimators": [100, 200, 300, 400, 500, 600],
-            "max_depth": [2, 3],
+            "n_estimators": [100, 200, 300],
+            "max_depth": [2, 3, 4],
             "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
         },
 
@@ -96,7 +96,7 @@ GRID_MAP = {
             "max_features": ["sqrt", 0.5, 1.0],
         },
         "load_1": {
-            "n_estimators": [100, 300, 500],
+            "n_estimators": [100, 300],
             "max_depth": [10],
             "min_samples_leaf": [1, 2, 5],
             "max_features": ["sqrt"],
