@@ -129,7 +129,7 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
 
         household = sim.create_household(player_id, run_context)
         controller = sim.create_controller(household, run_context)
-        print("running simulation for household", household.player_id, end=" ... ", flush=True)
+        print("running sim for h", household.player_id, end=" ... ", flush=True)
         for t in range(start_time, sim.num_timesteps + 1):
             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
 
@@ -560,7 +560,7 @@ class Simulation:
                 results["total_costs"].append(payload["total_cost"])
                 results["total_consumptions"].append(payload["total_consumption"])
                 print(
-                    f"completed household {player_id},scenario: {payload['scenario']}, "
+                    f"completed h {player_id},scenario: {payload['scenario']}, "
                     f"controller: {payload['policy']}, run_id={payload['run_id']}"
                 )
 
