@@ -1,1 +1,2 @@
 params,scenario,score
+"{""learning_rate"": 0.2, ""max_depth"": 6, ""n_estimators"": 600}",default_scenario,12.17974
