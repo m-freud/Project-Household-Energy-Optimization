@@ -35,35 +35,33 @@ from training.tuning.pred_hypam_sweep import (  # noqa
 )
 from training.training_ch_load.sampling.sampling import ALL_IDS, DIAG_FEATURE_DIR  # noqa
 
-from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa
-
 OUTPUT_DIR = Path(__file__).parent
 
 xgb_best_params = {"learning_rate": 0.03, "max_depth": 2, "n_estimators": 200} # best params from load sweep on original data
 
-def load_feature_sample_df(start_id=100354, n_days=365, model_family="xgboost"):
+ALL_IDS = ['100354', '100707', '102016', '103995', '104481', '105366', '106298', '106793', '107448', '108517', '108795', '109970', '110260', '111381','112377', '113377', '115937', '116320', '118984', '119559', '120517', '120691', '121500', '121555', '122670', '123129', '125463', '127225', '127524', '128843', '129071', '130253', '131514', '132256', '132967', '133165', '133996', '136407', '137077', '138414', '139410', '140211', '140649', '142975', '142999', '144492', '146624', '147049', '147147', '151683', '151740', '152601', '155209', '157904', '159093', '160216', '160431', '161573', '162680', '163329', '163595', '163677', '163817', '164897', '165786', '166084', '166206', '167494', '168165', '169310', '170013', '171530', '172262', '172510', '174968', '176249', '176350', '179723', '180146', '180931', '183144', '184973', '185196', '187422', '188093', '188131', '188208', '189416', '191628', '191701', '192815', '198650', '199888']
+
+
+
+def load_feature_sample_df(start_id=100354, n_days=120, model_family="xgboost", date_steps=3):
     features = MODEL_FEATURES_BY_FAMILY[model_family]["base_load"]
     columns = features + ["next_value"]
+    sample_path = DIAG_FEATURE_DIR / f"diag_{start_id}_features.parquet"
+    sample_df = pd.read_parquet(sample_path)
+    sample_dates = pd.to_datetime(sample_df["timestamp_utc"])
+    day_frames = [
+        day_df[columns]
+        for day_index, (_, day_df) in enumerate(sample_df.groupby(sample_dates.dt.date, sort=False))
+        if day_index % date_steps == 0
+    ]
 
-    start_idx = ALL_IDS.index(str(start_id))
-    days_needed = n_days
-    day_frames = []
+    if len(day_frames) < n_days:
+        raise ValueError(
+            f"not enough sampled days in {sample_path.name}: requested {n_days}, "
+            f"available {len(day_frames)} with date_steps={date_steps}"
+        )
 
-    for file_id in ALL_IDS[start_idx:]:
-        if days_needed <= 0:
-            break
-
-        file_df = pd.read_parquet(DIAG_FEATURE_DIR / f"diag_{file_id}_features.parquet")
-        n_available_days = len(file_df) // 96
-        n_take_days = min(days_needed, n_available_days)
-
-        day_frames.append(file_df.iloc[: n_take_days * 96][columns])
-        days_needed -= n_take_days
-
-    if days_needed > 0:
-        raise ValueError(f"not enough diag feature samples starting from {start_id}: missing {days_needed} days")
-
-    return pd.concat(day_frames, ignore_index=True)
+    return pd.concat(day_frames[:n_days], ignore_index=True)
 
 
 def sweep_n_days(
@@ -119,16 +117,47 @@ def sweep_n_days(
     return result_df
 
 
+def hypam_sweep(model: str, grid: str, n_days: int = 120, date_steps: int = 3):
+    _, test_df, feature_columns, y_col = get_train_test_frames(
+        target="base_load", model_family=model
+    )
+    train_df = load_feature_sample_df(
+        start_id=100707,
+        n_days=n_days,
+        model_family=model,
+        date_steps=date_steps,
+    )
 
+    X_train = train_df[feature_columns].to_numpy()
+    y_train = train_df[y_col].to_numpy()
+    X_test = test_df[feature_columns].to_numpy()
+    y_test = test_df[y_col].to_numpy()
 
-def hypam_sweep(n_years, model, grid):
-    pass
+    out_dir = OUTPUT_DIR / "prediction" / "base_load" / model
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{grid}_{100707}.csv"
+    json_path = out_dir / f"{grid}.json"
+
+    param_configs = build_param_grid(GRID_MAP[model][grid])
+    rows = []
+    print(
+        f"Running CH hyperparameter sweep for model: {model}, grid: {grid}, "
+        f"train_days: {n_days}, date_steps: {date_steps}"
+    )
+    for index, params in enumerate(param_configs, 1):
+        estimator = build_model(model, "base_load", params)
+        estimator.fit(X_train, y_train)
+        rmse = float(root_mean_squared_error(y_test, estimator.predict(X_test)))
+        print(f"  [{index:3d}/{len(param_configs)}] params={params} -> rmse={rmse:.5f}")
+        rows.append({"params": json.dumps(params, sort_keys=True), "score": round(rmse, 5)})
+
+    pd.DataFrame(rows).to_csv(out_path, index=False)
+    with open(json_path, "w") as file:
+        json.dump(GRID_MAP[model][grid], file, indent=2)
+    print(f"Saved sweep results to {out_path}")
+    print(f"Saved hypam grid to {json_path}")
 
 if __name__ == "__main__":
-    sweep_n_days(max_n_days=120)
-    exit(0)
-
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model",
@@ -144,6 +173,18 @@ if __name__ == "__main__":
         default=["grid_1"],
         help="grid(s)",
     )
+    parser.add_argument(
+        "--n_days",
+        type=int,
+        default=120,
+        help="number of sampled CH training days",
+    )
+    parser.add_argument(
+        "--date_steps",
+        type=int,
+        default=3,
+        help="use every Nth calendar day from the diagonal sample",
+    )
     args = parser.parse_args()
 
     models = [normalize_model(m) for m in args.model]
@@ -154,5 +195,10 @@ if __name__ == "__main__":
             if grid not in GRID_MAP.get(model, {}):
                 print(f"Skipping {model}/{grid}: grid not defined for model")
                 continue
-            hypam_sweep(n_years=1, model=model, grid=grid)
+            hypam_sweep(
+                n_days=args.n_days,
+                date_steps=args.date_steps,
+                model=model,
+                grid=grid,
+            )
 
