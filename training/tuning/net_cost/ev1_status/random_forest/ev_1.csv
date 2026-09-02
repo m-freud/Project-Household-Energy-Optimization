@@ -1,0 +1,4 @@
+params,scenario,score
+"{""max_depth"": 10, ""max_features"": ""sqrt"", ""min_samples_leaf"": 2, ""n_estimators"": 100}",default_scenario,11.31992
+"{""max_depth"": 10, ""max_features"": ""sqrt"", ""min_samples_leaf"": 2, ""n_estimators"": 100}",00_baseline,2.80579
+"{""max_depth"": 10, ""max_features"": 0.5, ""min_samples_leaf"": 2, ""n_estimators"": 100}",default_scenario,11.317

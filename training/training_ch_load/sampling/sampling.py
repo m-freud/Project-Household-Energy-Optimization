@@ -25,6 +25,8 @@ from training.features._shared import (  # noqa: E402
 SQLITE_PATH = Path(__file__).parents[3] / "sqlite" / "ch_smart_meters.db"
 DIAG_FEATURE_DIR = Path(__file__).parent / "diag_feature_samples"
 RANDOM_FEATURE_DIR = Path(__file__).parent / "random_feature_samples"
+RANDOM_TRAIN_FEATURE_DIR = RANDOM_FEATURE_DIR / "train"
+RANDOM_TEST_FEATURE_DIR = RANDOM_FEATURE_DIR / "test"
 
 
 ALL_IDS = ['100354', '100707', '102016', '103995', '104481', '105366', '106298', '106793', '107448', '108517', '108795', '109970', '110260', '111381','112377', '113377', '115937', '116320', '118984', '119559', '120517', '120691', '121500', '121555', '122670', '123129', '125463', '127225', '127524', '128843', '129071', '130253', '131514', '132256', '132967', '133165', '133996', '136407', '137077', '138414', '139410', '140211', '140649', '142975', '142999', '144492', '146624', '147049', '147147', '151683', '151740', '152601', '155209', '157904', '159093', '160216', '160431', '161573', '162680', '163329', '163595', '163677', '163817', '164897', '165786', '166084', '166206', '167494', '168165', '169310', '170013', '171530', '172262', '172510', '174968', '176249', '176350', '179723', '180146', '180931', '183144', '184973', '185196', '187422', '188093', '188131', '188208', '189416', '191628', '191701', '192815', '198650', '199888']
@@ -82,7 +84,7 @@ def contains_nan(df: pd.DataFrame):
     return bool(df.isna().any().any())
 
 
-def get_random_sample(seed: int, n_days: int) -> pd.DataFrame:
+def get_random_sample(seed: int, n_days: int, split: str="train") -> pd.DataFrame:
     with sqlite3.connect(SQLITE_PATH) as conn:
         load_df = pd.read_sql("SELECT * FROM load", conn)
 
@@ -97,6 +99,13 @@ def get_random_sample(seed: int, n_days: int) -> pd.DataFrame:
 
     player_cols = load_df.columns[2:-1]
     dates = load_df["date"].unique()
+
+    if split == "train":
+        player_cols = player_cols[: int(0.8 * len(player_cols))]
+    elif split == "test":
+        player_cols = player_cols[int(0.8 * len(player_cols)) :]
+    else:
+        raise ValueError(f"Unknown split: {split}")
 
     # deterministic random generator
     rng = np.random.default_rng(seed=seed)
@@ -214,6 +223,12 @@ def create_sample_feature_df(
 
 if __name__ == '__main__':
     for seed in range(10):
-        print(f"creating sample feature df for seed={seed}")
+        split = "train" if seed < 8 else "test"
+        output_dir = RANDOM_TRAIN_FEATURE_DIR if split == "train" else RANDOM_TEST_FEATURE_DIR
+        print(f"creating {split} sample feature df for seed={seed}")
         random_sample_df = get_random_sample(seed, n_days=120)
-        create_sample_feature_df(sample_df=random_sample_df, output_dir=RANDOM_FEATURE_DIR, tag=f"seed_{seed}")
+        create_sample_feature_df(
+            sample_df=random_sample_df,
+            output_dir=output_dir,
+            tag=f"{split}_seed_{seed}",
+        )

@@ -90,7 +90,7 @@ GRID_MAP = {
             "max_features": ["sqrt"],
         },
         "ev_1": {
-            "n_estimators": [100, 300, 500],
+            "n_estimators": [100, 200, 300],
             "max_depth": [10],
             "min_samples_leaf": [2, 3, 5],
             "max_features": ["sqrt", 0.5, 1.0],

@@ -33,32 +33,29 @@ from training.tuning.pred_hypam_sweep import (  # noqa
     normalize_model,
     normalize_target,
 )
-from training.training_ch_load.sampling.sampling import ALL_IDS, DIAG_FEATURE_DIR  # noqa
+from training.training_ch_load.sampling.sampling import ALL_IDS, RANDOM_FEATURE_DIR  # noqa
 
 OUTPUT_DIR = Path(__file__).parent
 
 xgb_best_params = {"learning_rate": 0.03, "max_depth": 2, "n_estimators": 200} # best params from load sweep on original data
 
-ALL_IDS = ['100354', '100707', '102016', '103995', '104481', '105366', '106298', '106793', '107448', '108517', '108795', '109970', '110260', '111381','112377', '113377', '115937', '116320', '118984', '119559', '120517', '120691', '121500', '121555', '122670', '123129', '125463', '127225', '127524', '128843', '129071', '130253', '131514', '132256', '132967', '133165', '133996', '136407', '137077', '138414', '139410', '140211', '140649', '142975', '142999', '144492', '146624', '147049', '147147', '151683', '151740', '152601', '155209', '157904', '159093', '160216', '160431', '161573', '162680', '163329', '163595', '163677', '163817', '164897', '165786', '166084', '166206', '167494', '168165', '169310', '170013', '171530', '172262', '172510', '174968', '176249', '176350', '179723', '180146', '180931', '183144', '184973', '185196', '187422', '188093', '188131', '188208', '189416', '191628', '191701', '192815', '198650', '199888']
-
-
-
-def load_feature_sample_df(start_id=100354, n_days=120, model_family="xgboost", date_steps=3):
+def load_feature_sample_df(seed=1, n_days=120, model_family="xgboost", split="train"):
     features = MODEL_FEATURES_BY_FAMILY[model_family]["base_load"]
     columns = features + ["next_value"]
-    sample_path = DIAG_FEATURE_DIR / f"diag_{start_id}_features.parquet"
+    if split not in {"train", "test"}:
+        raise ValueError(f"split must be 'train' or 'test', got {split!r}")
+    sample_path = RANDOM_FEATURE_DIR / split / f"{split}_seed_{seed}_random_features.parquet"
     sample_df = pd.read_parquet(sample_path)
     sample_dates = pd.to_datetime(sample_df["timestamp_utc"])
     day_frames = [
         day_df[columns]
         for day_index, (_, day_df) in enumerate(sample_df.groupby(sample_dates.dt.date, sort=False))
-        if day_index % date_steps == 0
     ]
 
     if len(day_frames) < n_days:
         raise ValueError(
             f"not enough sampled days in {sample_path.name}: requested {n_days}, "
-            f"available {len(day_frames)} with date_steps={date_steps}"
+            f"available {len(day_frames)}"
         )
 
     return pd.concat(day_frames[:n_days], ignore_index=True)
@@ -66,7 +63,7 @@ def load_feature_sample_df(start_id=100354, n_days=120, model_family="xgboost", 
 
 def sweep_n_days(
     model_family="xgboost",
-    train_start_id=100354,
+    seed=1,
     test_sample_ids=[107448, 108517],
     max_n_days=1460,
     plateau_tol=1e-3,
@@ -75,7 +72,7 @@ def sweep_n_days(
     params = xgb_best_params if model_family == "xgboost" else {}
 
     test_df = pd.concat(
-        [load_feature_sample_df(start_id=test_id, n_days=365, model_family=model_family) for test_id in test_sample_ids],
+        [load_feature_sample_df(seed=test_id, n_days=365, model_family=model_family) for test_id in test_sample_ids],
         ignore_index=True,
     )
     X_test, y_test = test_df[features], test_df["next_value"]
@@ -83,7 +80,7 @@ def sweep_n_days(
     rows = []
     prev_rmse = None
     for n_days in range(1, max_n_days + 1, 1):
-        train_df = load_feature_sample_df(start_id=train_start_id, n_days=n_days, model_family=model_family)
+        train_df = load_feature_sample_df(seed=seed, n_days=n_days, model_family=model_family)
 
         model = build_model(model_family, "base_load", params)
         model.fit(train_df[features], train_df["next_value"])
@@ -122,10 +119,9 @@ def hypam_sweep(model: str, grid: str, n_days: int = 120, date_steps: int = 3):
         target="base_load", model_family=model
     )
     train_df = load_feature_sample_df(
-        start_id=100707,
+        seed=1,
         n_days=n_days,
         model_family=model,
-        date_steps=date_steps,
     )
 
     X_train = train_df[feature_columns].to_numpy()
@@ -135,7 +131,7 @@ def hypam_sweep(model: str, grid: str, n_days: int = 120, date_steps: int = 3):
 
     out_dir = OUTPUT_DIR / "prediction" / "base_load" / model
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{grid}_{100707}.csv"
+    out_path = out_dir / f"{grid}_seed_{1}.csv"
     json_path = out_dir / f"{grid}.json"
 
     param_configs = build_param_grid(GRID_MAP[model][grid])
@@ -156,6 +152,7 @@ def hypam_sweep(model: str, grid: str, n_days: int = 120, date_steps: int = 3):
         json.dump(GRID_MAP[model][grid], file, indent=2)
     print(f"Saved sweep results to {out_path}")
     print(f"Saved hypam grid to {json_path}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
