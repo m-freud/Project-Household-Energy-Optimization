@@ -222,9 +222,20 @@ def create_sample_feature_df(
 
 
 if __name__ == '__main__':
-    for seed in range(10):
-        split = "train" if seed < 8 else "test"
-        output_dir = RANDOM_TRAIN_FEATURE_DIR if split == "train" else RANDOM_TEST_FEATURE_DIR
+    for seed in range(12):
+        split = "train"
+        output_dir = RANDOM_TRAIN_FEATURE_DIR
+        print(f"creating {split} sample feature df for seed={seed}")
+        random_sample_df = get_random_sample(seed, n_days=120)
+        create_sample_feature_df(
+            sample_df=random_sample_df,
+            output_dir=output_dir,
+            tag=f"{split}_seed_{seed}",
+        )
+
+    for seed in range(4):
+        split = "test"
+        output_dir = RANDOM_TEST_FEATURE_DIR
         print(f"creating {split} sample feature df for seed={seed}")
         random_sample_df = get_random_sample(seed, n_days=120)
         create_sample_feature_df(

@@ -42,7 +42,14 @@ def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 
 	predictor = ModularPredictor(
 		default_predictor=OraclePredictor(),
-		target_predictors={TARGET: MLPredictor(base_load_model=model)},
+		target_predictors={
+			TARGET: MLPredictor(
+				base_load_model=model,
+				pv_gen_model=None,
+				ev1_status_model=None,
+				ev2_status_model=None,
+			)
+		},
 	)
 	simulation = Simulation(sqlite_conn, ensure_results_table=False)
 	run_context = RunContext(
@@ -76,8 +83,7 @@ def hypam_sweep(
 	model_family: str,
 	grid: str,
 	n_days: int,
-	date_steps: int,
-	start_id: int,
+	seed: int,
 	scenarios: list[str],
 	n_test_ids: int | None,
 ) -> None:
@@ -85,18 +91,18 @@ def hypam_sweep(
 
 	features = MODEL_FEATURES_BY_FAMILY[model_family][TARGET]
 	train_df = load_feature_sample_df(
-		start_id=start_id,
+		seed=seed,
 		n_days=n_days,
 		model_family=model_family,
-		date_steps=date_steps,
+		split="train",
 	)
 	X_train = train_df[features].to_numpy()
 	y_train = train_df["next_value"].to_numpy()
 	param_configs = build_param_grid(GRID_MAP[model_family][grid])
 
-	out_dir = OUTPUT_DIR / "net_cost" / TARGET / model_family
+	out_dir = OUTPUT_DIR / "net_cost" / model_family
 	out_dir.mkdir(parents=True, exist_ok=True)
-	output_stem = f"{grid}_{start_id}"
+	output_stem = f"{grid}_seed_{seed}"
 	csv_path = out_dir / f"{output_stem}.csv"
 	json_path = out_dir / f"{output_stem}.json"
 	pd.DataFrame(columns=["params", "scenario", "score"]).to_csv(csv_path, index=False)
@@ -106,7 +112,7 @@ def hypam_sweep(
 	started_at = time.perf_counter()
 	print(
 		f"Running CH net-cost sweep: model={model_family}, grid={grid}, "
-		f"train_days={n_days}, date_steps={date_steps}, scenarios={scenarios}"
+		f"train_seed={seed}, train_days={n_days}, scenarios={scenarios}"
 	)
 	print_progress(completed_runs, total_runs, started_at)
 	for index, params in enumerate(param_configs, 1):
@@ -130,9 +136,9 @@ def hypam_sweep(
 				"grid": GRID_MAP[model_family][grid],
 				"target": TARGET,
 				"model": model_family,
-				"ch_start_id": start_id,
+				"ch_train_split": "train",
+				"ch_train_seed": seed,
 				"ch_training_days": n_days,
-				"ch_date_steps": date_steps,
 				"scenarios": scenarios,
 			},
 			file,
@@ -146,9 +152,8 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--model", nargs="+", default=["xgboost"])
 	parser.add_argument("--grid", nargs="+", default=["load_2"])
+	parser.add_argument("--seed", type=int, default=1)
 	parser.add_argument("--n_days", type=int, default=120)
-	parser.add_argument("--date_steps", type=int, default=3)
-	parser.add_argument("--start_id", type=int, default=100354)
 	parser.add_argument("--scenario", nargs="+", default=["default_scenario", "00_baseline"])
 	parser.add_argument("--n_test_ids", type=int, default=None)
 	args = parser.parse_args()
@@ -163,8 +168,7 @@ if __name__ == "__main__":
 				model_family=model_family,
 				grid=grid_name,
 				n_days=args.n_days,
-				date_steps=args.date_steps,
-				start_id=args.start_id,
+				seed=args.seed,
 				scenarios=args.scenario,
 				n_test_ids=args.n_test_ids,
 			)
