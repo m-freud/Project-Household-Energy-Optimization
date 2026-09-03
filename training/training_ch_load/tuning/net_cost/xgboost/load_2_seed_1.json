@@ -1,0 +1,30 @@
+{
+  "grid": {
+    "n_estimators": [
+      100,
+      200,
+      300
+    ],
+    "max_depth": [
+      2,
+      3,
+      4
+    ],
+    "learning_rate": [
+      0.01,
+      0.02,
+      0.03,
+      0.05,
+      0.1
+    ]
+  },
+  "target": "base_load",
+  "model": "xgboost",
+  "ch_train_split": "train",
+  "ch_train_seed": 1,
+  "ch_training_days": 120,
+  "scenarios": [
+    "default_scenario",
+    "00_baseline"
+  ]
+}
