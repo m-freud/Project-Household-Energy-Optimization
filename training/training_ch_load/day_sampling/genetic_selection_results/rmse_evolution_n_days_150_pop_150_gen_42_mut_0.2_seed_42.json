@@ -1,0 +1,13 @@
+{
+  "n_days": 150,
+  "population_size": 150,
+  "elite_count": 75,
+  "generations": 42,
+  "mutation_rate": 0.2,
+  "seed": 42,
+  "output_files": {
+    "history_csv": "rmse_evolution_n_days_150_pop_150_gen_42_mut_0.2_seed_42.csv",
+    "plot_png": "rmse_evolution_n_days_150_pop_150_gen_42_mut_0.2_seed_42.png",
+    "top_sets_csv": "rmse_evolution_n_days_150_pop_150_gen_42_mut_0.2_seed_42_top_sets.csv"
+  }
+}

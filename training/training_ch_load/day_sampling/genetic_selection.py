@@ -343,17 +343,34 @@ def _evolve_day_sets(
     seed: int,
 ) -> tuple[list[tuple[float, list[int]]], list[dict]]:
     rng = random.Random(seed)
-    population = [_random_day_set(rng, pool, n_days) for _ in range(population_size)]
+    population: list[list[int]] = []
+    population_keys: set[tuple[int, ...]] = set()
+    while len(population) < population_size:
+        chromosome = _random_day_set(rng, pool, n_days)
+        chromosome_key = tuple(chromosome)
+        if chromosome_key in population_keys:
+            continue
+        population.append(chromosome)
+        population_keys.add(chromosome_key)
+
     history: list[dict] = []
+    score_cache: dict[tuple[int, ...], float] = {}
+    cache_hits = 0
 
     for generation in range(1, generations + 1):
         print(f"\n=== generation {generation}/{generations} ===")
         print(f"- initial population size: {len(population)}")
-        print(f"- evaluating all candidates on validation set...")
+        print("- evaluating all candidates on validation set...")
         scores = []
         for idx, chromosome in enumerate(population, start=1):
-            day_set = [pool[idx_value] for idx_value in chromosome]
-            rmse = _score_day_set(day_set, reference_df)
+            cache_key = tuple(chromosome)
+            if cache_key in score_cache:
+                rmse = score_cache[cache_key]
+                cache_hits += 1
+            else:
+                day_set = [pool[idx_value] for idx_value in chromosome]
+                rmse = _score_day_set(day_set, reference_df)
+                score_cache[cache_key] = rmse
             scores.append((rmse, chromosome))
             if idx % max(1, len(population) // 5) == 0 or idx == len(population):
                 print(f"  progress: {idx}/{len(population)} candidate sets scored")
@@ -365,6 +382,7 @@ def _evolve_day_sets(
         print(
             f"- generation summary: best={best_rmse:.6f}, avg={avg_rmse:.6f}, worst={worst_rmse:.6f}"
         )
+        print(f"- score cache: {len(score_cache)} unique sets, {cache_hits} cache hits")
 
         history.append(
             {
@@ -377,11 +395,11 @@ def _evolve_day_sets(
 
         elites = [chromosome for _, chromosome in scores[:elite_count]]
         next_population = [list(chromosome) for chromosome in elites]
+        next_population_keys = {tuple(chromosome) for chromosome in next_population}
         print(f"- selected elites: {len(elites)}")
 
         created = 0
         while len(next_population) < population_size:
-            created += 1
             parent_a = rng.choice(elites)
             parent_b = rng.choice(elites)
             child = _crossover(parent_a, parent_b, rng)
@@ -399,7 +417,13 @@ def _evolve_day_sets(
                         child.append(candidate)
                 child = sorted(child)[:n_days]
 
+            child_key = tuple(child)
+            if child_key in next_population_keys:
+                continue
+
             next_population.append(child)
+            next_population_keys.add(child_key)
+            created += 1
             if created % max(1, population_size // 5) == 0 or len(next_population) == population_size:
                 print(f"  offspring built: {len(next_population)}/{population_size}")
 
@@ -409,14 +433,21 @@ def _evolve_day_sets(
     print("\n=== final evaluation ===")
     final_scores = []
     for idx, chromosome in enumerate(population, start=1):
-        day_set = [pool[idx_value] for idx_value in chromosome]
-        rmse = _score_day_set(day_set, reference_df)
+        cache_key = tuple(chromosome)
+        if cache_key in score_cache:
+            rmse = score_cache[cache_key]
+            cache_hits += 1
+        else:
+            day_set = [pool[idx_value] for idx_value in chromosome]
+            rmse = _score_day_set(day_set, reference_df)
+            score_cache[cache_key] = rmse
         final_scores.append((rmse, chromosome))
         if idx % max(1, len(population) // 5) == 0 or idx == len(population):
             print(f"  final scoring progress: {idx}/{len(population)}")
 
     final_scores.sort(key=lambda item: item[0])
     print(f"- final best RMSE: {final_scores[0][0]:.6f}")
+    print(f"- total score cache: {len(score_cache)} unique sets, {cache_hits} cache hits")
     return final_scores, history
 
 
@@ -480,7 +511,12 @@ def _prepare_best_sets(
     n_top: int = 20,
 ) -> pd.DataFrame:
     rows = []
+    seen_sets: set[tuple[int, ...]] = set()
     for score, chromosome in scored_sets[:n_top]:
+        set_key = tuple(chromosome)
+        if set_key in seen_sets:
+            continue
+        seen_sets.add(set_key)
         day_pairs = [pool[idx] for idx in chromosome]
         rows.append(
             {
