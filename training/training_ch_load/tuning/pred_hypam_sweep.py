@@ -70,6 +70,7 @@ def sweep_n_days(
     n_test_days=120,
     max_n_days=120,
     plateau_tol=1e-3,
+    save_results=True,
     save_plot=True,
 ):
     features = MODEL_FEATURES_BY_FAMILY[model_family]["base_load"]
@@ -119,10 +120,13 @@ def sweep_n_days(
 
     result_df = pd.DataFrame(rows)
 
-    output_dir = Path(__file__).parent / "train_size_sweeps"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_stem = f"{model_family}_train_seed_{train_seed}_train_size_sweep"
-    result_df.to_csv(output_dir / f"{output_stem}.csv", index=False)
+    if save_results or save_plot:
+        output_dir = Path(__file__).parent / "train_size_sweeps"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_stem = f"{model_family}_train_seed_{train_seed}_train_size_sweep"
+
+    if save_results:
+        result_df.to_csv(output_dir / f"{output_stem}.csv", index=False)
 
     if save_plot:
         fig, ax = plt.subplots()
@@ -155,6 +159,7 @@ def sweep_n_days_for_seeds(
             n_test_days=n_test_days,
             max_n_days=max_n_days,
             plateau_tol=plateau_tol,
+            save_results=False,
             save_plot=False,
         )
         result_frames.append(result_df.assign(train_seed=train_seed))
@@ -169,7 +174,6 @@ def sweep_n_days_for_seeds(
         ax.plot(
             seed_df["n_train_days"],
             seed_df["rmse"],
-            marker="o",
             label=f"train seed {train_seed}",
         )
     ax.set_xlabel("n_train_days")
@@ -240,7 +244,7 @@ if __name__ == "__main__":
     # lets do the n day saturation sweep first
     sweep_n_days_for_seeds(
     train_seeds=tuple(range(12)),
-    test_seeds=(0, 1, 2, 3),
+    test_seeds=(0,1,2,3),
     max_n_days=120,
 )
 

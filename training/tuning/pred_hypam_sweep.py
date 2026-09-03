@@ -74,6 +74,11 @@ GRID_MAP = {
             "max_depth": [2, 3, 4],
             "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
         },
+        "load_4": {
+            "n_estimators": [100, 200, 300],
+            "max_depth": [4],
+            "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
+        },
 
     },
     "random_forest": {
@@ -229,7 +234,7 @@ if __name__ == "__main__":
         "--target",
         type=str,
         nargs="+",
-        default=["pv_gen"],
+        default=["load"],
         help="target(s). choose between base_load,pv_gen,ev1_status,ev2_status",
     )
     parser.add_argument(
@@ -243,7 +248,7 @@ if __name__ == "__main__":
         "--grid",
         type=str,
         nargs="+",
-        default=["grid_1"],
+        default=["load_4"],
         help="grid(s)",
     )
     args = parser.parse_args()

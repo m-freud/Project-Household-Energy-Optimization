@@ -155,7 +155,7 @@ if __name__ == "__main__":
         "--target",
         type=str,
         nargs="+",
-        default=["pv_gen"],
+        default=["load"],
         help="target(s). choose between base_load,pv_gen,ev1_status,ev2_status",
     )
     parser.add_argument(
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         "--grid",
         type=str,
         nargs="+",
-        default=["grid_1"],
+        default=["load_4"],
         help="grid(s)",
     )
     parser.add_argument(
