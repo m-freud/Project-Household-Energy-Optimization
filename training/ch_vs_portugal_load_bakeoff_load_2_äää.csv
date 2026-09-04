@@ -1,0 +1,5 @@
+data_source,params,prediction_rmse,default_scenario_net_cost
+portugal_global,"{""learning_rate"": 0.01, ""max_depth"": 2, ""n_estimators"": 100}",0.532711603140823,12.140856737489601
+ch_best_set,"{""learning_rate"": 0.01, ""max_depth"": 2, ""n_estimators"": 100}",0.5558728380874043,12.148913780428401
+portugal_global,"{""learning_rate"": 0.02, ""max_depth"": 2, ""n_estimators"": 100}",0.4660766419522239,12.16251404454998
+ch_best_set,"{""learning_rate"": 0.02, ""max_depth"": 2, ""n_estimators"": 100}",0.48160475317833557,12.175938021593474
