@@ -78,6 +78,44 @@ def score_model(model, target: str, scenario_name: str, n_test_ids: int | None) 
     return float(np.mean(results["net_costs"]))
 
 
+def run_full_oracle(scenarios: list[str], n_test_ids: int | None) -> None:
+    '''run pure-oracle simulations (no ML model, every target predicted by OraclePredictor) per scenario'''
+    test_ids = PARTITIONS["inner"]["base_load"]["test"]
+    if n_test_ids:
+        test_ids = test_ids[:n_test_ids]
+
+    out_path = OUTPUT_DIR / "net_cost" / "oracle.csv"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(columns=["scenario", "net_cost"]).to_csv(out_path, index=False)
+
+    print(f"Running full-oracle sweep, scenarios: {scenarios}")
+    started_at = time.perf_counter()
+    for i, scenario_name in enumerate(scenarios, 1):
+        sim = Simulation(sqlite_conn, ensure_results_table=False)
+        predictor = ModularPredictor(default_predictor=OraclePredictor(), target_predictors={})
+        run_context = RunContext(
+            controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
+            controller_name="mpc_iso_benchmark",
+            scenario=scenario_catalog[scenario_name],
+            start_time=1,
+        )
+        results = sim.run_batch(
+            run_contexts=[run_context],
+            household_ids=test_ids,
+            parallel_households=True,
+            parallel_workers=6,
+            write_results_to_sqlite=False,
+        )
+        net_cost = float(np.mean(results["net_costs"]))
+        print(f"  [{i}/{len(scenarios)}] scenario={scenario_name} -> net_cost={net_cost:.5f}")
+        _print_progress(i, len(scenarios), started_at, label="oracle sweep")
+        pd.DataFrame([{"scenario": scenario_name, "net_cost": round(net_cost, 5)}]).to_csv(
+            out_path, mode="a", header=False, index=False
+        )
+
+    print(f"Saved oracle results to {out_path}")
+
+
 def _print_progress(done: int, total: int, started_at: float, label: str = "sweep"):
     if done == 0:
         print(f"[{label}] [0/{total}] starting...")
@@ -186,6 +224,12 @@ if __name__ == "__main__":
         help="number of test households used per simulation (default: all)",
     )
     args = parser.parse_args()
+
+    if any(m.lower() == "oracle" for m in args.model):
+        run_full_oracle(scenarios=args.scenario, n_test_ids=args.n_test_ids)
+        args.model = [m for m in args.model if m.lower() != "oracle"]
+        if not args.model:
+            raise SystemExit(0)
 
     targets = [normalize_target(t) for t in args.target]
     if targets == ["all"]:
