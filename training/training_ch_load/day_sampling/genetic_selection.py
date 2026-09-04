@@ -128,6 +128,9 @@ def _choose_valid_day_pool(
         rng = random.Random(42)
         valid_days = rng.sample(valid_days, limit)
 
+    # pool is built grouped by household; shuffle so pool index no longer
+    # correlates with household ordering (avoids low-id bias in the GA).
+    random.Random(1337).shuffle(valid_days)
     return valid_days
 
 
@@ -305,15 +308,12 @@ def _crossover(parent_a: Sequence[int], parent_b: Sequence[int], rng: random.Ran
     if not parent_a or not parent_b:
         return []
 
-    cut = rng.randint(1, min(len(parent_a), len(parent_b)) - 1)
-    child = list(parent_a[:cut])
-    for idx in parent_b:
-        if idx not in child:
-            child.append(idx)
-            if len(child) >= max(len(parent_a), len(parent_b)):
-                break
-    child = sorted(set(child))
-    return child[: max(len(parent_a), len(parent_b))]
+    # sample unbiased from the gene union; a sorted-prefix cut would always
+    # favor the smallest pool indices regardless of fitness.
+    combined_genes = list(set(parent_a) | set(parent_b))
+    rng.shuffle(combined_genes)
+    target_size = min(len(combined_genes), max(len(parent_a), len(parent_b)))
+    return sorted(combined_genes[:target_size])
 
 
 def _mutate(chromosome: Sequence[int], pool_size: int, mutation_rate: float, rng: random.Random) -> list[int]:
@@ -406,7 +406,7 @@ def _evolve_day_sets(
             if len(child) < n_days:
                 child.extend(rng.sample(range(len(pool)), k=n_days - len(child)))
             elif len(child) > n_days:
-                child = sorted(set(child))[:n_days]
+                child = sorted(rng.sample(child, n_days))
 
             child = _mutate(child, len(pool), mutation_rate, rng)
             if len(child) != n_days:
@@ -415,7 +415,8 @@ def _evolve_day_sets(
                     candidate = rng.randint(0, len(pool) - 1)
                     if candidate not in child:
                         child.append(candidate)
-                child = sorted(child)[:n_days]
+                if len(child) > n_days:
+                    child = sorted(rng.sample(child, n_days))
 
             child_key = tuple(child)
             if child_key in next_population_keys:
