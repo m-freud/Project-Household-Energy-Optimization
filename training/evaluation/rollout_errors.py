@@ -162,12 +162,17 @@ def get_rollout_errors(
     target: str = "base_load",
     reuse_forecast_prefix: bool = False,
 ) -> dict[str, Any]:
-    """Compute rollout error buckets for a predictor over one day profile.
+    """Compute pointwise rollout-error buckets for a predictor over one day profile.
 
-    The day profile acts as ground truth. For every start timestep and horizon,
-    the predictor is asked for the remaining forecast and the resulting rollout
-    error is stored by (a) horizon length and (b) start timestep. The function
-    returns pooled and bucket-averaged metrics for each grouping.
+    For every forecast start timestep, the predictor is asked for the remaining
+    forecast. Each prediction is compared only with the ground-truth value at
+    that exact forecast horizon. Thus ``horizon_buckets[h]`` contains squared
+    errors for predictions made exactly h steps ahead -- not cumulative RMSEs
+    over horizons 1..h.
+
+    Bucket values are squared errors so they can be pooled correctly across
+    households before taking the square root. The returned scalar metrics are
+    RMSE-based summaries for this single day profile.
     """
     day_profile = [float(v) for v in day_profile]
     day_len = len(day_profile)
@@ -183,12 +188,12 @@ def get_rollout_errors(
 
     horizon_buckets: dict[int, list[float]] = {h: [] for h in range(1, day_len + 1)}
     timestep_buckets: dict[int, list[float]] = {t: [] for t in range(day_len)}
-    pooled_errors: list[float] = []
+    pooled_squared_errors: list[float] = []
 
     for start in range(day_len):
         context = _build_profile_context(day_profile, start=start, target=target)
         max_horizon = day_len - start
-        prediction_values = None
+
         if reuse_forecast_prefix:
             prediction_values = _predict_for_target(
                 predictor, context, horizon=max_horizon, target=target
@@ -197,27 +202,44 @@ def get_rollout_errors(
                 prediction_values = [0.0] * max_horizon
 
         for horizon in range(1, max_horizon + 1):
-            actual_window = day_profile[start:start + horizon]
             if not reuse_forecast_prefix:
                 prediction_values = _predict_for_target(
                     predictor, context, horizon=horizon, target=target
                 )
+                if not prediction_values:
+                    prediction_values = [0.0] * horizon
 
-            if not prediction_values:
-                prediction_values = [0.0] * len(actual_window)
+            pred_idx = horizon - 1
+            if pred_idx < len(prediction_values):
+                predicted = float(prediction_values[pred_idx])
+            else:
+                predicted = float(prediction_values[-1]) if prediction_values else 0.0
 
-            error = _step_error(prediction_values, actual_window, target)
-            pooled_errors.append(error)
-            horizon_buckets.setdefault(horizon, []).append(error)
-            timestep_buckets.setdefault(start, []).append(error)
+            actual = float(day_profile[start + pred_idx])
+
+            if target in {"base_load", "pv_gen"}:
+                point_error = (predicted - actual) ** 2
+            elif target in {"ev1_status", "ev2_status"}:
+                # For classification targets, retain the previous mismatch-rate
+                # semantics. Squaring a 0/1 mismatch leaves it unchanged.
+                point_error = float(int(predicted != actual))
+            else:
+                raise ValueError(f"Unsupported target for rollout metric: {target}")
+
+            pooled_squared_errors.append(point_error)
+            horizon_buckets[horizon].append(point_error)
+            timestep_buckets[start].append(point_error)
 
     horizon_buckets = {k: v for k, v in horizon_buckets.items() if v}
     timestep_buckets = {k: v for k, v in timestep_buckets.items() if v}
 
-    horizon_pooled_avg = _mean(pooled_errors)
-    horizon_bucket_avg = _mean([_mean(v) for v in horizon_buckets.values()])
-    timestep_pooled_avg = _mean([err for errors in timestep_buckets.values() for err in errors])
-    timestep_bucket_avg = _mean([_mean(v) for v in timestep_buckets.values()])
+    def bucket_rmse(values: list[float]) -> float:
+        return math.sqrt(_mean(values)) if values else 0.0
+
+    horizon_pooled_avg = bucket_rmse(pooled_squared_errors)
+    horizon_bucket_avg = _mean([bucket_rmse(v) for v in horizon_buckets.values()])
+    timestep_pooled_avg = horizon_pooled_avg
+    timestep_bucket_avg = _mean([bucket_rmse(v) for v in timestep_buckets.values()])
 
     return {
         "horizon_buckets": horizon_buckets,

@@ -107,22 +107,57 @@ def _load_household_day_profiles(household_ids: Sequence[int]) -> dict[int, list
 
 
 def _average_rollout_metrics(rollout_results: list[dict]) -> dict[str, float]:
-    """Average rollout-error metrics across households: 4 scalars + the requested buckets."""
-    averaged: dict[str, float] = {}
-    for key in ("horizon_pooled_avg", "horizon_bucket_avg", "timestep_pooled_avg", "timestep_bucket_avg"):
-        values = [result[key] for result in rollout_results]
-        averaged[key] = float(np.mean(values)) if values else float("nan")
+    """Pool squared rollout errors across households and return RMSE summaries.
 
-    for bucket_name, dict_key in (("horizon_bucket", "horizon_buckets"), ("timestep_bucket", "timestep_buckets")):
-        for bucket in ROLLOUT_BUCKETS:
-            per_household_values = [
-                float(np.mean(result[dict_key][bucket]))
-                for result in rollout_results
-                if bucket in result[dict_key] and result[dict_key][bucket]
-            ]
-            averaged[f"{bucket_name}_{bucket}_avg"] = (
-                float(np.mean(per_household_values)) if per_household_values else float("nan")
-            )
+    ``get_rollout_errors`` stores pointwise squared errors in its horizon and
+    timestep buckets. Pooling those errors first and taking the square root
+    afterwards gives a true RMSE for each bucket across all test households.
+    """
+    averaged: dict[str, float] = {}
+
+    all_squared_errors = [
+        err
+        for result in rollout_results
+        for errors in result["horizon_buckets"].values()
+        for err in errors
+    ]
+    pooled_rmse = float(np.sqrt(np.mean(all_squared_errors))) if all_squared_errors else float("nan")
+    averaged["horizon_pooled_avg"] = pooled_rmse
+    averaged["timestep_pooled_avg"] = pooled_rmse
+
+    horizon_rmses: dict[int, float] = {}
+    timestep_rmses: dict[int, float] = {}
+
+    for bucket in range(1, 97):
+        horizon_sq_errors = [
+            err
+            for result in rollout_results
+            for err in result["horizon_buckets"].get(bucket, [])
+        ]
+        if horizon_sq_errors:
+            horizon_rmses[bucket] = float(np.sqrt(np.mean(horizon_sq_errors)))
+
+    # get_rollout_errors uses zero-based start-timestep keys; CSV bucket labels
+    # remain one-based for readability and consistency with the existing output.
+    for timestep in range(96):
+        timestep_sq_errors = [
+            err
+            for result in rollout_results
+            for err in result["timestep_buckets"].get(timestep, [])
+        ]
+        if timestep_sq_errors:
+            timestep_rmses[timestep + 1] = float(np.sqrt(np.mean(timestep_sq_errors)))
+
+    averaged["horizon_bucket_avg"] = (
+        float(np.mean(list(horizon_rmses.values()))) if horizon_rmses else float("nan")
+    )
+    averaged["timestep_bucket_avg"] = (
+        float(np.mean(list(timestep_rmses.values()))) if timestep_rmses else float("nan")
+    )
+
+    for bucket in ROLLOUT_BUCKETS:
+        averaged[f"horizon_bucket_{bucket}_avg"] = horizon_rmses.get(bucket, float("nan"))
+        averaged[f"timestep_bucket_{bucket}_avg"] = timestep_rmses.get(bucket, float("nan"))
 
     return averaged
 
