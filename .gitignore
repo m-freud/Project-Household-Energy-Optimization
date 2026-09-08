@@ -1,8 +1,10 @@
 data/EC_EV_dataset (fixed error).xlsx
 energy.db
+*.db
 backups/
 *.pyc
 ~lock.*#
 data/.~lock.A.xlsx#
 *.zip
 smart_meter_data/
+sqlite/ch_smart_meters.db

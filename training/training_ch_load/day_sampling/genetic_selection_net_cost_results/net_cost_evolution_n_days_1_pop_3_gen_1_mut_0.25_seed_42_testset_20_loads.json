@@ -1,0 +1,20 @@
+{
+  "n_days": 1,
+  "population_size": 3,
+  "elite_count": 2,
+  "generations": 1,
+  "mutation_rate": 0.25,
+  "seed": 42,
+  "test_set": "20_loads",
+  "scenario": "default_scenario",
+  "model_params": {
+    "learning_rate": 0.02,
+    "max_depth": 4,
+    "n_estimators": 100
+  },
+  "output_files": {
+    "history_csv": "net_cost_evolution_n_days_1_pop_3_gen_1_mut_0.25_seed_42_testset_20_loads.csv",
+    "plot_png": "net_cost_evolution_n_days_1_pop_3_gen_1_mut_0.25_seed_42_testset_20_loads.png",
+    "top_sets_csv": "net_cost_evolution_n_days_1_pop_3_gen_1_mut_0.25_seed_42_testset_20_loads_top_sets.csv"
+  }
+}

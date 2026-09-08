@@ -19,6 +19,7 @@ import time  # noqa
 import numpy as np  # noqa
 import pandas as pd  # noqa
 
+from src.runtime_config import RuntimeConfig  # noqa
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa
@@ -38,11 +39,22 @@ from pred_hypam_sweep import (  # noqa
     normalize_target,
 )
 
-def score_model(model, target: str, scenario_name: str, n_test_ids: int | None) -> float:
-    '''run a batch simulation with `target` predicted by `model` and everything else oracle, return avg net cost'''
-    test_ids = PARTITIONS["inner"][target]["test"]
+def _resolve_test_ids(target: str, test_set: str, n_test_ids: int | None) -> list[int]:
+    '''map --test-set to a fixed household list'''
+    if test_set == "20_loads":
+        test_ids = list(RuntimeConfig.INDEPENDENT_TEST_SET_20)
+    elif test_set == "inner":
+        test_ids = list(PARTITIONS["inner"][target]["test"])
+    else:
+        raise ValueError(f"--test-set must be 'inner' or '20_loads', got: {test_set}")
     if n_test_ids:
         test_ids = test_ids[:n_test_ids]
+    return test_ids
+
+
+def score_model(model, target: str, scenario_name: str, test_set: str, n_test_ids: int | None) -> float:
+    '''run a batch simulation with `target` predicted by `model` and everything else oracle, return avg net cost'''
+    test_ids = _resolve_test_ids(target, test_set, n_test_ids)
 
     scenario = scenario_catalog[scenario_name]
 
@@ -78,13 +90,11 @@ def score_model(model, target: str, scenario_name: str, n_test_ids: int | None) 
     return float(np.mean(results["net_costs"]))
 
 
-def run_full_oracle(scenarios: list[str], n_test_ids: int | None) -> None:
+def run_full_oracle(scenarios: list[str], test_set: str, n_test_ids: int | None) -> None:
     '''run pure-oracle simulations (no ML model, every target predicted by OraclePredictor) per scenario'''
-    test_ids = PARTITIONS["inner"]["base_load"]["test"]
-    if n_test_ids:
-        test_ids = test_ids[:n_test_ids]
+    test_ids = _resolve_test_ids("base_load", test_set, n_test_ids)
 
-    out_path = OUTPUT_DIR / "net_cost" / "oracle.csv"
+    out_path = OUTPUT_DIR / "net_cost" / f"oracle_{test_set}.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(columns=["scenario", "net_cost"]).to_csv(out_path, index=False)
 
@@ -130,7 +140,7 @@ def _print_progress(done: int, total: int, started_at: float, label: str = "swee
     )
 
 
-def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test_ids: int | None, full_progress: dict | None = None):
+def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], test_set: str, n_test_ids: int | None, full_progress: dict | None = None):
     '''do a hypam sweep by training models for all grid configs and scoring them via simulated net cost'''
 
     train_df, _test_df, feature_columns, y_col = get_train_test_frames(target=target, model_family=model)
@@ -140,8 +150,8 @@ def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test
 
     out_dir = OUTPUT_DIR / "net_cost" / target / model
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{grid}.csv"
-    json_path = out_dir / f"{grid}.json"
+    out_path = out_dir / f"{grid}_{test_set}.csv"
+    json_path = out_dir / f"{grid}_{test_set}.json"
 
     print(
         f"Running net-cost hyperparameter sweep for target: {target}, model: {model}, "
@@ -162,7 +172,7 @@ def hypam_sweep(target: str, model: str, grid: str, scenarios: list[str], n_test
         estimator.fit(X_train, y_train)
 
         for scenario in scenarios:
-            score = score_model(estimator, target, scenario, n_test_ids)
+            score = score_model(estimator, target, scenario, test_set, n_test_ids)
             done_runs += 1
             print(f"  [{i:3d}/{len(param_configs)}] params={params} scenario={scenario} -> net_cost={score:.5f}")
             _print_progress(done_runs, total_runs, started_at, label="current sweep")
@@ -218,6 +228,14 @@ if __name__ == "__main__":
         help="scenario(s) used for the simulation runs",
     )
     parser.add_argument(
+        "--test-set",
+        type=str,
+        choices=["inner", "20_loads"],
+        default="inner",
+        help="household set to simulate on: 'inner' -> PARTITIONS['inner'][target]['test'], "
+        "'20_loads' -> RuntimeConfig.INDEPENDENT_TEST_SET_20",
+    )
+    parser.add_argument(
         "--n_test_ids",
         type=int,
         default=None,
@@ -226,7 +244,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if any(m.lower() == "oracle" for m in args.model):
-        run_full_oracle(scenarios=args.scenario, n_test_ids=args.n_test_ids)
+        run_full_oracle(scenarios=args.scenario, test_set=args.test_set, n_test_ids=args.n_test_ids)
         args.model = [m for m in args.model if m.lower() != "oracle"]
         if not args.model:
             raise SystemExit(0)
@@ -262,6 +280,7 @@ if __name__ == "__main__":
                     model=model,
                     grid=grid,
                     scenarios=args.scenario,
+                    test_set=args.test_set,
                     n_test_ids=args.n_test_ids,
                     full_progress=full_progress,
                 )
