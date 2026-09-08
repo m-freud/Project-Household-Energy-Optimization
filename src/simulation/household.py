@@ -12,9 +12,9 @@ class Household:
     '''
     def __init__(
             self,
-            player_id=1,
+            player_id: int|None = 1,
             start_time=1,
-            scenario: Scenario = default_scenario,
+            scenario: Scenario|None = default_scenario,
             pv:PV|None=None,
             bess:BESS|None=None,
             ev1:EV|None=None,
