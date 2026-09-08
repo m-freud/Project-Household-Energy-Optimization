@@ -160,6 +160,7 @@ def get_rollout_errors(
     predictor: BasePredictor,
     day_profile: Sequence[float],
     target: str = "base_load",
+    reuse_forecast_prefix: bool = False,
 ) -> dict[str, Any]:
     """Compute rollout error buckets for a predictor over one day profile.
 
@@ -186,9 +187,21 @@ def get_rollout_errors(
 
     for start in range(day_len):
         context = _build_profile_context(day_profile, start=start, target=target)
-        for horizon in range(1, day_len - start + 1):
+        max_horizon = day_len - start
+        prediction_values = None
+        if reuse_forecast_prefix:
+            prediction_values = _predict_for_target(
+                predictor, context, horizon=max_horizon, target=target
+            )
+            if not prediction_values:
+                prediction_values = [0.0] * max_horizon
+
+        for horizon in range(1, max_horizon + 1):
             actual_window = day_profile[start:start + horizon]
-            prediction_values = _predict_for_target(predictor, context, horizon=horizon, target=target)
+            if not reuse_forecast_prefix:
+                prediction_values = _predict_for_target(
+                    predictor, context, horizon=horizon, target=target
+                )
 
             if not prediction_values:
                 prediction_values = [0.0] * len(actual_window)

@@ -13,8 +13,10 @@ Procedure:
     - measure raw prediction RMSE against the 20_loads household features
     - simulate net cost on the 20_loads household set (default_scenario, everything
       but base_load predicted by the oracle)
+    - roll out the trained model against each 20_loads household's actual day
+      profile and average the rollout-error KPI (see training/evaluation/rollout_errors.py)
 - write candidate_set (all day ids, for reproducibility) | rmse | rmse_20_loads |
-  net_cost, one row per candidate, as they are scored
+  net_cost | rollout-error bucket averages, one row per candidate, as they are scored
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ import sys  # noqa: E402
 sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig  # noqa: E402
+from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
@@ -42,7 +45,8 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
-from src.sqlite_connection import sqlite_conn  # noqa: E402
+from src.sqlite_connection import fetch_timeseries, sqlite_conn  # noqa: E402
+from training.evaluation.rollout_errors import get_rollout_errors  # noqa: E402
 from training.features.base_load_features import get_base_load_features  # noqa: E402
 
 
@@ -51,10 +55,25 @@ TARGET_COLUMN = "next_value"
 TARGET = "base_load"
 MODEL_PARAMS = {"learning_rate": 0.02, "max_depth": 4, "n_estimators": 100}
 
+ROLLOUT_BUCKETS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 25, 32, 38, 42, 50, 58, 64, 72, 88, 96]
+
 RANDOM_FEATURE_DIR = Path(__file__).parents[1] / "random_feature_samples_rsme"
 TRAIN_DIR = RANDOM_FEATURE_DIR / "train"
 TEST_DIR = RANDOM_FEATURE_DIR / "test"
 OUTPUT_DIR = Path(__file__).parent / "random_day_set_sweep_results"
+
+
+class _RolloutMLPredictor(BasePredictor):
+    """Adapts an MLPredictor base_load model to the 2-arg BasePredictor interface expected by get_rollout_errors."""
+
+    def __init__(self, base_load_model) -> None:
+        self._inner = MLPredictor(base_load_model=base_load_model)
+
+    def predict(self, household, horizon: int) -> dict:
+        return self.predict_base_load(household, horizon)
+
+    def predict_base_load(self, household, horizon: int) -> dict:
+        return self._inner.predict_base_load(household, horizon, ev_status_pred={})
 
 
 def _load_pool(n_files: int) -> tuple[pd.DataFrame, list[str]]:
@@ -81,15 +100,43 @@ def _load_reference_df(test_seed: int) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def _load_household_day_profiles(household_ids: Sequence[int]) -> dict[int, list[float]]:
+    """Fetch each household's actual base_load day profile (96 values) for rollout scoring."""
+    cursor = sqlite_conn.cursor()
+    return {household_id: fetch_timeseries(cursor, household_id, "base_load") for household_id in household_ids}
+
+
+def _average_rollout_metrics(rollout_results: list[dict]) -> dict[str, float]:
+    """Average rollout-error metrics across households: 4 scalars + the requested buckets."""
+    averaged: dict[str, float] = {}
+    for key in ("horizon_pooled_avg", "horizon_bucket_avg", "timestep_pooled_avg", "timestep_bucket_avg"):
+        values = [result[key] for result in rollout_results]
+        averaged[key] = float(np.mean(values)) if values else float("nan")
+
+    for bucket_name, dict_key in (("horizon_bucket", "horizon_buckets"), ("timestep_bucket", "timestep_buckets")):
+        for bucket in ROLLOUT_BUCKETS:
+            per_household_values = [
+                float(np.mean(result[dict_key][bucket]))
+                for result in rollout_results
+                if bucket in result[dict_key] and result[dict_key][bucket]
+            ]
+            averaged[f"{bucket_name}_{bucket}_avg"] = (
+                float(np.mean(per_household_values)) if per_household_values else float("nan")
+            )
+
+    return averaged
+
+
 def _score_candidate(
     pool_df: pd.DataFrame,
     day_keys: Sequence[str],
     reference_df: pd.DataFrame,
     reference_df_20_loads: pd.DataFrame,
+    household_day_profiles: dict[int, list[float]],
     test_household_ids: Sequence[int],
     scenario_name: str,
-) -> tuple[float, float, float]:
-    """Train on the given day keys, return (rmse, rmse_20_loads, net_cost)."""
+) -> tuple[float, float, float, dict[str, float]]:
+    """Train on the given day keys, return (rmse, rmse_20_loads, net_cost, rollout_metrics)."""
     train_df = pool_df[pool_df["day_key"].isin(set(day_keys))]
 
     train_X = train_df[FEATURE_COLUMNS]
@@ -139,7 +186,19 @@ def _score_candidate(
     )
     net_cost = float(np.mean(results["net_costs"]))
 
-    return rmse, rmse_20_loads, net_cost
+    rollout_predictor = _RolloutMLPredictor(model)
+    rollout_results = [
+        get_rollout_errors(
+            rollout_predictor,
+            household_day_profiles[household_id],
+            target=TARGET,
+            reuse_forecast_prefix=True,
+        )
+        for household_id in test_household_ids
+    ]
+    rollout_metrics = _average_rollout_metrics(rollout_results)
+
+    return rmse, rmse_20_loads, net_cost, rollout_metrics
 
 
 def _print_progress(done: int, total: int, started_at: float) -> None:
@@ -182,6 +241,7 @@ def main() -> None:
     reference_df = _load_reference_df(args.test_seed)
     test_household_ids = list(RuntimeConfig.INDEPENDENT_TEST_SET_20)
     reference_df_20_loads = get_base_load_features(test_household_ids)
+    household_day_profiles = _load_household_day_profiles(test_household_ids)
     print(f"Scoring net cost on {len(test_household_ids)} households (20_loads), scenario={args.scenario}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -190,7 +250,13 @@ def main() -> None:
         f"poolfiles_{args.pool_files}_seed_{args.seed}"
     )
     output_path = args.output_dir / f"{stem}.csv"
-    pd.DataFrame(columns=["candidate_set", "rmse", "rmse_20_loads", "net_cost"]).to_csv(output_path, index=False)  # init early
+    rollout_metric_columns = (
+        ["horizon_pooled_avg", "horizon_bucket_avg", "timestep_pooled_avg", "timestep_bucket_avg"]
+        + [f"horizon_bucket_{bucket}_avg" for bucket in ROLLOUT_BUCKETS]
+        + [f"timestep_bucket_{bucket}_avg" for bucket in ROLLOUT_BUCKETS]
+    )
+    csv_columns = ["candidate_set", "rmse", "rmse_20_loads", "net_cost"] + rollout_metric_columns
+    pd.DataFrame(columns=csv_columns).to_csv(output_path, index=False)  # init early
 
     rng = np.random.default_rng(args.seed)
     started_at = time.perf_counter()
@@ -198,15 +264,20 @@ def main() -> None:
 
     for i in range(1, args.n_candidates + 1):
         candidate_day_keys = sorted(rng.choice(day_keys, size=args.n_days, replace=False).tolist())
-        rmse, rmse_20_loads, net_cost = _score_candidate(
+        rmse, rmse_20_loads, net_cost, rollout_metrics = _score_candidate(
             pool_df=pool_df,
             day_keys=candidate_day_keys,
             reference_df=reference_df,
             reference_df_20_loads=reference_df_20_loads,
+            household_day_profiles=household_day_profiles,
             test_household_ids=test_household_ids,
             scenario_name=args.scenario,
         )
-        print(f"  [{i:4d}/{args.n_candidates}] rmse={rmse:.5f} rmse_20_loads={rmse_20_loads:.5f} net_cost={net_cost:.5f}")
+        print(
+            f"  [{i:4d}/{args.n_candidates}] rmse={rmse:.5f} rmse_20_loads={rmse_20_loads:.5f} "
+            f"net_cost={net_cost:.5f} horizon_bucket_avg={rollout_metrics['horizon_bucket_avg']:.5f} "
+            f"timestep_bucket_avg={rollout_metrics['timestep_bucket_avg']:.5f}"
+        )
         _print_progress(i, args.n_candidates, started_at)
 
         row = {
@@ -214,8 +285,9 @@ def main() -> None:
             "rmse": round(rmse, 5),
             "rmse_20_loads": round(rmse_20_loads, 5),
             "net_cost": round(net_cost, 5),
+            **{column: round(rollout_metrics[column], 5) for column in rollout_metric_columns},
         }
-        pd.DataFrame([row]).to_csv(output_path, mode="a", header=False, index=False)
+        pd.DataFrame([row], columns=csv_columns).to_csv(output_path, mode="a", header=False, index=False)
 
     print(f"\nSaved sweep results to {output_path}")
 
