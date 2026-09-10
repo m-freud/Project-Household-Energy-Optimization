@@ -7,19 +7,6 @@ import numpy as np
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 
 
-def _count_evs_at_home(
-    predicted_ev_status: dict[str, list[int]],
-    prediction_index: int,
-) -> int:
-    ev1_home_seq = predicted_ev_status.get("ev1_at_home", [])
-    ev2_home_seq = predicted_ev_status.get("ev2_at_home", [])
-
-    ev1_at_home = ev1_home_seq[prediction_index]
-    ev2_at_home = ev2_home_seq[prediction_index]
-    
-    return ev1_at_home + ev2_at_home
-
-
 def _build_base_load_features(
     current_timestep: int,
     current_base_load: float,
