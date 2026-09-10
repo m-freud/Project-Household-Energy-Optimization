@@ -41,13 +41,13 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig
-from simulation.controllers.mpc.predictors.ml.recursive.helpers.base_load import predict_base_load
-from simulation.controllers.mpc.predictors.ml.recursive.helpers.ev_status import _predict_single_ev_status
-from simulation.controllers.mpc.predictors.ml.recursive.helpers.pv_gen import predict_pv_gen
+from src.simulation.controllers.mpc.predictors.ml.recursive.helpers.base_load import predict_base_load
+from src.simulation.controllers.mpc.predictors.ml.recursive.helpers.ev_status import _predict_single_ev_status
+from src.simulation.controllers.mpc.predictors.ml.recursive.helpers.pv_gen import predict_pv_gen
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY, MODEL_TARGETS
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
-from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, build_mpc_controller

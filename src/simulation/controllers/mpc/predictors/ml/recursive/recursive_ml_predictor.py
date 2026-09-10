@@ -5,7 +5,7 @@ from typing import Generic
 
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from simulation.controllers.mpc.predictors.ml.recursive.helpers import (
+from src.simulation.controllers.mpc.predictors.ml.recursive.helpers import (
     predict_ev_status,
     predict_base_load,
     predict_pv_gen,

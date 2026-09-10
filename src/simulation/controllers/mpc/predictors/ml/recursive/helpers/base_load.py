@@ -1,5 +1,5 @@
 from src.runtime_config import RuntimeConfig
-from simulation.controllers.mpc.predictors.ml.recursive.helpers.encode_time_cyclic import encode_time_cyclic
+from src.simulation.controllers.mpc.predictors.ml.recursive.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TRegressor
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household

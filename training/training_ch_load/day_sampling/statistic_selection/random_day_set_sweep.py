@@ -38,7 +38,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig  # noqa: E402
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor  # noqa: E402
-from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
+from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa: E402

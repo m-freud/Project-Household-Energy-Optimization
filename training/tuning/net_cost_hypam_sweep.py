@@ -20,7 +20,7 @@ import numpy as np  # noqa
 import pandas as pd  # noqa
 
 from src.runtime_config import RuntimeConfig  # noqa
-from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa
+from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa
 from src.simulation.run_context import RunContext  # noqa

@@ -30,7 +30,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.metrics import root_mean_squared_error
-from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.simulation import Simulation
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 import json
