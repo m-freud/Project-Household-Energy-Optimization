@@ -51,7 +51,7 @@ class RecursiveMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
                 "ev2_at_charging_station": [0] * horizon,
             }
         
-        return predict_ev_status( #TODO return None instead?
+        return predict_ev_status(
             model_ev1=self.ev1_status_model,
             model_ev2=self.ev2_status_model,
             household=household,
