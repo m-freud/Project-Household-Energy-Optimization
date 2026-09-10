@@ -18,7 +18,7 @@ from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
@@ -810,7 +810,7 @@ if __name__ == "__main__":
             f"Missing single model for {family_key}:{target}. Looked for {preferred} and {fallback}."
         )
 
-    def _build_predictor(family: str) -> MLPredictor:
+    def _build_predictor(family: str) -> RecursiveMLPredictor:
         family_key = str(family).lower()
 
         if family_key == "xgb":
@@ -827,7 +827,7 @@ if __name__ == "__main__":
             valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
             raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
-        return MLPredictor(
+        return RecursiveMLPredictor(
             base_load_model=base_load_model,
             pv_gen_model=pv_gen_model,
             ev1_status_model=ev1_status_model,

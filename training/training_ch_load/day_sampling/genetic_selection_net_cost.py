@@ -46,7 +46,7 @@ from xgboost import XGBRegressor
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa: E402
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa: E402
@@ -201,7 +201,7 @@ def _score_day_set(
     predictor = ModularPredictor(
         default_predictor=OraclePredictor(),
         target_predictors={
-            TARGET: MLPredictor(
+            TARGET: RecursiveMLPredictor(
                 base_load_model=model,
                 pv_gen_model=None,
                 ev1_status_model=None,

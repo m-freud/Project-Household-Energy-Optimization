@@ -20,7 +20,7 @@ import numpy as np  # noqa
 import pandas as pd  # noqa
 
 from src.runtime_config import RuntimeConfig  # noqa
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa
 from src.simulation.run_context import RunContext  # noqa
@@ -58,7 +58,7 @@ def score_model(model, target: str, scenario_name: str, test_set: str, n_test_id
 
     scenario = scenario_catalog[scenario_name]
 
-    target_predictor = MLPredictor(
+    target_predictor = RecursiveMLPredictor(
         base_load_model=model if target == "base_load" else None,
         pv_gen_model=model if target == "pv_gen" else None,
         ev1_status_model=model if target == "ev1_status" else None,

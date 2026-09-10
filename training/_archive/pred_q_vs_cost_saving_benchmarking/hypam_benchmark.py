@@ -30,7 +30,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.metrics import root_mean_squared_error
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.simulation import Simulation
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 import json
@@ -157,7 +157,7 @@ class HypamBenchmark: #TODO round floats in csv
     def benchmark_sim_net_cost(self, model, scenario):    
         default_predictor = OraclePredictor()
 
-        target_predictor = MLPredictor(
+        target_predictor = RecursiveMLPredictor(
             base_load_model=model if self.target == "base_load" else None,
             pv_gen_model=model if self.target == "pv_gen" else None,
             ev1_status_model=model if self.target == "ev1_status" else None,

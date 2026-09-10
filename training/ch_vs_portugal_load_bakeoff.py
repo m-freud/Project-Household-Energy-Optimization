@@ -16,7 +16,7 @@ repo_root = next((path for path in Path.cwd().resolve().parents if (path / "src"
 sys.path.insert(0, str(repo_root))
 
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa: E402
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa: E402
 from src.simulation.run_context import RunContext  # noqa: E402
@@ -76,7 +76,7 @@ def _score_default_scenario(model: object, test_ids: list[int]) -> float:
     predictor = ModularPredictor(
         default_predictor=OraclePredictor(),
         target_predictors={
-            TARGET: MLPredictor(
+            TARGET: RecursiveMLPredictor(
                 base_load_model=model,
                 pv_gen_model=None,
                 ev1_status_model=None,

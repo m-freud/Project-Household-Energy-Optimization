@@ -7,6 +7,15 @@ from src.simulation.scenarios.scenario import Scenario
 class BasePredictor(ABC):
     """Interface for predictors used by the MPC controller."""
 
+    def predict_ev_status(self, household: Household, horizon: int, ev_key: str|None = None) -> dict:
+        raise NotImplementedError
+
+    def predict_base_load(self, household: Household, horizon: int) -> dict:
+        raise NotImplementedError
+
+    def predict_pv_gen(self, household: Household, horizon: int) -> dict:
+        raise NotImplementedError
+
     @abstractmethod
     def predict(
         self,
@@ -21,13 +30,4 @@ class BasePredictor(ABC):
         such as base load, PV generation, EV loads, EV availability, prices, and
         any other future signals that are relevant to the optimization problem.
         """
-        raise NotImplementedError
-
-    def predict_ev_status(self, household: Household, horizon: int, ev_key: str|None = None) -> dict:
-        raise NotImplementedError
-
-    def predict_base_load(self, household: Household, horizon: int) -> dict:
-        raise NotImplementedError
-
-    def predict_pv_gen(self, household: Household, horizon: int) -> dict:
         raise NotImplementedError

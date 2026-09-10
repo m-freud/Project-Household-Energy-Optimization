@@ -41,13 +41,13 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig
-from src.simulation.controllers.mpc.predictors.ml.helpers.base_load import predict_base_load
-from src.simulation.controllers.mpc.predictors.ml.helpers.ev_status import _predict_single_ev_status
-from src.simulation.controllers.mpc.predictors.ml.helpers.pv_gen import predict_pv_gen
+from simulation.controllers.mpc.predictors.ml.recursive.helpers.base_load import predict_base_load
+from simulation.controllers.mpc.predictors.ml.recursive.helpers.ev_status import _predict_single_ev_status
+from simulation.controllers.mpc.predictors.ml.recursive.helpers.pv_gen import predict_pv_gen
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY, MODEL_TARGETS
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, build_mpc_controller
@@ -143,7 +143,7 @@ def _score_sim_total_cost_for_target(
     dummy_regressor = _fit_lightweight_placeholder_model("base_load", dummy_feature_count["base_load"])
     dummy_classifier = _fit_lightweight_placeholder_model("ev1_status", dummy_feature_count["ev_status"])
 
-    runtime_predictor = MLPredictor(
+    runtime_predictor = RecursiveMLPredictor(
         base_load_model=(model if target == "base_load" else dummy_regressor),
         pv_gen_model=(model if target == "pv_gen" else dummy_regressor),
         ev1_status_model=(model if target == "ev1_status" else dummy_classifier),

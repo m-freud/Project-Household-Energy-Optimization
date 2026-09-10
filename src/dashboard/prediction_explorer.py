@@ -15,7 +15,7 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -88,7 +88,7 @@ def _load_pickle_model(model_path: Path):
 
 
 @st.cache_resource(show_spinner=False)
-def _load_predictor(family: str) -> MLPredictor[Any, Any]:
+def _load_predictor(family: str) -> RecursiveMLPredictor[Any, Any]:
     family_key = str(family).lower()
     if family_key == "xgb":
         base_load_model = _load_xgb_model(_single_model_path("xgb", "base_load"), XGBRegressor)
@@ -104,7 +104,7 @@ def _load_predictor(family: str) -> MLPredictor[Any, Any]:
         valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
         raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
-    return MLPredictor(
+    return RecursiveMLPredictor(
         base_load_model=base_load_model,
         pv_gen_model=pv_gen_model,
         ev1_status_model=ev1_status_model,

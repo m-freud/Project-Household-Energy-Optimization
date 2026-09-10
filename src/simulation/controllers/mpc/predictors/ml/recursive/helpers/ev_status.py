@@ -1,7 +1,7 @@
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TClassifier
 from src.simulation.household import Household
 from src.runtime_config import RuntimeConfig
-from src.simulation.controllers.mpc.predictors.ml.helpers.encode_time_cyclic import encode_time_cyclic
+from simulation.controllers.mpc.predictors.ml.recursive.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 
 
@@ -55,42 +55,6 @@ def _get_observed_commute_boundaries(phase_ids: list[int]) -> tuple[int, int, in
             end2 = (i - 1) + 1 # convert to timestep
 
     return start1, end1, start2, end2
-
-
-def _fetch_ev_status_data(household: Household, ev_key: str) -> dict:
-    """
-    fetch ev data used for feature building
-    we mostly separate fetching from building
-    status is converted to 012 format
-    """
-    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
-    current_timestep = household.current_timestep
-
-    at_home_history = household.history.get(f"{ev_key}_at_home", {})
-    at_station_history = household.history.get(f"{ev_key}_at_charging_station", {})
-
-    status_history = [
-        int(1 - int(at_home_history.get(step, 0)) + int(at_station_history.get(step, 0)))
-        for step in range(1, current_timestep)
-    ]
-
-    current_status = int( # home, station to 012 conversion
-        1
-        - int(getattr(household, f"{ev_key}_at_home", 0))
-        + int(getattr(household, f"{ev_key}_at_charging_station", 0))
-    )
-
-    return {
-        "timestep": int(current_timestep),
-        "status": int(current_status),
-        "status_history": status_history,
-        "start1_earliest": int(windows[0]["earliest_start"]),
-        "end1_latest": int(windows[0]["latest_end"]),
-        "start2_earliest": int(windows[1]["earliest_start"]),
-        "end2_latest": int(windows[1]["latest_end"]),
-        "max_commute_steps_1": int(windows[0]["max_unavailable_steps"]),
-        "max_commute_steps_2": int(windows[1]["max_unavailable_steps"]),
-    }
 
 
 def _build_ev_status_features(ev_status_data) -> dict:

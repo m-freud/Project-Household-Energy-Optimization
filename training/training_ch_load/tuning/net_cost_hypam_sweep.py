@@ -12,7 +12,7 @@ sys.path.insert(0, str(repo_root))
 import numpy as np
 import pandas as pd
 
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.run_context import RunContext
@@ -43,7 +43,7 @@ def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 	predictor = ModularPredictor(
 		default_predictor=OraclePredictor(),
 		target_predictors={
-			TARGET: MLPredictor(
+			TARGET: RecursiveMLPredictor(
 				base_load_model=model,
 				pv_gen_model=None,
 				ev1_status_model=None,

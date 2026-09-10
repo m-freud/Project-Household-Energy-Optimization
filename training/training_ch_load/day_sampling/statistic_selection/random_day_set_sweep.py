@@ -38,7 +38,7 @@ sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig  # noqa: E402
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor  # noqa: E402
-from src.simulation.controllers.mpc.predictors.ml.ml_predictor import MLPredictor  # noqa: E402
+from simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa: E402
@@ -67,7 +67,7 @@ class _RolloutMLPredictor(BasePredictor):
     """Adapts an MLPredictor base_load model to the 2-arg BasePredictor interface expected by get_rollout_errors."""
 
     def __init__(self, base_load_model) -> None:
-        self._inner = MLPredictor(base_load_model=base_load_model)
+        self._inner = RecursiveMLPredictor(base_load_model=base_load_model)
 
     def predict(self, household, horizon: int) -> dict:
         return self.predict_base_load(household, horizon)
@@ -197,7 +197,7 @@ def _score_candidate(
     predictor = ModularPredictor(
         default_predictor=OraclePredictor(),
         target_predictors={
-            TARGET: MLPredictor(
+            TARGET: RecursiveMLPredictor(
                 base_load_model=model,
                 pv_gen_model=None,
                 ev1_status_model=None,

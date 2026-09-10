@@ -5,7 +5,7 @@ from typing import Generic
 
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.ml.helpers import (
+from simulation.controllers.mpc.predictors.ml.recursive.helpers import (
     predict_ev_status,
     predict_base_load,
     predict_pv_gen,
@@ -24,7 +24,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
 )
 
 
-class MLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
+class RecursiveMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     """Base class for ML predictors (XGB, RF, Ridge, or more).
     Accepts one model per target.
     """
