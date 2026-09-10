@@ -1,82 +1,8 @@
-from src.runtime_config import RuntimeConfig
-from src.simulation.controllers.mpc.predictors.ml.recursive.helpers.encode_time_cyclic import encode_time_cyclic
 from src.simulation.controllers.mpc.predictors.ml.model_interface import TRegressor
+from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import _build_base_load_features, _try_bypass
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
-import numpy as np
-from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
-
-
-def _build_base_load_features(
-    current_timestep: int,
-    current_base_load: float,
-    base_load_history: list[float], # dict is converted to list for calculations
-    round_values: bool = False,
-) -> dict:
-    base_load_seq = base_load_history + [current_base_load]
-
-    def _lag(lag: int) -> tuple[float, int]:
-        idx = len(base_load_seq) - 1 - lag
-        if idx >= 0:
-            return float(base_load_seq[idx]), 0
-        return -1.0, 1
-
-    def _rolling_mean(window: int) -> float:
-        return float(np.mean(np.asarray(base_load_seq[-window:], dtype=float)))
-
-    def _rolling_std(window: int) -> float:
-        return float(np.std(np.asarray(base_load_seq[-window:], dtype=float), ddof=0))
-
-    lag_1, lag_1_pad = _lag(1)
-    lag_2, lag_2_pad = _lag(2)
-    lag_4, lag_4_pad = _lag(4)
-    lag_8, lag_8_pad = _lag(8)
-    lag_12, lag_12_pad = _lag(12)
-
-    base_load_delta_1 = current_base_load - lag_1 if lag_1_pad == 0 else 0.0
-    base_load_delta_2 = lag_1 - lag_2 if (lag_1_pad == 0 and lag_2_pad == 0) else 0.0
-    base_load_accel = base_load_delta_1 - base_load_delta_2
-
-    time_sin, time_cos = encode_time_cyclic(current_timestep)
-
-    features = {
-        "timestep": current_timestep,
-        "base_load": current_base_load,
-        "time_sin": time_sin,
-        "time_cos": time_cos,
-        "base_load_lag_1": lag_1,
-        "base_load_lag_1_is_pad": lag_1_pad,
-        "base_load_lag_2": lag_2,
-        "base_load_lag_2_is_pad": lag_2_pad,
-        "base_load_lag_4": lag_4,
-        "base_load_lag_4_is_pad": lag_4_pad,
-        "base_load_lag_8": lag_8,
-        "base_load_lag_8_is_pad": lag_8_pad,
-        "base_load_lag_12": lag_12,
-        "base_load_lag_12_is_pad": lag_12_pad,
-        "base_load_ma_2": _rolling_mean(2),
-        "base_load_ma_4": _rolling_mean(4),
-        "base_load_ma_8": _rolling_mean(8),
-        "base_load_ma_16": _rolling_mean(16),
-        "base_load_std_4": _rolling_std(4),
-        "base_load_std_8": _rolling_std(8),
-        "base_load_delta_1": base_load_delta_1,
-        "base_load_delta_2": base_load_delta_2,
-        "base_load_accel": base_load_accel,
-    }
-
-    if round_values:
-        for key, value in list(features.items()):
-            if isinstance(value, float):
-                features[key] = round(value, 3)
-
-    return features
-
-
-def _try_bypass(current_timestep: int) -> float | None:
-    if current_timestep >= 96:
-        return 0.0
-    return None
 
 
 def _predict_base_load(

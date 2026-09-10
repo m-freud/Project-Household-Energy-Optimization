@@ -10,7 +10,7 @@ sys.path.insert(0, str(repo_root))
 
 
 from simulation.controllers.mpc.predictors.ml.model_interface import TClassifier
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers import _build_ev_status_features, _try_bypass  # noqa: E402
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status import _build_ev_status_features, _try_bypass  # noqa: E402
 
 
 def _predict_single_ev_status(model_bank, household: Household, ev_key: str, horizon: int) -> tuple[list[int], list[int]]:

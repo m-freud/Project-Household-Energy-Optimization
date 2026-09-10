@@ -1,6 +1,7 @@
 import math
 from src.runtime_config import RuntimeConfig
 
+
 def encode_time_cyclic(timestep: int) -> tuple[float, float]:
     """
     Encode a timestep as cyclic features (sine and cosine).
