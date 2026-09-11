@@ -62,6 +62,8 @@ class CompositeMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
             household=household,
             horizon=horizon,
             ev_key=ev_key,
+            ev1_interpolation=self.ev1_interpolation,
+            ev2_interpolation=self.ev2_interpolation,
         )
 
     def predict_base_load(self, household: Household, horizon: int) -> dict:
