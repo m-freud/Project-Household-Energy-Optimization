@@ -52,6 +52,7 @@ MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
         "observed_window_length_2",
         "window_length_slack_1",
         "window_length_slack_2",
+        "prediction_horizon",
     ],
     "BASE_LOAD": [ # lag/ma/std go back up to 48 steps (12h); delta/acc use current - lag_x, capped at lag_16
         "timestep",
@@ -97,6 +98,7 @@ MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
         "base_load_acc_4",
         "base_load_acc_8",
         "base_load_acc_16",
+        "prediction_horizon",
     ],
     "PV_GEN": [ # lag/ma/std go back up to 48 steps (12h); delta/acc use current - lag_x, capped at lag_16
         "timestep",
@@ -144,6 +146,7 @@ MODEL_FEATURE_DOMAIN: dict[str, list[str]] = {
         "pv_acc_16",
         "steps_to_daylight_start",
         "steps_to_daylight_end",
+        "prediction_horizon",
     ],
 }
 
@@ -352,6 +355,12 @@ MODEL_FEATURES_BY_FAMILY: dict[str, dict[str, list[str]]] = {
             "pv_ma_8",
         ],
     },
+}
+
+
+MODEL_FEATURES_BY_FAMILY["global_xgboost"] = {
+    target: [*features, "prediction_horizon"]
+    for target, features in MODEL_FEATURES_BY_FAMILY["xgboost"].items()
 }
 
 
