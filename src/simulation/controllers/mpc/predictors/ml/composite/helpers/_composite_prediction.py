@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Any, Literal
+from typing import Any, Literal, cast
+
+import matplotlib.pyplot as plt
 
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
 
@@ -63,7 +65,8 @@ def _predict_initial(
         if missing:
             raise ValueError(f"Missing required features: {missing}")
         model_input = [features[name] for name in model_features]
-        predictions[horizon_offset] = float(model.predict([model_input])[0])
+        model_prediction = model.predict([model_input])
+        predictions[horizon_offset] = float(model_prediction[0])  # type: ignore[index]
 
 
 def _recursive_interpolate(
@@ -94,7 +97,8 @@ def _recursive_interpolate(
         if missing:
             raise ValueError(f"Missing required features: {missing}")
         model_input = [features[name] for name in model_features]
-        value = float(model_bank[model_horizon].predict([model_input])[0])
+        model_prediction = model_bank[model_horizon].predict([model_input])
+        value = float(model_prediction[0])  # type: ignore[index]
         if task == "classification":
             value = int(round(value))
         predictions[left + model_horizon] = value
@@ -153,3 +157,72 @@ def predict_composite(
         )
 
     raise NotImplementedError(f"Unhandled interpolation method: {interpolation}")
+
+
+class _DebugConstantRegressor:
+    def __init__(self, value: float):
+        self.value = value
+
+    def predict(self, model_input):
+        return [self.value] * len(model_input)
+
+
+def _debug_run_composite_interpolation() -> None:
+    debug_model_bank = cast(
+        Any,
+        {
+            offset: _DebugConstantRegressor(offset)
+            for offset in (1, 2, 4, 8, 16, 32, 64)
+        },
+    )
+    prediction_horizon = 96
+    initial_predictions = {0: 10.0, **{offset: float(offset) for offset in debug_model_bank}}
+
+    def build_debug_features(timestep: int, value: float, history: list[float]) -> dict[str, Any]:
+        return {"debug_value": value}
+
+    for interpolation in ("linear", "recursive"):
+        prediction = predict_composite(
+            model_bank=debug_model_bank,
+            current_timestep=20,
+            current_value=10.0,
+            history=[10.0] * 19,
+            horizon=prediction_horizon,
+            model_features=["debug_value"],
+            feature_builder=build_debug_features,
+            interpolation=interpolation,
+            task="regression",
+        )
+
+        interpolated_horizons = [
+            offset for offset in range(prediction_horizon)
+            if offset not in initial_predictions
+        ]
+        plt.figure(figsize=(12, 5))
+        plt.plot(range(prediction_horizon), prediction, color="red", linewidth=1, label="full prediction")
+        initial_horizons = sorted(initial_predictions)
+        plt.scatter(
+            initial_horizons,
+            [initial_predictions[offset] for offset in initial_horizons],
+            color="blue",
+            zorder=3,
+            label="initial model predictions",
+        )
+        plt.scatter(
+            interpolated_horizons,
+            [prediction[offset] for offset in interpolated_horizons],
+            color="red",
+            zorder=3,
+            label="interpolated / recursive predictions",
+        )
+        plt.title(f"Composite prediction debug: {interpolation}")
+        plt.xlabel("Forecast horizon")
+        plt.ylabel("Prediction")
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+
+if __name__ == "__main__":
+    _debug_run_composite_interpolation()
