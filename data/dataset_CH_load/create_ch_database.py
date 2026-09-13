@@ -24,7 +24,7 @@ from pathlib import Path
 import pandas as pd
 
 smart_meters_dir = Path(__file__).parent / "smart_meter_data_filtered"
-sqlite_path = Path(__file__).parents[2] / "sqlite" / "ch_smart_meters.db"
+sqlite_path = Path(__file__).parents[2] / "sqlite" / "staging" /"CH_loads.db"
 
 player_frames = []
 

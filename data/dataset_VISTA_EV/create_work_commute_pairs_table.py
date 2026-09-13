@@ -10,7 +10,7 @@ vista_dir = Path(__file__).parent
 df = pd.read_csv(vista_dir / "T_VISTA1218_V1.csv")
 
 keep_columns = ['TRIPID', 'PERSID', 'HHID', 'STOPS', 'TRIPNO', 'STARTHOUR', 'STARTIME',
-       'ARRHOUR', 'ARRTIME', 'TRAVTIME', 'TRIPTIME', 'WAITIME',
+       'ARRHOUR', 'ARRTIME', 'TRAVTIME', 'TRIPTIME', 'WAITIME', 'CUMDIST',
        'ORIGPLACE2', 'ORIGPURP2', 'DESTPLACE2','DESTPURP2', 'TRIPPURP', 'LINKMODE',
        'DIST_GRP', 'Time_Grp', 'TIME1']
 
