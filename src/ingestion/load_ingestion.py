@@ -1,6 +1,0 @@
-'''
-Purpose of this file:
-
-
-
-'''
