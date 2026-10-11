@@ -10,8 +10,8 @@ Input table:
     2022-12-31 23:45:00 | 96     | 0.21
 
 Output:
-    CH_load_metadata.db
-        table: load_metadata
+    CH_loads.db (same DB as the input)
+        table: base_load_metadata
 
 Columns:
     player_id
@@ -40,7 +40,6 @@ import pandas as pd
 staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
 
 load_db_path = staging_dir / "CH_loads.db"
-metadata_db_path = staging_dir / "CH_load_metadata.db"
 
 
 # ---------------------------------------------------------------------------
@@ -152,33 +151,33 @@ metadata_df = pd.DataFrame(metadata_rows)
 # Save
 # ---------------------------------------------------------------------------
 
-with sqlite3.connect(metadata_db_path) as conn:
+with sqlite3.connect(load_db_path) as conn:
 
     metadata_df.to_sql(
-        "load_metadata",
+        "base_load_metadata",
         conn,
         if_exists="replace",
         index=False,
     )
 
     conn.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_load_metadata_player_date
-        ON load_metadata (player_id, date)
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_base_load_metadata_player_date
+        ON base_load_metadata (player_id, date)
     """)
 
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_load_metadata_max_load
-        ON load_metadata (max_load)
+        CREATE INDEX IF NOT EXISTS idx_base_load_metadata_max_load
+        ON base_load_metadata (max_load)
     """)
 
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_load_metadata_total_energy
-        ON load_metadata (total_energy)
+        CREATE INDEX IF NOT EXISTS idx_base_load_metadata_total_energy
+        ON base_load_metadata (total_energy)
     """)
 
 
 print()
 print(f"Calculated metadata for {len(metadata_df)} player-days")
-print(f"Output: {metadata_db_path}")
+print(f"Output: table base_load_metadata in {load_db_path}")
 print()
 print(metadata_df.head())

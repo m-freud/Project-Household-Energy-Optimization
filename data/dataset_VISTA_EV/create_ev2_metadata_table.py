@@ -12,7 +12,7 @@ Input:
             persid | trip_no | distance
 
 Output:
-    VISTA_ev2_metadata.db
+    VISTA_ev2_status.db (same DB as the input)
 
     table:
         ev2_metadata
@@ -44,7 +44,6 @@ import pandas as pd
 staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
 
 ev2_db_path = staging_dir / "VISTA_ev2_status.db"
-metadata_db_path = staging_dir / "VISTA_ev2_metadata.db"
 
 
 # ---------------------------------------------------------------------------
@@ -194,7 +193,7 @@ metadata_df = pd.DataFrame(metadata_rows)
 # Save
 # ---------------------------------------------------------------------------
 
-with sqlite3.connect(metadata_db_path) as conn:
+with sqlite3.connect(ev2_db_path) as conn:
 
     metadata_df.to_sql(
         "ev2_metadata",
@@ -226,6 +225,6 @@ with sqlite3.connect(metadata_db_path) as conn:
 
 print()
 print(f"Calculated metadata for {len(metadata_df)} EV2 persons")
-print(f"Output: {metadata_db_path}")
+print(f"Output: table ev2_metadata in {ev2_db_path}")
 print()
 print(metadata_df.head())

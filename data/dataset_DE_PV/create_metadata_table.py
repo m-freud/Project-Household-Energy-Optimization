@@ -6,8 +6,8 @@ Input:
         table: pv_gen
 
 Output:
-    DE_pv_gen_metadata.db
-        table: pv_metadata
+    DE_pv_gen.db (same DB as the input)
+        table: pv_gen_metadata
 
 Columns:
     player_id
@@ -37,7 +37,6 @@ import pandas as pd
 staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
 
 pv_db_path = staging_dir / "DE_pv_gen.db"
-metadata_db_path = staging_dir / "DE_pv_gen_metadata.db"
 
 
 # ---------------------------------------------------------------------------
@@ -175,10 +174,10 @@ metadata_df = pd.DataFrame(metadata_rows)
 # Save
 # ---------------------------------------------------------------------------
 
-with sqlite3.connect(metadata_db_path) as conn:
+with sqlite3.connect(pv_db_path) as conn:
 
     metadata_df.to_sql(
-        "pv_metadata",
+        "pv_gen_metadata",
         conn,
         if_exists="replace",
         index=False,
@@ -186,20 +185,20 @@ with sqlite3.connect(metadata_db_path) as conn:
 
     # Each PV system can only have one entry per date
     conn.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_metadata_player_date
-        ON pv_metadata (player_id, date)
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_gen_metadata_player_date
+        ON pv_gen_metadata (player_id, date)
     """)
 
     # Useful for matching/selecting profiles by peak generation
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_pv_metadata_max_generation
-        ON pv_metadata (max_generation)
+        CREATE INDEX IF NOT EXISTS idx_pv_gen_metadata_max_generation
+        ON pv_gen_metadata (max_generation)
     """)
 
     # Useful for matching/selecting profiles by daily energy
     conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_pv_metadata_total_energy
-        ON pv_metadata (total_energy)
+        CREATE INDEX IF NOT EXISTS idx_pv_gen_metadata_total_energy
+        ON pv_gen_metadata (total_energy)
     """)
 
 
@@ -209,6 +208,6 @@ with sqlite3.connect(metadata_db_path) as conn:
 
 print()
 print(f"Calculated metadata for {len(metadata_df)} PV player-days")
-print(f"Output: {metadata_db_path}")
+print(f"Output: table pv_gen_metadata in {pv_db_path}")
 print()
 print(metadata_df.head())
