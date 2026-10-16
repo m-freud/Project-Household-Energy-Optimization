@@ -70,6 +70,15 @@ table_config = {
             columns={"premium_charger_edp_capacity": "max_home_charge"}
         ),
     },
+    "initial_cp": {
+        "sheet_name": "Limits", # same table, different context
+        "rectangle": "B1:IQ10",
+        "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
+        "transpose": True,
+        "process": lambda df: df[["player_id", "initial_cp"]].rename(
+            columns={"initial_cp": "initial_cp"}
+        ),
+    },
     "base_load": {
         "sheet_name": "Load",
         **TIME_SERIES_DEFAULT
