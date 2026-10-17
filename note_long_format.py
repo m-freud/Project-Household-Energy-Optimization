@@ -1,0 +1,1 @@
+print("Long format ist better than wide format for SQL. It allows for easier aggregation and filtering of data. But not urgent")
