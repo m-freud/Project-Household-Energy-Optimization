@@ -27,8 +27,9 @@ periods = list(range(1, 97))
 ev_status_dict = {"period": periods}
 
 # Distance table:
-# persid | trip_no | distance
+# persid | HHID | trip_no | distance
 distance_rows = []
+person_rows = []
 
 
 # Group by PERSID
@@ -41,6 +42,8 @@ for persid, group in df.groupby("PERSID"):
         continue
 
     persid_str = str(persid)
+    hhid = group["HHID"].iloc[0]
+    person_rows.append({"persid": persid_str, "HHID": hhid})
 
     # Trip 1: home -> work
     t1_startime = float(trip1["STARTIME"].iloc[0])
@@ -55,12 +58,14 @@ for persid, group in df.groupby("PERSID"):
     # Store distances in long format
     distance_rows.append({
         "persid": persid_str,
+        "HHID": hhid,
         "trip_no": 1,
         "distance": t1_cumdist,
     })
 
     distance_rows.append({
         "persid": persid_str,
+        "HHID": hhid,
         "trip_no": 2,
         "distance": t2_cumdist,
     })
@@ -109,8 +114,9 @@ result_status_df = pd.DataFrame(ev_status_dict)
 
 result_distances_df = pd.DataFrame(
     distance_rows,
-    columns=["persid", "trip_no", "distance"],
+    columns=["persid", "HHID", "trip_no", "distance"],
 )
+result_persons_df = pd.DataFrame(person_rows, columns=["persid", "HHID"])
 
 
 # Save to SQLite
@@ -129,6 +135,13 @@ with sqlite3.connect(sqlite_path) as conn:
         index=False,
     )
 
+    result_persons_df.to_sql(
+        "ev1_persons",
+        conn,
+        if_exists="replace",
+        index=False,
+    )
+
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_ev1_distances_person_trip
         ON ev1_distances (persid, trip_no)
@@ -138,5 +151,7 @@ with sqlite3.connect(sqlite_path) as conn:
 print(f"Successfully processed {len(result_status_df.columns) - 1} persons.")
 print(f"Status shape: {result_status_df.shape}")
 print(f"Distance shape: {result_distances_df.shape}")
+print(f"Persons shape: {result_persons_df.shape}")
 print(f"Output table 'ev1_status' written to {sqlite_path}")
 print(f"Output table 'ev1_distances' written to {sqlite_path}")
+print(f"Output table 'ev1_persons' written to {sqlite_path}")

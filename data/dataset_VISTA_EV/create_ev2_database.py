@@ -17,6 +17,7 @@ df = df.sort_values(["PERSID", "TRIPNO"]).reset_index(drop=True)
 
 status_rows = []
 distance_rows = []
+person_rows = []
 
 grouped = df.groupby("PERSID")
 
@@ -27,6 +28,8 @@ for persid, group in grouped:
         continue
 
     persid_str = str(persid)
+    hhid = str(group["HHID"].iloc[0])
+    person_rows.append({"persid": persid_str, "HHID": hhid})
 
     # 0 = home
     # 1 = driving
@@ -39,6 +42,7 @@ for persid, group in grouped:
         # Store trip distance
         distance_rows.append({
             "persid": persid_str,
+            "HHID": hhid,
             "trip_no": trip_no,
             "distance": float(trip["CUMDIST"]),
         })
@@ -79,6 +83,7 @@ for persid, group in grouped:
     for period, status in enumerate(status_vec, start=1):
         status_rows.append({
             "persid": persid_str,
+            "HHID": hhid,
             "period": period,
             "status": status,
         })
@@ -86,6 +91,7 @@ for persid, group in grouped:
 
 result_status_df = pd.DataFrame(status_rows)
 result_distances_df = pd.DataFrame(distance_rows)
+result_persons_df = pd.DataFrame(person_rows, columns=["persid", "HHID"])
 
 
 # Save
@@ -99,6 +105,13 @@ with sqlite3.connect(sqlite_path) as conn:
 
     result_distances_df.to_sql(
         "ev2_distances",
+        conn,
+        if_exists="replace",
+        index=False,
+    )
+
+    result_persons_df.to_sql(
+        "ev2_persons",
         conn,
         if_exists="replace",
         index=False,
@@ -119,4 +132,5 @@ with sqlite3.connect(sqlite_path) as conn:
 print(f"Successfully processed {df['PERSID'].nunique()} persons.")
 print(f"Status rows: {len(result_status_df)}")
 print(f"Distance rows: {len(result_distances_df)}")
+print(f"Persons rows: {len(result_persons_df)}")
 print(f"Written to {sqlite_path}")

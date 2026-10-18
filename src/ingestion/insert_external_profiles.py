@@ -2,6 +2,7 @@
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
+import random
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 SQLITE_DIR = ROOT_DIR / "sqlite"
@@ -9,6 +10,8 @@ ENERGY_DB = SQLITE_DIR / "energy.db"
 ENERGY_V2_DB = SQLITE_DIR / "energy_v2.db"
 CH_LOADS_DB = SQLITE_DIR / "staging" / "CH_loads.db"
 DE_PV_DB = SQLITE_DIR / "staging" / "DE_pv_gen.db"
+EV1_DB = SQLITE_DIR / "staging" / "VISTA_ev1_status.db"
+EV2_DB = SQLITE_DIR / "staging" / "VISTA_ev2_status.db"
 
 N_PLAYERS = 250
 N_PERIODS = 96
@@ -146,11 +149,103 @@ def replace_pv_gen() -> None:
         orig_conn.close()
 
 
+def replace_ev1_status() -> None:
+    """Fill energy_v2 EV1 players, prioritizing people from shared households."""
+    conn = sqlite3.connect(ENERGY_V2_DB)
+    ev1_conn = sqlite3.connect(EV1_DB)
+    try:
+        profile_ids = [row[1] for row in ev1_conn.execute('PRAGMA table_info("ev1_status")')][1:]
+        persons = dict(ev1_conn.execute("SELECT persid, HHID FROM ev1_persons"))
+        shared_ids = {
+            persid
+            for (persid,) in ev1_conn.execute(
+                "SELECT persid FROM ev1_persons "
+                "WHERE HHID IN ("
+                "SELECT HHID FROM ev1_persons GROUP BY HHID "
+                "HAVING COUNT(DISTINCT persid) > 1)"
+            )
+        }
+
+        preferred = [pid for pid in profile_ids if persons[pid] and pid in shared_ids]
+        remaining = [pid for pid in profile_ids if pid not in shared_ids]
+        rng = random.Random(42)
+        rng.shuffle(preferred)
+        rng.shuffle(remaining)
+        selected = preferred + remaining
+        if len(selected) < N_PLAYERS:
+            raise RuntimeError(f"Found {len(selected)} EV1 profiles, need {N_PLAYERS}")
+        selected = selected[:N_PLAYERS]
+
+        for player_id, source_id in enumerate(selected, start=1):
+            rows = ev1_conn.execute(
+                f'SELECT "{source_id}" FROM ev1_status ORDER BY period'
+            ).fetchall()
+            if len(rows) != N_PERIODS:
+                raise ValueError(f"EV1 profile {source_id}: expected {N_PERIODS} rows, got {len(rows)}")
+            conn.executemany(
+                f'UPDATE "ev1_status" SET "{player_id}" = ? WHERE period = ?',
+                [(row[0], period) for period, row in enumerate(rows, start=1)],
+            )
+            print(f"EV1 player {player_id:3d} <- {source_id} (HHID {persons[source_id]})")
+        conn.commit()
+    finally:
+        conn.close()
+        ev1_conn.close()
+
+
+def replace_ev2_status() -> None:
+    """Fill runtime EV2 players with random profiles from distinct households."""
+    conn = sqlite3.connect(ENERGY_V2_DB)
+    ev2_conn = sqlite3.connect(EV2_DB)
+    try:
+        candidates = ev2_conn.execute(
+            "SELECT persid, HHID FROM ev2_persons ORDER BY persid"
+        ).fetchall()
+        random.Random(42).shuffle(candidates)
+        selected = []
+        used_hhids = set()
+        for persid, hhid in candidates:
+            if hhid not in used_hhids:
+                selected.append((persid, hhid))
+                used_hhids.add(hhid)
+            if len(selected) == N_PLAYERS:
+                break
+        if len(selected) != N_PLAYERS:
+            raise RuntimeError(f"Found only {len(selected)} unique EV2 households, need {N_PLAYERS}")
+
+        conn.execute("DROP TABLE IF EXISTS ev2_persons")
+        conn.execute(
+            "CREATE TABLE ev2_persons (player_id INTEGER PRIMARY KEY, persid TEXT, HHID TEXT UNIQUE)"
+        )
+        for player_id, (persid, hhid) in enumerate(selected, start=1):
+            rows = ev2_conn.execute(
+                "SELECT period, status FROM ev2_status WHERE persid = ? ORDER BY period",
+                (persid,),
+            ).fetchall()
+            if len(rows) != N_PERIODS:
+                raise ValueError(f"EV2 profile {persid}: expected {N_PERIODS} periods, got {len(rows)}")
+            conn.executemany(
+                f'UPDATE "ev2_status" SET "{player_id}" = ? WHERE period = ?',
+                [(status, period) for period, status in rows],
+            )
+            conn.execute(
+                "INSERT INTO ev2_persons (player_id, persid, HHID) VALUES (?, ?, ?)",
+                (player_id, persid, hhid),
+            )
+            print(f"EV2 player {player_id:3d} <- {persid} (HHID {hhid})")
+        conn.commit()
+    finally:
+        conn.close()
+        ev2_conn.close()
+
+
 def main():
     print("Ingesting load profiles")
     copy_energy_db()
     replace_base_load()
     replace_pv_gen()
+    replace_ev1_status()
+    replace_ev2_status()
 
 
 
