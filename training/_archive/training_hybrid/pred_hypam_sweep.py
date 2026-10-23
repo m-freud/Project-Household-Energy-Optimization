@@ -13,9 +13,9 @@ from xgboost import XGBRegressor
 
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY
 from training.features.base_load_features import get_base_load_features
-from training.split.clean_split import PARTITIONS
-from training.split.equality_groups import eg_base_load, select_balanced_group_members
-from training.training_ch_load.tuning.pred_hypam_sweep import load_feature_sample_df
+from training._archive.split.clean_split import PARTITIONS
+from training._archive.split.equality_groups import eg_base_load, select_balanced_group_members
+from training._archive.training_ch_load.tuning.pred_hypam_sweep import load_feature_sample_df
 
 
 OUTPUT_DIR = Path(__file__).parent / "pred_cross_data_sweep"

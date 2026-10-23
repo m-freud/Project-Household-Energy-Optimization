@@ -32,7 +32,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEAT
 from training.features.base_load_features import get_base_load_features  # noqa
 from training.features.ev_status_features import get_ev_status_features  # noqa
 from training.features.pv_gen_features import get_pv_gen_features  # noqa
-from training.split.clean_split import PARTITIONS  # noqa
+from training._archive.split.clean_split import PARTITIONS  # noqa
 
 GRID_MAP = {
     "ridge": {

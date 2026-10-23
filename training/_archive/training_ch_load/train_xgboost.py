@@ -15,7 +15,7 @@ from training.model_artifacts import write_training_params_manifest
 from training._archive.xgboost.training.train_models import load_best_params_from_tuning, _feature_columns_for_target
 from sklearn.metrics import root_mean_squared_error
 
-from training.split.clean_split import PARTITIONS
+from training._archive.split.clean_split import PARTITIONS
 
 base_load_test = PARTITIONS["inner"]["base_load"]["test"]
 base_load_train_portugal = PARTITIONS["inner"]["base_load"]["train"]

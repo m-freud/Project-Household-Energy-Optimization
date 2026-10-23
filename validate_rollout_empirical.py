@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from training.evaluation.rollout_errors import _step_error, get_rollout_errors
+from training._archive.evaluation.rollout_errors import _step_error, get_rollout_errors
 
 
 class ConstantZeroPredictor(BasePredictor):

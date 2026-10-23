@@ -27,9 +27,9 @@ from src.simulation.run_context import RunContext  # noqa
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa
 from src.simulation.simulation import Simulation  # noqa
 from src.sqlite_connection import sqlite_conn  # noqa
-from training.split.clean_split import PARTITIONS  # noqa
+from training._archive.split.clean_split import PARTITIONS  # noqa
 
-from pred_hypam_sweep import (  # noqa
+from training._archive.tuning.pred_hypam_sweep import (  # noqa
     GRID_MAP,
     OUTPUT_DIR,
     build_model,

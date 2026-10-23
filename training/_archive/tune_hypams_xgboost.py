@@ -9,7 +9,7 @@ import sys
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
-from training.split.clean_split import PARTITIONS
+from training._archive.split.clean_split import PARTITIONS
 
 
 from training.features.base_load_features import get_base_load_features

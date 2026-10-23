@@ -19,13 +19,13 @@ from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import sqlite_conn
-from training.tuning.pred_hypam_sweep import (
+from training._archive.tuning.pred_hypam_sweep import (
 	GRID_MAP,
 	build_model,
 	build_param_grid,
 	normalize_model,
 )
-from training.training_ch_load.tuning.pred_hypam_sweep import load_feature_sample_df
+from training._archive.training_ch_load.tuning.pred_hypam_sweep import load_feature_sample_df
 
 
 OUTPUT_DIR = Path(__file__).parent
@@ -34,7 +34,7 @@ TARGET = "base_load"
 
 def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 	"""Simulate the inner base-load test households with only base-load predicted."""
-	from training.split.clean_split import PARTITIONS
+	from training._archive.split.clean_split import PARTITIONS
 
 	test_ids = PARTITIONS["inner"][TARGET]["test"]
 	if n_test_ids is not None:

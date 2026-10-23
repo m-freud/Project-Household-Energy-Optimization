@@ -22,7 +22,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfi
 from training._features.base_load_features import get_base_load_features
 from training._features.ev_status_features import get_ev_status_features
 from training._features.pv_gen_features import get_pv_gen_features
-from training.split.clean_split import GLOBAL_TEST_SET
+from training._archive.split.clean_split import GLOBAL_TEST_SET
 
 TARGETS = ["base_load", "pv_gen", "ev1_status", "ev2_status"]
 CSV_PATH = Path(RuntimeConfig.ROOT_DIR) / "training" / "ridge" / "tuning" / "tuning_results12345.csv"

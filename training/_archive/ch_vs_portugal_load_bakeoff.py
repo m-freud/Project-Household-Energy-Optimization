@@ -23,12 +23,12 @@ from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
 from src.sqlite_connection import sqlite_conn  # noqa: E402
-from training.split.clean_split import PARTITIONS  # noqa: E402
-from training.tuning.pred_hypam_sweep import GRID_MAP, build_model, build_param_grid  # noqa: E402
-from training.training_ch_load.day_sampling.genetic_selection import (  # noqa: E402
+from training._archive.split.clean_split import PARTITIONS  # noqa: E402
+from training._archive.tuning.pred_hypam_sweep import GRID_MAP, build_model, build_param_grid  # noqa: E402
+from training._archive.training_ch_load.day_sampling.genetic_selection import (  # noqa: E402
     FEATURE_TABLE_NAME,
 )
-from training.training_ch_load.day_sampling.sampling import SQLITE_PATH  # noqa: E402
+from training._archive.training_ch_load.day_sampling.sampling import SQLITE_PATH  # noqa: E402
 from training.features.base_load_features import get_base_load_features  # noqa: E402
 
 

@@ -20,7 +20,7 @@ from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import sqlite_conn
 from training.features.base_load_features import get_base_load_features
-from training.split.clean_split import PARTITIONS
+from training._archive.split.clean_split import PARTITIONS
 
 MODEL_PARAMS = {"learning_rate": 0.02, "max_depth": 4, "n_estimators": 100}
 TARGET = "base_load"

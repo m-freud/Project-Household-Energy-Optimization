@@ -46,7 +46,7 @@ from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
 from src.sqlite_connection import fetch_timeseries, sqlite_conn  # noqa: E402
-from training.evaluation.rollout_errors import get_rollout_errors  # noqa: E402
+from training._archive.evaluation.rollout_errors import get_rollout_errors  # noqa: E402
 from training.features.base_load_features import get_base_load_features  # noqa: E402
 
 

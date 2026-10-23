@@ -3,7 +3,7 @@ import math
 import pytest
 
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from training.evaluation.rollout_errors import get_rollout_errors
+from training._archive.evaluation.rollout_errors import get_rollout_errors
 
 
 class ConstantZeroPredictor(BasePredictor):

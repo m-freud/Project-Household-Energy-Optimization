@@ -55,8 +55,8 @@ from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # n
 from src.simulation.simulation import Simulation  # noqa: E402
 from src.runtime_config import RuntimeConfig  # noqa: E402
 from src.sqlite_connection import sqlite_conn  # noqa: E402
-from training.split.clean_split import PARTITIONS  # noqa: E402
-from training.training_ch_load.day_sampling.sampling import SQLITE_PATH  # noqa: E402
+from training._archive.split.clean_split import PARTITIONS  # noqa: E402
+from training._archive.training_ch_load.day_sampling.sampling import SQLITE_PATH  # noqa: E402
 
 
 FEATURE_COLUMNS = MODEL_FEATURES_BY_FAMILY["xgboost"]["base_load"]

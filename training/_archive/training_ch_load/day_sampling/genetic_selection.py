@@ -72,7 +72,7 @@ from training.features._shared import (  # noqa: E402
     _add_lag_features,
     _add_next_value_target,
 )
-from training.training_ch_load.day_sampling.sampling import RANDOM_TEST_FEATURE_DIR, SQLITE_PATH  # noqa: E402
+from training._archive.training_ch_load.day_sampling.sampling import RANDOM_TEST_FEATURE_DIR, SQLITE_PATH  # noqa: E402
 
 
 FEATURE_COLUMNS = MODEL_FEATURES_BY_FAMILY["xgboost"]["base_load"]
