@@ -1,0 +1,16 @@
+params,score
+"{""learning_rate"": 0.01, ""max_depth"": 4, ""n_estimators"": 100}",0.75347
+"{""learning_rate"": 0.02, ""max_depth"": 4, ""n_estimators"": 100}",0.6233
+"{""learning_rate"": 0.03, ""max_depth"": 4, ""n_estimators"": 100}",0.60466
+"{""learning_rate"": 0.05, ""max_depth"": 4, ""n_estimators"": 100}",0.60128
+"{""learning_rate"": 0.1, ""max_depth"": 4, ""n_estimators"": 100}",0.60888
+"{""learning_rate"": 0.01, ""max_depth"": 4, ""n_estimators"": 200}",0.62388
+"{""learning_rate"": 0.02, ""max_depth"": 4, ""n_estimators"": 200}",0.60046
+"{""learning_rate"": 0.03, ""max_depth"": 4, ""n_estimators"": 200}",0.6015
+"{""learning_rate"": 0.05, ""max_depth"": 4, ""n_estimators"": 200}",0.60941
+"{""learning_rate"": 0.1, ""max_depth"": 4, ""n_estimators"": 200}",0.62949
+"{""learning_rate"": 0.01, ""max_depth"": 4, ""n_estimators"": 300}",0.6034
+"{""learning_rate"": 0.02, ""max_depth"": 4, ""n_estimators"": 300}",0.60092
+"{""learning_rate"": 0.03, ""max_depth"": 4, ""n_estimators"": 300}",0.60532
+"{""learning_rate"": 0.05, ""max_depth"": 4, ""n_estimators"": 300}",0.62211
+"{""learning_rate"": 0.1, ""max_depth"": 4, ""n_estimators"": 300}",0.64016
