@@ -24,7 +24,7 @@ from training.features._shared import ( # noqa: E402
   )  
 
 
-def get_base_load_features(household_ids: list[int], round_values: bool = False) -> pd.DataFrame:
+def get_base_load_features(household_ids: list[int], round_values: bool = False, offset: int = 0) -> pd.DataFrame:
 	raw_profiles = _fetch_profiles(household_ids, "base_load")
 	standardized_df = _get_profiles_df(raw_profiles)
 	feature_df = _init_feature_df(standardized_df, target_name="base_load")
@@ -35,7 +35,7 @@ def get_base_load_features(household_ids: list[int], round_values: bool = False)
 		group_cols=("household_id",),
 		lags=(1, 2, 4, 8, 12),
 		pad_value=-1.0,
-		add_pad_flags=True,
+		add_pad_flags=True,4
 		output_prefix="base_load_lag",
 		dtype=float,
 	)

@@ -271,7 +271,7 @@ def _add_window_length_slack(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def get_ev_status_features(household_ids: list[int]) -> pd.DataFrame:
+def get_ev_status_features(household_ids: list[int], offset: int = 0) -> pd.DataFrame:
     raw_profiles = _fetch_ev_status_profiles(household_ids)
     profiles_df = _standardize_status_profiles(raw_profiles)
     feature_df = _init_status_feature_df(profiles_df)
