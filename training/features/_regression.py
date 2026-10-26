@@ -68,15 +68,16 @@ def _add_history_average_features(
 	windows: tuple[int, ...] = (2, 4, 8, 16),
 	value_column: str = "pv_gen",
 	prefix: str = "pv",
+	group_cols: tuple[str, ...] = ("household_id",),
 ) -> pd.DataFrame:
-	grouped_values = feature_df.groupby("household_id")[value_column]
+	grouped_values = feature_df.groupby(list(group_cols))[value_column]
 
 	for window in windows:
 		feature_df[f"{prefix}_ma_{window}"] = (
 			grouped_values
 			.rolling(window=window, min_periods=1)
 			.mean()
-			.reset_index(level=0, drop=True)
+			.reset_index(level=list(range(len(group_cols))), drop=True)
 			.astype(float)
 		)
 
@@ -88,8 +89,9 @@ def _add_std_features(
 	windows: tuple[int, ...], # 4, 8
 	value_column: str,
 	prefix: str,
+	group_cols: tuple[str, ...] = ("household_id",),
 ) -> pd.DataFrame:
-	grouped_values = feature_df.groupby("household_id")[value_column]
+	grouped_values = feature_df.groupby(list(group_cols))[value_column]
 
 	for window in windows:
 		feature_df[f"{prefix}_std_{window}"] = (
@@ -97,7 +99,7 @@ def _add_std_features(
 			.rolling(window=window, min_periods=1)
 			.std(ddof=0)
 			.fillna(0.0)
-			.reset_index(level=0, drop=True)
+			.reset_index(level=list(range(len(group_cols))), drop=True)
 			.astype(float)
 		)
 
@@ -108,8 +110,9 @@ def _add_delta_features(
 	feature_df: pd.DataFrame,
 	value_column: str,
 	prefix: str,
+	group_cols: tuple[str, ...] = ("household_id",),
 ) -> pd.DataFrame:
-	grouped_values = feature_df.groupby("household_id")[value_column]
+	grouped_values = feature_df.groupby(list(group_cols))[value_column]
 
 	prev_1 = grouped_values.shift(1)
 	prev_2 = grouped_values.shift(2)

@@ -44,7 +44,12 @@ def _add_steps_to_daylight_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def get_pv_gen_features(household_ids: list[int], round_values: bool = False, offset: int = 0) -> pd.DataFrame:
+def get_pv_gen_features(
+    household_ids: list[int],
+    round_values: bool = False,
+    offset: int = 0,
+    group_cols: tuple[str, ...] = ("household_id",),
+) -> pd.DataFrame:
     raw_profiles = _fetch_profiles(household_ids, "pv_gen")
     standardized_df = _get_profiles_df(raw_profiles)
     feature_df = _init_feature_df(standardized_df, target_name="pv_gen")
@@ -53,22 +58,37 @@ def get_pv_gen_features(household_ids: list[int], round_values: bool = False, of
     feature_df = _add_lag_features(
         feature_df,
         source_column="pv_gen",
-        group_cols=("household_id",),
+        group_cols=group_cols,
         lags=(1, 2, 4, 8, 12),
         pad_value=-1.0,
         add_pad_flags=True,
         output_prefix="pv_lag",
         dtype=float,
     )
-    feature_df = _add_history_average_features(feature_df, windows=(2, 4, 8, 16))
-    feature_df = _add_std_features(feature_df, windows=(4, 8), value_column="pv_gen", prefix="pv")
-    feature_df = _add_delta_features(feature_df, value_column="pv_gen", prefix="pv")
+    feature_df = _add_history_average_features(
+        feature_df,
+        windows=(2, 4, 8, 16),
+        group_cols=group_cols,
+    )
+    feature_df = _add_std_features(
+        feature_df,
+        windows=(4, 8),
+        value_column="pv_gen",
+        prefix="pv",
+        group_cols=group_cols,
+    )
+    feature_df = _add_delta_features(
+        feature_df,
+        value_column="pv_gen",
+        prefix="pv",
+        group_cols=group_cols,
+    )
     feature_df = _add_accel_feature(feature_df, prefix="pv")
     feature_df = _add_steps_to_daylight_boundaries(feature_df)
     feature_df = _add_next_value_target(
         feature_df,
         source_column="pv_gen",
-        group_cols=("household_id",),
+        group_cols=group_cols,
         target_column="next_value",
         fill_value=0.0,
         dtype=float,

@@ -102,8 +102,11 @@ def _init_status_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _add_steps_in_current_state(feature_df: pd.DataFrame) -> pd.DataFrame:
-    group_cols = ["household_id", "ev_key"]
+def _add_steps_in_current_state(
+    feature_df: pd.DataFrame,
+    group_cols: tuple[str, ...] = ("household_id", "ev_key"),
+) -> pd.DataFrame:
+    group_cols = list(group_cols)
 
     previous_status = feature_df.groupby(group_cols)["status"].shift(1)
     state_changed = (feature_df["status"] != previous_status).astype(int)
@@ -116,8 +119,10 @@ def _add_steps_in_current_state(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _add_phase_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
-    group_cols = ["household_id", "ev_key"]
+def _add_phase_feature(
+    feature_df: pd.DataFrame,
+    group_cols: tuple[str, ...] = ("household_id", "ev_key"),
+) -> pd.DataFrame:
 
     # Per profile, mark if we already reached station (status==2) at or before this timestep.
     seen_station = (
@@ -202,8 +207,10 @@ def _add_steps_to_boundary_feature(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def _add_observed_commute_window_boundaries(feature_df: pd.DataFrame) -> pd.DataFrame:
-    group_cols = ["household_id", "ev_key"]
+def _add_observed_commute_window_boundaries(
+    feature_df: pd.DataFrame,
+    group_cols: tuple[str, ...] = ("household_id", "ev_key"),
+) -> pd.DataFrame:
 
     if "phase_id" not in feature_df.columns:
         raise ValueError("phase_id is required. Call _add_phase_feature before observed boundaries.")
@@ -271,18 +278,23 @@ def _add_window_length_slack(feature_df: pd.DataFrame) -> pd.DataFrame:
     return feature_df
 
 
-def get_ev_status_features(household_ids: list[int], offset: int = 0) -> pd.DataFrame:
+def get_ev_status_features(
+    household_ids: list[int],
+    offset: int = 0,
+    group_cols: tuple[str, ...] = ("household_id",),
+) -> pd.DataFrame:
     raw_profiles = _fetch_ev_status_profiles(household_ids)
     profiles_df = _standardize_status_profiles(raw_profiles)
     feature_df = _init_status_feature_df(profiles_df)
+    status_group_cols = tuple(dict.fromkeys((*group_cols, "ev_key")))
 
     feature_df = _add_trig_time_features(feature_df)
-    feature_df = _add_steps_in_current_state(feature_df)
-    feature_df = _add_phase_feature(feature_df)
+    feature_df = _add_steps_in_current_state(feature_df, group_cols=status_group_cols)
+    feature_df = _add_phase_feature(feature_df, group_cols=status_group_cols)
     feature_df = _add_lag_features(
         feature_df,
         source_column="status",
-        group_cols=("household_id", "ev_key"),
+        group_cols=status_group_cols,
         lags=(1, 2, 4, 8),
         pad_value=-1,
         add_pad_flags=True,
@@ -292,14 +304,14 @@ def get_ev_status_features(household_ids: list[int], offset: int = 0) -> pd.Data
     feature_df = _add_allowed_commute_window_boundaries(feature_df)
     feature_df = _add_max_commute_steps(feature_df)
     feature_df = _add_steps_to_boundary_feature(feature_df)
-    feature_df = _add_observed_commute_window_boundaries(feature_df)
+    feature_df = _add_observed_commute_window_boundaries(feature_df, group_cols=status_group_cols)
     feature_df = _add_observed_boundary_flags(feature_df)
     feature_df = _add_observed_window_length(feature_df)
     feature_df = _add_window_length_slack(feature_df)
     feature_df = _add_next_value_target(
         feature_df,
         source_column="status",
-        group_cols=("household_id", "ev_key"),
+        group_cols=status_group_cols,
         target_column="next_state",
         fill_value=0,
         dtype=int,
