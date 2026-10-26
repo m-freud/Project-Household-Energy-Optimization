@@ -11,3 +11,4 @@ sqlite/ch_smart_meters.db
 
 ch_smart_meters.db
 dataset_CH/
+*.parquet
