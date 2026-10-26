@@ -34,22 +34,81 @@ def create_load_table(conn: sqlite3.Connection) -> None:
 
 
 def create_pv_gen_table(conn: sqlite3.Connection) -> None:
-    """pv_gen: all DE profiles before PV_BEFORE_YEAR except PV_EXCLUDED_PLAYER, scaled by PV_FACTOR."""
+    """Create pool-filtered PV profiles before PV_BEFORE_YEAR, scaled by PV_FACTOR."""
     conn.execute("ATTACH DATABASE ? AS de", (str(DE_PV_DB),))
     try:
-        columns = [r[1] for r in conn.execute("PRAGMA de.table_info(pv_gen)")][2:]
-        training = [c for c in columns if c != PV_EXCLUDED_PLAYER]
-        scaled = ", ".join(f'"{c}" * {PV_FACTOR} AS "{c}"' for c in training)
+        columns = [
+            row[1]
+            for row in conn.execute('PRAGMA de.table_info("pv_gen")').fetchall()
+            if row[1] not in {"timestamp_utc", "period"}
+        ]
+        training = [column for column in columns if column != PV_EXCLUDED_PLAYER]
+        if not training:
+            raise ValueError("No PV training profiles remain after excluding runtime profiles")
 
+        pool_columns = {
+            row[1]
+            for row in conn.execute('PRAGMA de.table_info("pv_gen_pool")').fetchall()
+        }
+        missing_pool_columns = {"player_id", "date"} - pool_columns
+        if missing_pool_columns:
+            raise ValueError(
+                f"pv_gen_pool is missing required columns: {sorted(missing_pool_columns)}"
+            )
+
+        selected_columns = ", ".join(
+            (
+                f'CASE WHEN EXISTS ('
+                f'SELECT 1 FROM de.pv_gen_pool AS pool '
+                f'WHERE pool.player_id = ? AND pool.date = source.profile_date'
+                f') THEN source."{column}" * ? ELSE NULL END AS "{column}"'
+            )
+            for column in training
+        )
+        included_player_placeholders = ", ".join("?" for _ in training)
+        query = f"""
+            CREATE TABLE main."pv_gen_replacement" AS
+            SELECT
+                source.timestamp_utc,
+                source.period,
+                {selected_columns}
+            FROM (
+                SELECT
+                    timestamp_utc,
+                    period,
+                    substr(timestamp_utc, 1, 10) AS profile_date,
+                    {", ".join(f'"{column}"' for column in training)}
+                FROM de.pv_gen
+                WHERE timestamp_utc < ?
+            ) AS source
+            WHERE EXISTS (
+                SELECT 1
+                FROM de.pv_gen_pool AS pool
+                WHERE pool.date = source.profile_date
+                  AND pool.player_id IN ({included_player_placeholders})
+            )
+            ORDER BY source.timestamp_utc
+        """
+        parameters = [
+            value
+            for column in training
+            for value in (column, PV_FACTOR)
+        ]
+        parameters.extend([f"{PV_BEFORE_YEAR}-01-01", *training])
+
+        conn.execute('DROP TABLE IF EXISTS main."pv_gen_replacement"')
+        conn.execute(query, parameters)
+        row_count = conn.execute('SELECT COUNT(*) FROM main."pv_gen_replacement"').fetchone()[0]
         conn.execute('DROP TABLE IF EXISTS main."pv_gen"')
         conn.execute(
-            f'CREATE TABLE main."pv_gen" AS SELECT timestamp_utc, period, {scaled} '
-            "FROM de.pv_gen WHERE timestamp_utc < ? ORDER BY timestamp_utc",
-            (f"{PV_BEFORE_YEAR}-01-01",),
+            'ALTER TABLE main."pv_gen_replacement" RENAME TO "pv_gen"'
         )
-        print(f"pv_gen: {training}")
-    finally:
+        print(f"pv_gen: {len(training)} profiles, {row_count} rows from pv_gen_pool")
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
         conn.execute("DETACH DATABASE de")
 
 
