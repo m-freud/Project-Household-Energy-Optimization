@@ -1,8 +1,9 @@
 from pathlib import Path
 import re
+from typing import Literal
 
 import pandas as pd
-from xgboost import XGBRegressor
+from xgboost import XGBClassifier, XGBRegressor
 
 
 IDENTIFIER_COLUMNS = {
@@ -14,7 +15,6 @@ IDENTIFIER_COLUMNS = {
     "phase",
 }
 MODEL_PARAMS = {
-    "objective": "reg:squarederror",
     "random_state": 42,
 }
 
@@ -28,7 +28,11 @@ def train_dataset_models(
     max_depth: int,
     n_estimators: int,
     dataset_name: str,
+    model_type: Literal["regression", "classification"] = "regression",
 ) -> None:
+    if model_type not in {"regression", "classification"}:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
     parquet_paths = sorted(feature_dir.glob(file_pattern))
     if not parquet_paths:
         raise FileNotFoundError(f"No feature Parquets found in {feature_dir}")
@@ -68,6 +72,14 @@ def train_dataset_models(
         "max_depth": max_depth,
         "n_estimators": n_estimators,
     }
+    if model_type == "regression":
+        params["objective"] = "reg:squarederror"
+    else:
+        params.update(
+            objective="multi:softprob",
+            num_class=3,
+            eval_metric="mlogloss",
+        )
 
     single_rows = training_df[target_column].ne(-1)
     _fit_model(
@@ -76,6 +88,7 @@ def train_dataset_models(
         model_dir / "single_step" / "single_step.json",
         params,
         f"{dataset_name} single-step",
+        model_type,
     )
 
     multi_feature_frames = []
@@ -93,6 +106,7 @@ def train_dataset_models(
         model_dir / "multi_step" / "multi_step.json",
         params,
         f"{dataset_name} multi-step",
+        model_type,
     )
 
     horizon_dir = model_dir / "per_horizon_single_step"
@@ -104,6 +118,7 @@ def train_dataset_models(
             horizon_dir / f"single_{target_name}.json",
             params,
             f"{dataset_name} {target_name}",
+            model_type,
         )
 
 
@@ -113,13 +128,17 @@ def _fit_model(
     model_path: Path,
     params: dict[str, object],
     model_name: str,
+    model_type: Literal["regression", "classification"],
 ) -> None:
     if features.empty:
         raise ValueError(f"No valid training rows found for {model_name}")
     if features.isna().any().any() or target.isna().any():
         raise ValueError(f"Training data contains missing values for {model_name}")
 
-    model = XGBRegressor(**params)
+    if model_type == "classification":
+        model = XGBClassifier(**params)
+    else:
+        model = XGBRegressor(**params)
     model.fit(features, target)
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(model_path)

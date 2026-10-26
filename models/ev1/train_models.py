@@ -22,4 +22,5 @@ if __name__ == "__main__":
         max_depth=2,
         n_estimators=200,
         dataset_name="EV1",
+        model_type="classification",
     )
