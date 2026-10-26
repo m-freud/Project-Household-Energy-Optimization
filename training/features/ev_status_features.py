@@ -87,8 +87,12 @@ def _init_status_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
     if not status_columns:
         raise ValueError("profiles_df must contain status columns s1..s96")
 
+    id_columns = ["household_id", "ev_key"]
+    if "profile_id" in profiles_df.columns:
+        id_columns.append("profile_id")
+
     feature_df = profiles_df.melt(
-        id_vars=["household_id", "ev_key"],
+        id_vars=id_columns,
         value_vars=status_columns,
         var_name="timestep_col",
         value_name="status",
@@ -97,8 +101,9 @@ def _init_status_feature_df(profiles_df: pd.DataFrame) -> pd.DataFrame:
     feature_df["timestep"] = feature_df["timestep_col"].str[1:].astype(int)
     feature_df["status"] = feature_df["status"].astype(int)
 
-    feature_df = feature_df[["household_id", "ev_key", "timestep", "status"]]
-    feature_df = feature_df.sort_values(["household_id", "ev_key", "timestep"]).reset_index(drop=True)
+    feature_df = feature_df[id_columns + ["timestep", "status"]]
+    sort_columns = [column for column in ("household_id", "ev_key", "profile_id", "timestep") if column in feature_df]
+    feature_df = feature_df.sort_values(sort_columns).reset_index(drop=True)
     return feature_df
 
 
@@ -286,6 +291,14 @@ def get_ev_status_features(
     raw_profiles = _fetch_ev_status_profiles(household_ids)
     profiles_df = _standardize_status_profiles(raw_profiles)
     feature_df = _init_status_feature_df(profiles_df)
+    return _add_ev_status_features(feature_df, group_cols=group_cols)
+
+
+def _add_ev_status_features(
+    feature_df: pd.DataFrame,
+    group_cols: tuple[str, ...] = ("household_id",),
+    target_fill_value: int = 0,
+) -> pd.DataFrame:
     status_group_cols = tuple(dict.fromkeys((*group_cols, "ev_key")))
 
     feature_df = _add_trig_time_features(feature_df)
@@ -313,7 +326,7 @@ def get_ev_status_features(
         source_column="status",
         group_cols=status_group_cols,
         target_column="next_state",
-        fill_value=0,
+        fill_value=target_fill_value,
         dtype=int,
     )
 

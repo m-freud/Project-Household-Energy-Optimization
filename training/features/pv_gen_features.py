@@ -53,7 +53,15 @@ def get_pv_gen_features(
     raw_profiles = _fetch_profiles(household_ids, "pv_gen")
     standardized_df = _get_profiles_df(raw_profiles)
     feature_df = _init_feature_df(standardized_df, target_name="pv_gen")
+    return _add_pv_gen_features(feature_df, round_values, group_cols)
 
+
+def _add_pv_gen_features(
+    feature_df: pd.DataFrame,
+    round_values: bool = False,
+    group_cols: tuple[str, ...] = ("household_id",),
+    target_fill_value: float = 0.0,
+) -> pd.DataFrame:
     feature_df = _add_trig_time_features(feature_df)
     feature_df = _add_lag_features(
         feature_df,
@@ -90,7 +98,7 @@ def get_pv_gen_features(
         source_column="pv_gen",
         group_cols=group_cols,
         target_column="next_value",
-        fill_value=0.0,
+        fill_value=target_fill_value,
         dtype=float,
     )
     
