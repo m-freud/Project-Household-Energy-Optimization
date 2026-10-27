@@ -28,11 +28,11 @@ def _next_run_id() -> str:
 
 @dataclass
 class RunContext:
+    controller_name: str | None = None
     controller_factory: Callable[[Household, Scenario], BaseController] | None = None
     scenario: Scenario = field(default_factory=lambda: default_scenario)
     run_id: str = field(default="")
     start_time: int = 1
-    controller_name: str | None = None
 
     # ensure read-only after creation
     def __post_init__(self):
