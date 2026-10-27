@@ -14,7 +14,13 @@ from src.dashboard.single_performance.subplots.plot_base_load import plot_base_l
 from src.dashboard.single_performance.subplots.plot_net_load import plot_net_load
 
 
-from src.sqlite_connection import load_household_result
+from src.sqlite_connection import (
+	load_household_result,
+	load_household_ids_for_run,
+	load_policies_for_run,
+	load_run_ids,
+	load_scenarios_for_run,
+)
 
 
 def _to_optional_bool(value):
@@ -34,35 +40,82 @@ def _get_target_met_value(result_row, device_name: str):
 	return _to_optional_bool(result_row.get(final_key))
 
 
-def render_single_performance(
-        policies: list[str],
-        scenarios: list[str],
-        household_ids: list[int],
-    )-> None:
+def render_single_performance() -> None:
 	st.header("Single View")
 
-	single_c1, single_c2, single_c3 = st.columns([1, 1, 2], gap="large")
+	run_ids = load_run_ids()
+	if not run_ids:
+		st.info("No simulation runs are available yet.")
+		return
+
+	single_c1, single_c2, single_c3, single_c4 = st.columns(
+		[1, 1, 1, 2],
+		gap="large",
+	)
 
 	with single_c1:
-		selected_household_id = st.selectbox(
-			"Household ID",
-			options=household_ids,
-			index=0,
-			key="single_view_household",
+		selected_run_id = st.selectbox(
+			"Run ID",
+			options=run_ids,
+			key="single_view_run_id",
 		)
+
+	run_scenarios = load_scenarios_for_run(selected_run_id)
+	if not run_scenarios:
+		st.info(f"No scenarios are available for run {selected_run_id}.")
+		return
+	if st.session_state.get("single_view_scenario") not in run_scenarios:
+		st.session_state["single_view_scenario"] = run_scenarios[0]
+
 	with single_c2:
 		selected_scenario_name = st.selectbox(
 			"Scenario",
-			options=scenarios,
+			options=run_scenarios,
 			index=0,
 			format_func=get_scenario_label,
 			key="single_view_scenario",
 		)
+
+	run_household_ids = load_household_ids_for_run(
+		selected_run_id,
+		selected_scenario_name,
+	)
+	if not run_household_ids:
+		st.info(
+			f"No households are available for run {selected_run_id} "
+			f"in scenario '{selected_scenario_name}'."
+		)
+		return
+	if st.session_state.get("single_view_household") not in run_household_ids:
+		st.session_state["single_view_household"] = run_household_ids[0]
+
 	with single_c3:
+		selected_household_id = st.selectbox(
+			"Household ID",
+			options=run_household_ids,
+			index=0,
+			key="single_view_household",
+		)
+
+	run_policies = load_policies_for_run(selected_run_id, selected_scenario_name)
+	if not run_policies:
+		st.info(
+			f"No policies are available for run {selected_run_id} "
+			f"in scenario '{selected_scenario_name}'."
+		)
+		return
+	if "single_view_policy_multi" in st.session_state:
+		st.session_state["single_view_policy_multi"] = [
+			policy
+			for policy in st.session_state["single_view_policy_multi"]
+			if policy in run_policies
+		]
+
+	with single_c4:
 		selected_policy_names = st.multiselect(
 			"Policy",
-			options=policies,
-			default=policies[:2] if len(policies) >= 2 else policies,
+			options=run_policies,
+			default=run_policies[:2] if len(run_policies) >= 2 else run_policies,
 			key="single_view_policy_multi",
 		)
 
@@ -89,7 +142,12 @@ def render_single_performance(
 	}
 
 	for policy_name in policy_names:
-		result_df = load_household_result(player_id, scenario_name, policy_name)
+		result_df = load_household_result(
+			player_id,
+			scenario_name,
+			policy_name,
+			run_id=selected_run_id,
+		)
 		if result_df.empty:
 			continue
 
@@ -112,6 +170,7 @@ def render_single_performance(
 		player_id=player_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["BESS"],
+		run_id=selected_run_id,
 	)
 	
 	# EV1
@@ -122,6 +181,7 @@ def render_single_performance(
 		player_id=player_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["EV1"],
+		run_id=selected_run_id,
 	)
 
 	# EV2
@@ -132,6 +192,7 @@ def render_single_performance(
 		player_id=player_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["EV2"],
+		run_id=selected_run_id,
 	)
 
 	# PV
@@ -141,7 +202,13 @@ def render_single_performance(
 	plot_base_load(ax=axes[1, 1], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
 
 	# Net Load
-	plot_net_load(ax=axes[1, 2], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	plot_net_load(
+		ax=axes[1, 2],
+		scenario_name=scenario_name,
+		player_id=player_id,
+		policy_colors=policy_colors,
+		run_id=selected_run_id,
+	)
 
 	policy_handles = [
 		Line2D([0], [0], color=policy_colors[policy_name], linewidth=2, label=policy_name)
@@ -170,8 +237,8 @@ def render_single_performance(
 
 	st.divider()
 
-	render_kpi_strip(player_id, scenario_name, policy_names)
+	render_kpi_strip(player_id, scenario_name, policy_names, selected_run_id)
 
 	st.divider()
 
-	render_debug_table(player_id, scenario_name, policy_names)
+	render_debug_table(player_id, scenario_name, policy_names, selected_run_id)

@@ -42,6 +42,7 @@ def load_series(
     player_id: int,
     scenario_name: str | None = None,
     policy_name: str | None = None,
+    run_id: str | None = None,
 ) -> pd.DataFrame:
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
@@ -75,6 +76,12 @@ def load_series(
                 if policy_name is not None and "policy" in columns:
                     where_clauses.append("policy = ?")
                     params.append(policy_name)
+
+                if run_id is not None and table_name in RESULT_TIMESERIES_TABLES:
+                    if "run_id" not in columns:
+                        return pd.DataFrame()
+                    where_clauses.append("run_id = ?")
+                    params.append(run_id)
 
                 query = f"""
                     SELECT period, value
@@ -205,6 +212,40 @@ def load_scenarios_for_run(run_id: str) -> list[str]:
                 ORDER BY scenario
                 """,
                 (run_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [row[0] for row in rows]
+
+
+def load_policies_for_run(run_id: str, scenario_name: str) -> list[str]:
+    with create_results_connection() as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT policy
+                FROM results
+                WHERE run_id = ? AND scenario = ?
+                ORDER BY policy
+                """,
+                (run_id, scenario_name),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [row[0] for row in rows]
+
+
+def load_household_ids_for_run(run_id: str, scenario_name: str) -> list[int]:
+    with create_results_connection() as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT player_id
+                FROM results
+                WHERE run_id = ? AND scenario = ?
+                ORDER BY player_id
+                """,
+                (run_id, scenario_name),
             ).fetchall()
         except sqlite3.OperationalError:
             return []
@@ -349,19 +390,26 @@ def load_household_result(
     player_id: int,
     scenario_name: str,
     policy_name: str,
+    run_id: str | None = None,
 ) -> pd.DataFrame:
     with create_results_connection() as conn:
         try:
+            run_filter = " AND run_id = ?" if run_id is not None else ""
+            params = (
+                (player_id, scenario_name, policy_name, run_id)
+                if run_id is not None
+                else (player_id, scenario_name, policy_name)
+            )
             result = pd.read_sql_query(
-                """
+                f"""
                 SELECT *
                 FROM results
-                WHERE player_id = ? AND scenario = ? AND policy = ?
+                WHERE player_id = ? AND scenario = ? AND policy = ?{run_filter}
                 ORDER BY rowid DESC
                 LIMIT 1
                 """,
                 conn,
-                params=(player_id, scenario_name, policy_name),
+                params=params,
             )
         except (pd.errors.DatabaseError, sqlite3.OperationalError):
             return pd.DataFrame()

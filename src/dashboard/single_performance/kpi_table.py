@@ -28,14 +28,38 @@ def build_kpi_table(
 	player_id: int,
 	scenario_name: str,
 	policy_names: list[str],
+	run_id: str | None = None,
 ) -> pd.DataFrame:
 	kpi_rows = []
 
 	for policy_name in policy_names:
-		result_df = load_household_result(player_id, scenario_name, policy_name)
-		net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
-		net_cost_df = load_series("net_cost", player_id, scenario_name, policy_name)
-		total_cost_df = load_series("total_cost", player_id, scenario_name, policy_name)
+		result_df = load_household_result(
+			player_id,
+			scenario_name,
+			policy_name,
+			run_id=run_id,
+		)
+		net_load_df = load_series(
+			"net_load",
+			player_id,
+			scenario_name,
+			policy_name,
+			run_id=run_id,
+		)
+		net_cost_df = load_series(
+			"net_cost",
+			player_id,
+			scenario_name,
+			policy_name,
+			run_id=run_id,
+		)
+		total_cost_df = load_series(
+			"total_cost",
+			player_id,
+			scenario_name,
+			policy_name,
+			run_id=run_id,
+		)
 
 		if not net_load_df.empty:
 			peak_load_idx = net_load_df["value"].idxmax()
@@ -86,8 +110,9 @@ def render_kpi_strip(
 	player_id: int,
 	scenario_name: str,
 	policy_names: list[str],
+	run_id: str | None = None,
 ) -> None:
-	kpi_df = build_kpi_table(player_id, scenario_name, policy_names)
+	kpi_df = build_kpi_table(player_id, scenario_name, policy_names, run_id)
 
 	st.subheader("KPI Strip")
 

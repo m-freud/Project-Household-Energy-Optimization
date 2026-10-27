@@ -9,6 +9,7 @@ def plot_bess(
         scenario_name: str,
         player_id: int,
     policy_colors: dict[str, str],
+    run_id: str | None = None,
     missed_deadline: bool = False,
     ) -> None:
     ax.set_title("BESS")
@@ -38,7 +39,13 @@ def plot_bess(
         
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
-        bess_soc_df = load_series("bess_soc", player_id, scenario_name, policy_name)
+        bess_soc_df = load_series(
+            "bess_soc",
+            player_id,
+            scenario_name,
+            policy_name,
+            run_id=run_id,
+        )
 
         if bess_soc_df.empty:
             continue

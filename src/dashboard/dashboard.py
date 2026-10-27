@@ -71,9 +71,6 @@ def main():
 		st.divider()
 
 		render_single_performance(
-			policies=policies,
-			scenarios=scenarios,
-			household_ids=household_ids,
 		)
 
 		st.divider()

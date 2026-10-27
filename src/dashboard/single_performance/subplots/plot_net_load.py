@@ -5,7 +5,8 @@ def plot_net_load(
         ax: plt.Axes,
         scenario_name: str,
         player_id: int,
-        policy_colors: dict
+        policy_colors: dict,
+        run_id: str | None = None,
         ) -> None:
     ax.set_title("Net Load")
     ax.set_ylabel("Power (kW)")
@@ -15,7 +16,13 @@ def plot_net_load(
     
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
-        net_load_df = load_series("net_load", player_id, scenario_name, policy_name)
+        net_load_df = load_series(
+            "net_load",
+            player_id,
+            scenario_name,
+            policy_name,
+            run_id=run_id,
+        )
 
         if net_load_df.empty:
             continue

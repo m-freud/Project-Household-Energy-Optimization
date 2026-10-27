@@ -11,6 +11,7 @@ def plot_ev(ax: plt.Axes,
             scenario_name: str,
             player_id: int,
             policy_colors: dict[str, str],
+            run_id: str | None = None,
             missed_deadline: bool = False,
             ) -> None:
     ax.set_title(f"EV{ev_number}")
@@ -49,7 +50,13 @@ def plot_ev(ax: plt.Axes,
         
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
-        ev_soc_df = load_series(f"ev{ev_number}_soc", player_id, scenario_name, policy_name)
+        ev_soc_df = load_series(
+            f"ev{ev_number}_soc",
+            player_id,
+            scenario_name,
+            policy_name,
+            run_id=run_id,
+        )
 
         if ev_soc_df.empty:
             continue
