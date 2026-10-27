@@ -62,6 +62,37 @@ DEFAULT_HISTORY_MEASUREMENTS = [
 ]
 
 
+def _parse_household_selection(value: str) -> str | list[int]:
+    if value in {"all", "test_set"}:
+        return value
+
+    household_ids: list[int] = []
+    for token in value.split(","):
+        token = token.strip()
+        if not token:
+            continue
+
+        range_match = re.fullmatch(r"(\d+)\s*-\s*(\d+)", token)
+        if range_match:
+            start, end = map(int, range_match.groups())
+            if start > end:
+                raise argparse.ArgumentTypeError(
+                    f"Invalid household range '{token}': start must not exceed end"
+                )
+            household_ids.extend(range(start, end + 1))
+            continue
+
+        try:
+            household_ids.append(int(token))
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"Invalid household selection '{token}'; use IDs or inclusive ranges "
+                "such as '5-25'"
+            ) from exc
+
+    return household_ids
+
+
 def build_function_controller(
     household: Household,
     scenario: Scenario,
@@ -779,10 +810,10 @@ class Simulation:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run household energy simulation")
+    parser = argparse.ArgumentParser(description="Run HEMS simulation")
     parser.add_argument(
         "--controllers",
-        default="mpc_xgb,mpc_ridge,mpc_rf",
+        default="mpc_oracle,mpc_history_avg,mpc_single_model",
         help="Comma-separated controller names (default: all)",
     )
     parser.add_argument(
@@ -792,8 +823,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--households",
+        type=_parse_household_selection,
         default="1",
-        help="Comma-separated household ids (default: all)",
+        help="Household IDs/ranges (e.g. 5-25 or 1,3,5-8), 'all', or 'test_set' (default: 1)",
     )
     parser.add_argument(
         "--max-households",
@@ -822,7 +854,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create a simulation instance
-    # TBD this is a bad idea we actually want one simulation per household
     sim = Simulation(sqlite_conn)
 
     def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
@@ -1129,9 +1160,7 @@ if __name__ == "__main__":
     elif args.households == "test_set":
         selected_household_ids = list(PARTITIONS["inner"]["base_load"]["test"])
     else:
-        selected_household_ids = [
-            int(token.strip()) for token in args.households.split(",") if token.strip()
-        ]
+        selected_household_ids = args.households
 
     run_contexts = [
         RunContext(
