@@ -66,6 +66,85 @@ DEFAULT_HISTORY_MEASUREMENTS = [
 ]
 
 
+
+def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
+    model = model_class()
+    try:
+        model.load_model(str(model_path))
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load XGBoost model from '{model_path}'.") from exc
+    return model
+
+
+def _load_pickle_model(model_path: Path):
+    try:
+        with open(model_path, "rb") as fh:
+            return pickle.load(fh)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load pickle model from '{model_path}'.") from exc
+    
+
+def _single_model_path(family: str, target: str) -> Path:
+    family_key = str(family).lower()
+    family_config = RuntimeConfig.MODEL_FAMILY_CONFIGS[family_key]
+    model_dir = family_config.target_model_dirs[target]
+    suffix = family_config.file_suffix
+
+    preferred = Path(model_dir / f"model{suffix}")
+    if preferred.exists():
+        return preferred
+
+    fallback = Path(model_dir / f"fold_1{suffix}")
+    if fallback.exists():
+        return fallback
+
+    raise FileNotFoundError(
+        f"Missing single model for {family_key}:{target}. Looked for {preferred} and {fallback}."
+    )
+
+def _load_composite_model_bank(
+    target: str,
+    model_class: type[TXGBModel],
+) -> dict[int, TXGBModel]:
+    model_dir = model_directories_by_target[target] / "per_horizon_single_step"
+    model_paths = sorted(model_dir.glob("single_y*.json"))
+    model_bank: dict[int, TXGBModel] = {}
+    for model_path in model_paths:
+        match = re.fullmatch(r"single_y(\d+)\.json", model_path.name)
+        if match is not None:
+            model_bank[int(match.group(1))] = _load_xgb_model(model_path, model_class)
+    if not model_bank:
+        raise FileNotFoundError(
+            f"No per-horizon models found for '{target}' in '{model_dir}'."
+        )
+    return model_bank
+
+
+def _build_predictor(family: str) -> RecursiveMLPredictor:
+    family_key = str(family).lower()
+
+    if family_key == "xgb":
+        base_load_model = _load_xgb_model(_single_model_path("xgb", "base_load"), XGBRegressor)
+        pv_gen_model = _load_xgb_model(_single_model_path("xgb", "pv_gen"), XGBRegressor)
+        ev1_status_model = _load_xgb_model(_single_model_path("xgb", "ev1_status"), XGBClassifier)
+        ev2_status_model = _load_xgb_model(_single_model_path("xgb", "ev2_status"), XGBClassifier)
+    elif family_key in {"rf", "ridge"}:
+        base_load_model = _load_pickle_model(_single_model_path(family_key, "base_load"))
+        pv_gen_model = _load_pickle_model(_single_model_path(family_key, "pv_gen"))
+        ev1_status_model = _load_pickle_model(_single_model_path(family_key, "ev1_status"))
+        ev2_status_model = _load_pickle_model(_single_model_path(family_key, "ev2_status"))
+    else:
+        valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
+        raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
+
+    return RecursiveMLPredictor(
+        base_load_model=base_load_model,
+        pv_gen_model=pv_gen_model,
+        ev1_status_model=ev1_status_model,
+        ev2_status_model=ev2_status_model,
+    )
+
+
 def _parse_household_selection(value: str) -> str | list[int]:
     if value in {"all", "test_set"}:
         return value
@@ -867,95 +946,20 @@ class Simulation:
 
 
 if __name__ == "__main__":
+    # parse args
     args = build_parser().parse_args()
 
     # Create a simulation instance
     sim = Simulation(sqlite_conn, results_conn=create_results_connection())
 
-    def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
-        model = model_class()
-        try:
-            model.load_model(str(model_path))
-        except Exception as exc:
-            raise RuntimeError(f"Failed to load XGBoost model from '{model_path}'.") from exc
-        return model
+    models_root = Path(RuntimeConfig.ROOT_DIR / "models")
 
-    def _load_pickle_model(model_path: Path):
-        try:
-            with open(model_path, "rb") as fh:
-                return pickle.load(fh)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to load pickle model from '{model_path}'.") from exc
-
-    def _single_model_path(family: str, target: str) -> Path:
-        family_key = str(family).lower()
-        family_config = RuntimeConfig.MODEL_FAMILY_CONFIGS[family_key]
-        model_dir = family_config.target_model_dirs[target]
-        suffix = family_config.file_suffix
-
-        preferred = Path(model_dir / f"model{suffix}")
-        if preferred.exists():
-            return preferred
-
-        fallback = Path(model_dir / f"fold_1{suffix}")
-        if fallback.exists():
-            return fallback
-
-        raise FileNotFoundError(
-            f"Missing single model for {family_key}:{target}. Looked for {preferred} and {fallback}."
-        )
-
-    def _build_predictor(family: str) -> RecursiveMLPredictor:
-        family_key = str(family).lower()
-
-        if family_key == "xgb":
-            base_load_model = _load_xgb_model(_single_model_path("xgb", "base_load"), XGBRegressor)
-            pv_gen_model = _load_xgb_model(_single_model_path("xgb", "pv_gen"), XGBRegressor)
-            ev1_status_model = _load_xgb_model(_single_model_path("xgb", "ev1_status"), XGBClassifier)
-            ev2_status_model = _load_xgb_model(_single_model_path("xgb", "ev2_status"), XGBClassifier)
-        elif family_key in {"rf", "ridge"}:
-            base_load_model = _load_pickle_model(_single_model_path(family_key, "base_load"))
-            pv_gen_model = _load_pickle_model(_single_model_path(family_key, "pv_gen"))
-            ev1_status_model = _load_pickle_model(_single_model_path(family_key, "ev1_status"))
-            ev2_status_model = _load_pickle_model(_single_model_path(family_key, "ev2_status"))
-        else:
-            valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
-            raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
-
-        return RecursiveMLPredictor(
-            base_load_model=base_load_model,
-            pv_gen_model=pv_gen_model,
-            ev1_status_model=ev1_status_model,
-            ev2_status_model=ev2_status_model,
-        )
-
-    models_root = RuntimeConfig.ROOT_DIR / "models"
     model_directories_by_target = {
-        "base_load": models_root / "load",
-        "pv_gen": models_root / "pv",
-        "ev1_status": models_root / "ev1",
-        "ev2_status": models_root / "ev2",
+        "base_load": Path(models_root / "load"),
+        "pv_gen": Path(models_root / "pv"),
+        "ev1_status": Path(models_root / "ev1"),
+        "ev2_status": Path(models_root / "ev2"),
     }
-
-    def _target_model_path(target: str, *parts: str) -> Path:
-        return model_directories_by_target[target].joinpath(*parts)
-
-    def _load_composite_model_bank(
-        target: str,
-        model_class: type[TXGBModel],
-    ) -> dict[int, TXGBModel]:
-        model_dir = _target_model_path(target, "per_horizon_single_step")
-        model_paths = sorted(model_dir.glob("single_y*.json"))
-        model_bank: dict[int, TXGBModel] = {}
-        for model_path in model_paths:
-            match = re.fullmatch(r"single_y(\d+)\.json", model_path.name)
-            if match is not None:
-                model_bank[int(match.group(1))] = _load_xgb_model(model_path, model_class)
-        if not model_bank:
-            raise FileNotFoundError(
-                f"No per-horizon models found for '{target}' in '{model_dir}'."
-            )
-        return model_bank
 
     requested_controller_names_for_loading = (
         set()
