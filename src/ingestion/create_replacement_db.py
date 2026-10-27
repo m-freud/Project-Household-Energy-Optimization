@@ -127,7 +127,7 @@ def replace_base_load() -> None:
 
 
 def replace_pv_gen() -> None:
-    """Replace pv_gen columns of all PV players, scaled to the original total_energy."""
+    """Create pv_gen and populate PV players from the external runtime pool."""
     conn = sqlite3.connect(ENERGY_V2_DB)
     de_conn = sqlite3.connect(DE_PV_DB)
     orig_conn = sqlite3.connect(ENERGY_DB)
@@ -138,8 +138,34 @@ def replace_pv_gen() -> None:
         pool = de_conn.execute(
             "SELECT player_id, date, total_energy FROM runtime_pool ORDER BY date"
         ).fetchall()
+        if not targets:
+            raise RuntimeError("pv_gen_metadata is empty")
         if not pool:
             raise RuntimeError("runtime_pool is empty")
+
+        target_ids = {int(player_id) for player_id, _ in targets}
+        invalid_target_ids = target_ids - set(range(1, N_PLAYERS + 1))
+        if invalid_target_ids:
+            raise ValueError(f"Invalid PV player IDs: {sorted(invalid_target_ids)}")
+
+        columns = ",\n  ".join(
+            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+        )
+        conn.execute('DROP TABLE IF EXISTS "pv_gen"')
+        conn.execute(
+            f'CREATE TABLE "pv_gen" ("period" INTEGER PRIMARY KEY,\n  {columns})'
+        )
+        player_columns = ", ".join(
+            f'"{player_id}"' for player_id in range(1, N_PLAYERS + 1)
+        )
+        placeholders = ", ".join("?" for _ in range(N_PLAYERS + 1))
+        conn.executemany(
+            f'INSERT INTO "pv_gen" ("period", {player_columns}) VALUES ({placeholders})',
+            [
+                (period, *([0.0] * N_PLAYERS))
+                for period in range(1, N_PERIODS + 1)
+            ],
+        )
 
         # cycle through the pool again once all days are used
         for i, (player_id, total_orig) in enumerate(targets):
@@ -153,7 +179,7 @@ def replace_pv_gen() -> None:
             if len(rows) != N_PERIODS:
                 raise ValueError(f"{src_id} {date}: expected {N_PERIODS} rows, got {len(rows)}")
 
-            factor = 0.8 # 1 # total_orig / total_new
+            factor = 0.8
             conn.executemany(
                 f'UPDATE "pv_gen" SET "{int(player_id)}" = ? WHERE period = ?',
                 [(r[0] * factor, p) for p, r in enumerate(rows, start=1)],
