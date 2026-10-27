@@ -18,7 +18,7 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation
-from src.sqlite_connection import sqlite_conn
+from src.sqlite_connection import source_sqlite_conn
 from training.features.base_load_features import get_base_load_features
 from training._archive.split.clean_split import PARTITIONS
 
@@ -52,7 +52,7 @@ def main() -> None:
             )
         },
     )
-    simulation = Simulation(sqlite_conn, ensure_results_table=False)
+    simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
         controller_factory=simulation.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",

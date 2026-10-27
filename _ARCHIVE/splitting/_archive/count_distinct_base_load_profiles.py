@@ -25,7 +25,7 @@ cwd = Path.cwd().resolve()
 repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor
 
 
 def _normalize_series(series: list[float]) -> list[float]:
@@ -58,7 +58,7 @@ def _count_distinct_tolerance(
     groups: list[list[int]] = []
 
     for player_id in player_ids:
-        profile = _normalize_series(fetch_timeseries(sqlite_cursor, player_id, "base_load"))
+        profile = _normalize_series(fetch_timeseries(source_sqlite_cursor, player_id, "base_load"))
 
         matched_group_idx = None
         for group_idx, representative in enumerate(representative_profiles):
@@ -82,7 +82,7 @@ def _count_distinct_rounded(
     grouped: dict[tuple[float, ...], list[int]] = defaultdict(list)
 
     for player_id in player_ids:
-        normalized = _normalize_series(fetch_timeseries(sqlite_cursor, player_id, "base_load"))
+        normalized = _normalize_series(fetch_timeseries(source_sqlite_cursor, player_id, "base_load"))
         signature = tuple(round(float(value), round_digits) for value in normalized)
         grouped[signature].append(player_id)
 

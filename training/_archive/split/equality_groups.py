@@ -8,7 +8,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor
 
 def _normalize_series(series: list[float]) -> list[float]:
     min_val = min(series)
@@ -28,7 +28,7 @@ def _equivalent_series(s1: list[float], s2: list[float], tolerance: float = 0.00
 
 
 def _series_profile(player_id: int, table_name: str) -> list[float]:
-    values = fetch_timeseries(sqlite_cursor, player_id=player_id, table_name=table_name)
+    values = fetch_timeseries(source_sqlite_cursor, player_id=player_id, table_name=table_name)
     return _normalize_series(values)
 
 

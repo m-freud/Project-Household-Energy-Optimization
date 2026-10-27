@@ -24,7 +24,7 @@ from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import (
     create_results_connection,
-    create_sqlite_connection,
+    create_source_connection,
     load_source_avg_profile,
 )
 
@@ -144,7 +144,7 @@ def _compute_snapshot(
         ma3_interval_width=ma3_interval_width,
     )
 
-    connection = create_sqlite_connection()
+    connection = create_source_connection()
     try:
         sim = Simulation(connection, ensure_results_table=False)
         run_context = RunContext(scenario=scenario, start_time=1)
@@ -485,7 +485,7 @@ def render_prediction_explorer(
         created_run_ids: list[str] = []
         completed_jobs = 0
 
-        connection = create_sqlite_connection()
+        connection = create_source_connection()
         results_connection = create_results_connection()
         try:
             # Fresh databases may not have results schema yet.

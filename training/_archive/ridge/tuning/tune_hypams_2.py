@@ -51,7 +51,7 @@ from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predict
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation, build_mpc_controller
-from src.sqlite_connection import sqlite_conn
+from src.sqlite_connection import source_sqlite_conn
 from training._features.base_load_features import get_base_load_features
 from training._features.ev_status_features import get_ev_status_features
 from training._features.pv_gen_features import get_pv_gen_features
@@ -150,7 +150,7 @@ def _score_sim_total_cost_for_target(
         ev2_status_model=(model if target == "ev2_status" else dummy_classifier),
     )
 
-    sim = Simulation(sqlite_conn, ensure_results_table=False)
+    sim = Simulation(source_sqlite_conn, ensure_results_table=False)
     all_total_costs: list[float] = []
 
     for scenario_name in scenario_names:

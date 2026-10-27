@@ -18,7 +18,7 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.simulation import Simulation
-from src.sqlite_connection import sqlite_conn
+from src.sqlite_connection import source_sqlite_conn
 from training._archive.tuning.pred_hypam_sweep import (
 	GRID_MAP,
 	build_model,
@@ -51,7 +51,7 @@ def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 			)
 		},
 	)
-	simulation = Simulation(sqlite_conn, ensure_results_table=False)
+	simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
 	run_context = RunContext(
 		controller_factory=simulation.make_mpc_controller(
 			"mpc_iso_benchmark", 96, predictor=predictor

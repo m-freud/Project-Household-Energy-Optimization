@@ -7,14 +7,14 @@ sys.path.insert(0, str(repo_root))
 
 import pandas as pd
 
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor
 
 
 def _fetch_profiles(household_ids: list[int], table_name: str) -> dict[int, list[float]]:
 	profiles = {}
 
 	for household_id in household_ids:
-		profile = fetch_timeseries(sqlite_cursor, household_id, table_name)
+		profile = fetch_timeseries(source_sqlite_cursor, household_id, table_name)
 		profiles[household_id] = profile
 
 	return profiles

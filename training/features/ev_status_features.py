@@ -10,7 +10,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 from src.runtime_config import RuntimeConfig  # noqa: E402
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor  # noqa: E402
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor  # noqa: E402
 
 
 from training.features._shared import _add_trig_time_features, _add_lag_features, _add_next_value_target  # noqa: E402
@@ -19,10 +19,10 @@ from training.features._shared import _add_trig_time_features, _add_lag_features
 def _fetch_ev_status_profiles(household_ids: list[int])->dict:
     data = {}
     for household_id in household_ids:
-        ev1_at_home = fetch_timeseries(sqlite_cursor, table_name="ev1_at_home", player_id=household_id)
-        ev1_at_station = fetch_timeseries(sqlite_cursor, table_name="ev1_at_charging_station", player_id=household_id)
-        ev2_at_home = fetch_timeseries(sqlite_cursor, table_name="ev2_at_home", player_id=household_id)
-        ev2_at_station = fetch_timeseries(sqlite_cursor, table_name="ev2_at_charging_station", player_id=household_id)
+        ev1_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_home", player_id=household_id)
+        ev1_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_charging_station", player_id=household_id)
+        ev2_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_home", player_id=household_id)
+        ev2_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_charging_station", player_id=household_id)
 
         # keep raw for this step
         data[household_id] = {

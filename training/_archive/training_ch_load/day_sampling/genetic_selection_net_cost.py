@@ -54,7 +54,7 @@ from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
 from src.runtime_config import RuntimeConfig  # noqa: E402
-from src.sqlite_connection import sqlite_conn  # noqa: E402
+from src.sqlite_connection import source_sqlite_conn  # noqa: E402
 from training._archive.split.clean_split import PARTITIONS  # noqa: E402
 from training._archive.training_ch_load.day_sampling.sampling import SQLITE_PATH  # noqa: E402
 
@@ -209,7 +209,7 @@ def _score_day_set(
             )
         },
     )
-    simulation = Simulation(sqlite_conn, ensure_results_table=False)
+    simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
         controller_factory=simulation.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",

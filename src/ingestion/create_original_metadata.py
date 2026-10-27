@@ -212,7 +212,7 @@ def save(conn, df, table, unique_col, index_cols):
 
 
 if __name__ == "__main__":
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         save(conn, build_base_load_metadata(conn), "base_load_metadata", "player_id", ["max_load", "total_energy"])
         save(conn, build_pv_gen_metadata(conn), "pv_gen_metadata", "player_id", ["max_generation", "total_energy"])
         # EV1 is the commute profile (detailed), EV2 the general mobility profile

@@ -21,7 +21,7 @@ from xgboost import XGBRegressor, XGBClassifier
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 from src.simulation.run_context import RunContext
-from src.sqlite_connection import sqlite_conn
+from src.sqlite_connection import source_sqlite_conn
 
 import argparse
 import itertools
@@ -171,7 +171,7 @@ class HypamBenchmark: #TODO round floats in csv
             },
         )
 
-        sim = Simulation(sqlite_conn, ensure_results_table=False)
+        sim = Simulation(source_sqlite_conn, ensure_results_table=False)
 
         run_context = RunContext(
             controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=benchmark_predictor),

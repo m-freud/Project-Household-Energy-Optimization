@@ -26,7 +26,7 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext  # noqa
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa
 from src.simulation.simulation import Simulation  # noqa
-from src.sqlite_connection import sqlite_conn  # noqa
+from src.sqlite_connection import source_sqlite_conn  # noqa
 from training._archive.split.clean_split import PARTITIONS  # noqa
 
 from training._archive.tuning.pred_hypam_sweep import (  # noqa
@@ -70,7 +70,7 @@ def score_model(model, target: str, scenario_name: str, test_set: str, n_test_id
         target_predictors={target: target_predictor},
     )
 
-    sim = Simulation(sqlite_conn, ensure_results_table=False)
+    sim = Simulation(source_sqlite_conn, ensure_results_table=False)
 
     run_context = RunContext(
         controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
@@ -101,7 +101,7 @@ def run_full_oracle(scenarios: list[str], test_set: str, n_test_ids: int | None)
     print(f"Running full-oracle sweep, scenarios: {scenarios}")
     started_at = time.perf_counter()
     for i, scenario_name in enumerate(scenarios, 1):
-        sim = Simulation(sqlite_conn, ensure_results_table=False)
+        sim = Simulation(source_sqlite_conn, ensure_results_table=False)
         predictor = ModularPredictor(default_predictor=OraclePredictor(), target_predictors={})
         run_context = RunContext(
             controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),

@@ -26,7 +26,7 @@ cwd = Path.cwd().resolve()
 repo_root = next((p for p in [cwd, *cwd.parents] if (p / "src").exists()), cwd)
 sys.path.insert(0, str(repo_root))
 
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor
 from training.split._archive.fold_spec import CLEAN_COMPLEMENTS, CLEAN_SET
 
 
@@ -56,13 +56,13 @@ def _equivalent_series(s1: list[float], s2: list[float], tolerance: float = 1e-5
 
 def _metric_profile(player_id: int, metric: MetricName) -> list[float]:
     if metric == "ev_status":
-        ev1 = fetch_timeseries(sqlite_cursor, player_id, "ev1_status")
-        ev2 = fetch_timeseries(sqlite_cursor, player_id, "ev2_status")
+        ev1 = fetch_timeseries(source_sqlite_cursor, player_id, "ev1_status")
+        ev2 = fetch_timeseries(source_sqlite_cursor, player_id, "ev2_status")
         p1 = _normalize_series(ev1)
         p2 = _normalize_series(ev2)
         return p1 + p2
 
-    profile = fetch_timeseries(sqlite_cursor, player_id, metric)
+    profile = fetch_timeseries(source_sqlite_cursor, player_id, metric)
     return _normalize_series(profile)
 
 

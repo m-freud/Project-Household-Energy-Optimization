@@ -134,7 +134,7 @@ def export_result_profiles(conn: sqlite3.Connection, result_dir: Path) -> None:
 
 def main() -> None:
     input_dir, result_dir = build_output_dirs()
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         export_input_profiles(conn, input_dir)
         export_result_profiles(conn, result_dir)
 

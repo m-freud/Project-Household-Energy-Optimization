@@ -17,7 +17,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 
 
-from src.sqlite_connection import fetch_timeseries, sqlite_cursor
+from src.sqlite_connection import fetch_timeseries, source_sqlite_cursor
 
 
 def _normalize_series(series: list[float]) -> list[float]:
@@ -177,7 +177,7 @@ normalized_profiles = {
 
 for id in range(1, 251):
     for key in raw_profiles.keys():
-        profile = fetch_timeseries(sqlite_cursor, id, key)
+        profile = fetch_timeseries(source_sqlite_cursor, id, key)
         raw_profiles[key][id] = profile
         normalized_profiles[key][id] = _normalize_series(profile)
 

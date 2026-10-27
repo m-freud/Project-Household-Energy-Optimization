@@ -13,12 +13,27 @@ DE_PV_DB = SQLITE_DIR / "staging" / "DE_pv_gen.db"
 EV1_DB = SQLITE_DIR / "staging" / "VISTA_ev1_status.db"
 EV2_DB = SQLITE_DIR / "staging" / "VISTA_ev2_status.db"
 
+TIME_SERIES_TABLES_TO_REPLACE = (
+    "base_load",
+    "pv_gen",
+    "ev1_buy_price",
+    "ev2_buy_price",
+    "ev1_load",
+    "ev2_load",
+    "ev1_max_charge",
+    "ev2_max_charge",
+    "ev1_at_home",
+    "ev2_at_home",
+    "ev1_at_charging_station",
+    "ev2_at_charging_station",
+)
+
 N_PLAYERS = 250
 N_PERIODS = 96
 
 
 def copy_energy_db() -> None:
-    """Copy energy.db to energy_v2.db (overwrites), without the *_metadata tables."""
+    """Copy energy.db without metadata or time series that will be replaced."""
     ENERGY_V2_DB.unlink(missing_ok=True)
     src = sqlite3.connect(ENERGY_DB)
     dst = sqlite3.connect(ENERGY_V2_DB)
@@ -29,6 +44,8 @@ def copy_energy_db() -> None:
         ).fetchall()
         for (name,) in tables:
             dst.execute(f'DROP TABLE "{name}"')
+        for table_name in TIME_SERIES_TABLES_TO_REPLACE:
+            dst.execute(f'DROP TABLE IF EXISTS "{table_name}"')
         dst.commit()
         dst.execute("VACUUM")
     finally:

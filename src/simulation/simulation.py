@@ -24,7 +24,7 @@ from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_ca
 from src.sqlite_connection import (
     create_results_connection,
     fetch_multiple_timeseries,
-    sqlite_conn,
+    source_sqlite_conn,
 )
 from src.simulation._sim_utils import build_controller_factories, build_parser, make_mpc_controller
 from src.simulation._sim_utils.save_results import (
@@ -49,14 +49,14 @@ def _run_household_worker(
     run_context: RunContext | None = None,
 ) -> dict:
     # Worker processes create isolated DB connections; only the parent writes results.
-    from src.sqlite_connection import create_sqlite_connection
+    from src.sqlite_connection import create_source_connection
 
     if run_context is None:
         run_context = _WORKER_RUN_CONTEXT
     if run_context is None:
         raise RuntimeError("Household worker has no run context.")
 
-    worker_conn = create_sqlite_connection()
+    worker_conn = create_source_connection()
     try:
         sim = Simulation(
             worker_conn,
@@ -598,7 +598,7 @@ if __name__ == "__main__":
     args = build_parser().parse_args()
 
     # Create a simulation instance
-    sim = Simulation(sqlite_conn, results_conn=create_results_connection())
+    sim = Simulation(source_sqlite_conn, results_conn=create_results_connection())
 
     requested_controller_names = (
         None

@@ -45,7 +45,7 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
-from src.sqlite_connection import fetch_timeseries, sqlite_conn  # noqa: E402
+from src.sqlite_connection import fetch_timeseries, source_sqlite_conn  # noqa: E402
 from training._archive.evaluation.rollout_errors import get_rollout_errors  # noqa: E402
 from training.features.base_load_features import get_base_load_features  # noqa: E402
 
@@ -102,7 +102,7 @@ def _load_reference_df(test_seed: int) -> pd.DataFrame:
 
 def _load_household_day_profiles(household_ids: Sequence[int]) -> dict[int, list[float]]:
     """Fetch each household's actual base_load day profile (96 values) for rollout scoring."""
-    cursor = sqlite_conn.cursor()
+    cursor = source_sqlite_conn.cursor()
     return {household_id: fetch_timeseries(cursor, household_id, "base_load") for household_id in household_ids}
 
 
@@ -205,7 +205,7 @@ def _score_candidate(
             )
         },
     )
-    simulation = Simulation(sqlite_conn, ensure_results_table=False)
+    simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
         controller_factory=simulation.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",

@@ -22,7 +22,7 @@ from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import Or
 from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
 from src.simulation.simulation import Simulation  # noqa: E402
-from src.sqlite_connection import sqlite_conn  # noqa: E402
+from src.sqlite_connection import source_sqlite_conn  # noqa: E402
 from training._archive.split.clean_split import PARTITIONS  # noqa: E402
 from training._archive.tuning.pred_hypam_sweep import GRID_MAP, build_model, build_param_grid  # noqa: E402
 from training._archive.training_ch_load.day_sampling.genetic_selection import (  # noqa: E402
@@ -84,7 +84,7 @@ def _score_default_scenario(model: object, test_ids: list[int]) -> float:
             )
         },
     )
-    simulation = Simulation(sqlite_conn, ensure_results_table=False)
+    simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
         controller_factory=simulation.make_mpc_controller(
             "mpc_iso_benchmark", 96, predictor=predictor
