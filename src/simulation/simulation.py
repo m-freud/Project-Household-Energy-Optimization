@@ -26,27 +26,18 @@ from src.sqlite_connection import (
     fetch_multiple_timeseries,
     sqlite_conn,
 )
-from src.simulation._sim_utils import *
+from src.simulation._sim_utils import build_controller_factories, build_parser, make_mpc_controller
+from src.simulation._sim_utils.save_results import (
+    DEFAULT_HISTORY_MEASUREMENTS,
+    load_history_payload_to_sqlite,
+    load_household_history_to_sqlite,
+    load_household_results_to_sqlite,
+    load_results_payload_to_sqlite,
+)
 from typing import Callable
 
 
-DEFAULT_HISTORY_MEASUREMENTS = [
-    "net_load",
-    "net_cost",
-    "total_consumption",
-    "total_cost",
-    "bess_soc",
-    "bess_power",
-    "ev1_soc",
-    "ev1_power",
-    "ev2_soc",
-    "ev2_power",
-]
-
-
 _WORKER_RUN_CONTEXT: RunContext | None = None
-
-
 
 def _initialize_household_worker(run_context: RunContext) -> None:
     global _WORKER_RUN_CONTEXT
@@ -128,7 +119,12 @@ def _run_household_worker(
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, ensure_results_table: bool = True, results_conn=None):
+    def __init__(
+            self,
+            sqlite_conn,
+            ensure_results_table: bool = True,
+            results_conn=None
+            ):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.results_conn = (
@@ -450,13 +446,15 @@ class Simulation:
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
         if write_results_to_sqlite:
-            self.load_household_history_to_sqlite(
+            load_household_history_to_sqlite(
+                self.results_conn,
                 household,
                 policy_name=controller.name,
                 scenario_name=scenario.name,
                 run_id=current_run_id,
             )
-            self.load_household_results_to_sqlite(
+            load_household_results_to_sqlite(
+                self.results_conn,
                 household,
                 policy_name=controller.name,
                 scenario_name=scenario.name,
@@ -541,8 +539,8 @@ class Simulation:
                 player_id = future_to_household[future]
                 payload = future.result()
                 if write_results_to_sqlite:
-                    self.load_history_payload_to_sqlite(payload)
-                    self.load_results_payload_to_sqlite(payload)
+                    load_history_payload_to_sqlite(self.results_conn, payload)
+                    load_results_payload_to_sqlite(self.results_conn, payload)
                 results["net_costs"].append(payload["net_cost"])
                 results["net_loads"].append(payload["net_load"])
                 results["total_costs"].append(payload["total_cost"])
@@ -588,149 +586,6 @@ class Simulation:
                 results["total_consumptions"].extend(batch_results["total_consumptions"])
 
         return results
-
-
-    def load_household_results_to_sqlite(self, household: Household, policy_name:str="no_control", scenario_name:str="default_scenario", run_id:str|None=None):
-        # extract dict from household, load to sqlite
-        payload = {
-            "run_id": run_id,
-            "policy": policy_name,
-            "scenario": scenario_name,
-            "player_id": household.player_id,
-            "has_pv": household.has_pv,
-            "has_bess": household.has_bess,
-            "total_cost": household.total_cost,
-            "total_consumption": household.total_consumption,
-            "net_cost": sum(household.history["net_cost"].values()) * 0.25,
-            "net_load": sum(household.history["net_load"].values()) * 0.25,
-            "target_met_bess": household.has_met_final_target("bess"),
-            "target_met_ev1": household.has_met_final_target("ev1"),
-            "target_met_ev2": household.has_met_final_target("ev2"),
-            "target_met_all_bess": household.has_met_all_targets("bess"),
-            "target_met_all_ev1": household.has_met_all_targets("ev1"),
-            "target_met_all_ev2": household.has_met_all_targets("ev2"),
-            "soc_at_deadline_bess": household.soc_at_deadline("bess"),
-            "soc_at_deadline_ev1": household.soc_at_deadline("ev1"),
-            "soc_at_deadline_ev2": household.soc_at_deadline("ev2"),
-        }
-
-        self.load_results_payload_to_sqlite(payload)
-
-
-    def load_household_history_to_sqlite(self,
-                               household, policy_name,
-                               scenario_name, measurements=None, run_id=None):
-        # extract dict from household, load to sqlite
-        if measurements is None:
-            measurements = DEFAULT_HISTORY_MEASUREMENTS
-
-        payload = {
-            "run_id": run_id,
-            "policy": policy_name,
-            "scenario": scenario_name,
-            "player_id": household.player_id,
-            "history": {
-                measurement: list(household.history[measurement].items())
-                for measurement in measurements
-            },
-        }
-
-        self.load_history_payload_to_sqlite(payload)
-
-    
-    def load_results_payload_to_sqlite(self, payload: dict):
-        # load dict to sqlite
-        self.results_cursor.execute(
-            '''
-            INSERT INTO results (
-            run_id,
-            policy, scenario, player_id, has_pv, has_bess, total_cost, total_consumption,
-            net_cost, net_load,
-            target_met_bess, target_met_ev1, target_met_ev2,
-              target_met_all_bess, target_met_all_ev1, target_met_all_ev2,
-            soc_at_deadline_bess, soc_at_deadline_ev1, soc_at_deadline_ev2
-            )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''',
-            (
-                payload["run_id"],
-                payload["policy"],
-                payload["scenario"],
-                payload["player_id"],
-                payload["has_pv"],
-                payload["has_bess"],
-                payload["total_cost"],
-                payload["total_consumption"],
-                payload["net_cost"],
-                payload["net_load"],
-                payload["target_met_bess"],
-                payload["target_met_ev1"],
-                payload["target_met_ev2"],
-                payload["target_met_all_bess"],
-                payload["target_met_all_ev1"],
-                payload["target_met_all_ev2"],
-                payload["soc_at_deadline_bess"],
-                payload["soc_at_deadline_ev1"],
-                payload["soc_at_deadline_ev2"],
-            ),
-        )
-        self.results_conn.commit()
-
-
-    def load_history_payload_to_sqlite(self, payload: dict):
-        # load dict to sqlite
-        policy_name = payload["policy"]
-        scenario_name = payload["scenario"]
-        player_id = payload["player_id"]
-        history = payload["history"]
-
-        for measurement in DEFAULT_HISTORY_MEASUREMENTS:
-            self.results_cursor.execute(
-                f'''
-                CREATE TABLE IF NOT EXISTS {measurement} (
-                    player_id INTEGER,
-                    scenario TEXT,
-                    policy TEXT,
-                    period INTEGER,
-                    value REAL,
-                    run_id TEXT
-                )'''
-            )
-            table_columns = {
-                row[1]
-                for row in self.results_cursor.execute(
-                    f"PRAGMA table_info({measurement})"
-                ).fetchall()
-            }
-            if "run_id" not in table_columns:
-                self.results_cursor.execute(
-                    f"ALTER TABLE {measurement} ADD COLUMN run_id TEXT"
-                )
-
-            rows = history.get(measurement, [])
-            if not rows:
-                continue
-
-            self.results_cursor.executemany(
-                f'''
-                INSERT INTO {measurement} (
-                player_id, scenario, policy, period, value, run_id
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                ''',
-                [
-                    (
-                        player_id,
-                        scenario_name,
-                        policy_name,
-                        int(period),
-                        float(value),
-                        payload.get("run_id"),
-                    )
-                    for period, value in rows
-                ],
-            )
-
-        self.results_conn.commit()
 
 
     def make_mpc_controller(self, name: str, horizon: int, predictor: BasePredictor, duration_hours: float = 0.25, buffer_config: DeviceBufferConfig | None = None) -> Callable[[Household, Scenario], MPCController]:
