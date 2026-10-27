@@ -3,9 +3,12 @@ import re
 import pandas as pd
 from src.runtime_config import RuntimeConfig
 
+def create_init_source_connection():
+    return sqlite3.connect(RuntimeConfig.INIT_SOURCE_SQLITE_PATH)
 
-def create_sqlite_connection():
-    return sqlite3.connect(RuntimeConfig.SQLITE_PATH)
+
+def create_source_connection():
+    return sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH)
 
 
 def create_results_connection():
@@ -13,11 +16,13 @@ def create_results_connection():
 
 
 def get_sqlite_cursor():
-    return create_sqlite_connection().cursor()
+    return create_source_connection().cursor()
 
+init_source_conn = create_init_source_connection()
+init_source_cursor = get_sqlite_cursor()
 
-sqlite_conn = create_sqlite_connection()
-sqlite_cursor = get_sqlite_cursor()
+source_sqlite_conn = create_source_connection()
+source_sqlite_cursor = get_sqlite_cursor()
 
 RESULT_TIMESERIES_TABLES = {
     "net_load",
@@ -50,7 +55,7 @@ def load_series(
     database_path = (
         RuntimeConfig.RESULTS_SQLITE_PATH
         if table_name in RESULT_TIMESERIES_TABLES
-        else RuntimeConfig.SQLITE_PATH
+        else RuntimeConfig.SOURCE_SQLITE_PATH
     )
 
     with sqlite3.connect(database_path) as conn:
@@ -128,7 +133,7 @@ def load_attribute(table_name: str, player_id: int, attribute_name: str):
     if not _is_safe_identifier(attribute_name):
         raise ValueError(f"Invalid attribute name: {attribute_name}")
 
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         try:
             row = conn.execute(
                 f"SELECT {attribute_name} FROM {table_name} WHERE player_id = ? LIMIT 1",
@@ -262,7 +267,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
 
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         try:
             df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
         except (pd.errors.DatabaseError, sqlite3.OperationalError):
@@ -290,7 +295,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
     if table_name == "pv_gen":
         # use only households with pv
         try:
-            with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+            with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
                 pv_households = pd.read_sql_query(
                     """
                     SELECT player_id
@@ -365,7 +370,7 @@ def load_source_household_ids() -> list[int]:
     This supports dashboard views that don't require simulation result rows.
     """
 
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         # Prefer fixed_costs as it should have one row per player.
         try:
             rows = conn.execute(

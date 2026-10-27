@@ -10,7 +10,7 @@ sys.path.insert(0, str(repo_root))
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from src.ingestion.table_config import table_config
-from src.sqlite_connection import sqlite_conn
+from src.sqlite_connection import create_init_source_connection, init_source_conn
 from src.runtime_config import RuntimeConfig
 
 
@@ -48,10 +48,10 @@ def load_to_sqlite(df, table_name, config):
         df = process(df)
 
     # drop table if exists
-    sqlite_conn.execute(f"DROP TABLE IF EXISTS {table_name}")
+    init_source_conn.execute(f"DROP TABLE IF EXISTS {table_name}")
 
     # load data
-    df.to_sql(table_name, sqlite_conn, if_exists='append', index=False)
+    df.to_sql(table_name, init_source_conn, if_exists='append', index=False)
 
 
 def load_table_to_db(wb, table_name, config):
@@ -94,11 +94,11 @@ def enrich_ev_charge_rates(wb):
         parsed_charge_home = None if pd.isna(charge_home) else float(charge_home)
         home_charge_rows.append((int(player_id), parsed_charge_home))
 
-    sqlite_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
-    sqlite_conn.execute(
+    init_source_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
+    init_source_conn.execute(
         "CREATE TEMP TABLE temp_home_charge (player_id INTEGER PRIMARY KEY, charge_home REAL)"
     )
-    sqlite_conn.executemany(
+    init_source_conn.executemany(
         "INSERT OR REPLACE INTO temp_home_charge (player_id, charge_home) VALUES (?, ?)",
         home_charge_rows,
     )
@@ -106,16 +106,16 @@ def enrich_ev_charge_rates(wb):
     # Add max charge rates for ev tables, for home and station
     for ev_table in ("ev1", "ev2"):
         existing_columns = {
-            row[1] for row in sqlite_conn.execute(f"PRAGMA table_info({ev_table})").fetchall()
+            row[1] for row in init_source_conn.execute(f"PRAGMA table_info({ev_table})").fetchall()
         }
         if "charge_home" not in existing_columns:
-            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_home REAL")
+            init_source_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_home REAL")
         if "charge_station" not in existing_columns:
-            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_station REAL")
+            init_source_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_station REAL")
         if "charge_slowest" not in existing_columns:
-            sqlite_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_slowest REAL")
+            init_source_conn.execute(f"ALTER TABLE {ev_table} ADD COLUMN charge_slowest REAL")
 
-        sqlite_conn.execute(
+        init_source_conn.execute(
             f'''
             UPDATE {ev_table}
             SET
@@ -128,7 +128,7 @@ def enrich_ev_charge_rates(wb):
             '''
         )
 
-        sqlite_conn.execute(
+        init_source_conn.execute(
             f'''
             UPDATE {ev_table}
             SET
@@ -140,8 +140,8 @@ def enrich_ev_charge_rates(wb):
             '''
         )
 
-    sqlite_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
-    sqlite_conn.commit()
+    init_source_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
+    init_source_conn.commit()
 
 
 def add_combined_ev_states():
@@ -151,12 +151,12 @@ def add_combined_ev_states():
         source_station = f"ev{ev_num}_at_charging_station"
         target_table = f"ev{ev_num}_status"
 
-        home_df = pd.read_sql_query(f"SELECT * FROM {source_home}", sqlite_conn)
-        station_df = pd.read_sql_query(f"SELECT * FROM {source_station}", sqlite_conn)
+        home_df = pd.read_sql_query(f"SELECT * FROM {source_home}", init_source_conn)
+        station_df = pd.read_sql_query(f"SELECT * FROM {source_station}", init_source_conn)
 
         if home_df.empty or station_df.empty:
-            sqlite_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
-            pd.DataFrame().to_sql(target_table, sqlite_conn, if_exists="replace", index=False)
+            init_source_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
+            pd.DataFrame().to_sql(target_table, init_source_conn, if_exists="replace", index=False)
             continue
 
         if "period" not in home_df.columns or "period" not in station_df.columns:
@@ -170,13 +170,13 @@ def add_combined_ev_states():
                 station_df[column], errors="coerce"
             )
 
-        sqlite_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
-        status_df.to_sql(target_table, sqlite_conn, if_exists="replace", index=False)
-        sqlite_conn.execute(
+        init_source_conn.execute(f"DROP TABLE IF EXISTS {target_table}")
+        status_df.to_sql(target_table, init_source_conn, if_exists="replace", index=False)
+        init_source_conn.execute(
             f"CREATE INDEX IF NOT EXISTS idx_{target_table}_period ON {target_table} (period)"
         )
 
-    sqlite_conn.commit()
+    init_source_conn.commit()
 
 
 def load_all_tables(wb, table_instructions):
@@ -198,4 +198,4 @@ if __name__ == "__main__":
 
     load_all_tables(wb, table_config)
 
-    sqlite_conn.close()
+    init_source_conn.close()
