@@ -1,4 +1,5 @@
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
@@ -8,6 +9,17 @@ class ModelLike(Protocol):
 
     def predict(self, features):
         ...
+
+
+def get_model_feature_names(model: ModelLike, fallback: Sequence[str]) -> list[str]:
+    feature_names = getattr(model, "feature_names_in_", None)
+    if feature_names is None:
+        get_booster = getattr(model, "get_booster", None)
+        if callable(get_booster):
+            feature_names = get_booster().feature_names
+    if feature_names is None:
+        return list(fallback)
+    return [str(name) for name in feature_names]
 
 
 TModel = TypeVar("TModel", bound=ModelLike, covariant=True)

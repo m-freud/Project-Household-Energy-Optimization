@@ -1,4 +1,7 @@
-from src.simulation.controllers.mpc.predictors.ml.model_interface import TRegressor
+from src.simulation.controllers.mpc.predictors.ml.model_interface import (
+    TRegressor,
+    get_model_feature_names,
+)
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import _build_base_load_features, _try_bypass
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
@@ -36,7 +39,10 @@ def _predict_base_load(
         )
 
         model_family_name = ModelConfig.get_model_family_name(model)
-        model_features = ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["base_load"]
+        model_features = get_model_feature_names(
+            model,
+            ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["base_load"],
+        )
 
         # ensure completness of features for the model
         for f in model_features:

@@ -50,6 +50,7 @@ def _model_input(
 ) -> list[Any]:
     features = feature_builder(timestep, value, history)
     features["prediction_horizon"] = prediction_horizon
+    features["y_offset"] = prediction_horizon
     missing = [name for name in model_features if name not in features]
     if missing:
         raise ValueError(f"Missing required features: {missing}")

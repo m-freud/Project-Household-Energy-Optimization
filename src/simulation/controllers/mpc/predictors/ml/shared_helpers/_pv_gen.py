@@ -40,6 +40,11 @@ def _build_pv_gen_features(
         step: (current_pv_gen - lags[step] if lag_pads[step] == 0 else 0.0)
         for step in DELTA_STEPS
     }
+    deltas[2] = (
+        lags[1] - lags[2]
+        if lag_pads[1] == 0 and lag_pads[2] == 0
+        else 0.0
+    )
     accs = {step: deltas[step] - deltas[1] for step in ACC_STEPS}
 
     steps_to_daylight_start = daylight_start - current_timestep + 1 if current_timestep <= daylight_start else daylight_start - current_timestep
@@ -69,6 +74,7 @@ def _build_pv_gen_features(
 
     for step in ACC_STEPS:
         features[f"pv_acc_{step}"] = accs[step]
+    features["pv_accel"] = deltas[1] - deltas[2]
 
     features["steps_to_daylight_start"] = steps_to_daylight_start
     features["steps_to_daylight_end"] = steps_to_daylight_end

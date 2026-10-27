@@ -40,6 +40,11 @@ def _build_base_load_features(
         step: (current_base_load - lags[step] if lag_pads[step] == 0 else 0.0)
         for step in DELTA_STEPS
     }
+    deltas[2] = (
+        lags[1] - lags[2]
+        if lag_pads[1] == 0 and lag_pads[2] == 0
+        else 0.0
+    )
     # deviation of the x-step change from the most recent 1-step change
     accs = {step: deltas[step] - deltas[1] for step in ACC_STEPS}
 
@@ -67,6 +72,7 @@ def _build_base_load_features(
 
     for step in ACC_STEPS:
         features[f"base_load_acc_{step}"] = accs[step]
+    features["base_load_accel"] = deltas[1] - deltas[2]
 
     if round_values:
         for key, value in list(features.items()):

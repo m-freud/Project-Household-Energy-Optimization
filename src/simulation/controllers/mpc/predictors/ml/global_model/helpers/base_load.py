@@ -1,5 +1,6 @@
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
+from src.simulation.controllers.mpc.predictors.ml.model_interface import get_model_feature_names
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
 from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import _build_base_load_features
@@ -15,10 +16,10 @@ def predict_base_load(
     interval_width_frct: float = 0.0,
 ) -> dict[str, list[float]]:
     history = list(household.history["base_load"].values())
-    model_features = [
-        *ModelConfig.MODEL_FEATURES_BY_FAMILY["xgboost"]["base_load"],
-        "prediction_horizon",
-    ]
+    model_features = get_model_feature_names(
+        model,
+        ModelConfig.MODEL_FEATURES_BY_FAMILY["global_xgboost"]["base_load"],
+    )
 
     def build_features(timestep: int, value: float, feature_history: list[float]) -> dict:
         return _build_base_load_features(timestep, value, feature_history)
