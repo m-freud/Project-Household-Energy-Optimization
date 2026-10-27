@@ -66,7 +66,6 @@ def main():
 	if policies:
 		render_general_performance(
 			policies,
-			scenarios
 		)
 
 		st.divider()

@@ -681,7 +681,12 @@ class Simulation:
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
         if write_results_to_sqlite:
-            self.load_household_history_to_sqlite(household, policy_name=controller.name, scenario_name=scenario.name)
+            self.load_household_history_to_sqlite(
+                household,
+                policy_name=controller.name,
+                scenario_name=scenario.name,
+                run_id=current_run_id,
+            )
             self.load_household_results_to_sqlite(
                 household,
                 policy_name=controller.name,
@@ -845,12 +850,13 @@ class Simulation:
 
     def load_household_history_to_sqlite(self,
                                household, policy_name,
-                               scenario_name, measurements=None):
+                               scenario_name, measurements=None, run_id=None):
         # extract dict from household, load to sqlite
         if measurements is None:
             measurements = DEFAULT_HISTORY_MEASUREMENTS
 
         payload = {
+            "run_id": run_id,
             "policy": policy_name,
             "scenario": scenario_name,
             "player_id": household.player_id,
@@ -917,9 +923,20 @@ class Simulation:
                     scenario TEXT,
                     policy TEXT,
                     period INTEGER,
-                    value REAL
+                    value REAL,
+                    run_id TEXT
                 )'''
             )
+            table_columns = {
+                row[1]
+                for row in self.results_cursor.execute(
+                    f"PRAGMA table_info({measurement})"
+                ).fetchall()
+            }
+            if "run_id" not in table_columns:
+                self.results_cursor.execute(
+                    f"ALTER TABLE {measurement} ADD COLUMN run_id TEXT"
+                )
 
             rows = history.get(measurement, [])
             if not rows:
@@ -928,11 +945,18 @@ class Simulation:
             self.results_cursor.executemany(
                 f'''
                 INSERT INTO {measurement} (
-                player_id, scenario, policy, period, value
-                ) VALUES (?, ?, ?, ?, ?)
+                player_id, scenario, policy, period, value, run_id
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ''',
                 [
-                    (player_id, scenario_name, policy_name, int(period), float(value))
+                    (
+                        player_id,
+                        scenario_name,
+                        policy_name,
+                        int(period),
+                        float(value),
+                        payload.get("run_id"),
+                    )
                     for period, value in rows
                 ],
             )
@@ -976,19 +1000,19 @@ if __name__ == "__main__":
     if load_all_controllers or "mpc_single_step" in requested_controller_names_for_loading:
         predictor_single_step = RecursiveMLPredictor(
             base_load_model=_load_xgb_model(
-                _target_model_path("base_load", "single_step", "single_step.json"),
+                model_directories_by_target["base_load"] / "single_step" / "single_step.json",
                 XGBRegressor,
             ),
             pv_gen_model=_load_xgb_model(
-                _target_model_path("pv_gen", "single_step", "single_step.json"),
+                model_directories_by_target["pv_gen"] / "single_step" / "single_step.json",
                 XGBRegressor,
             ),
             ev1_status_model=_load_xgb_model(
-                _target_model_path("ev1_status", "single_step", "single_step.json"),
+                model_directories_by_target["ev1_status"] / "single_step" / "single_step.json",
                 XGBClassifier,
             ),
             ev2_status_model=_load_xgb_model(
-                _target_model_path("ev2_status", "single_step", "single_step.json"),
+                model_directories_by_target["ev2_status"] / "single_step" / "single_step.json",
                 XGBClassifier,
             ),
         )
@@ -997,19 +1021,19 @@ if __name__ == "__main__":
     if load_all_controllers or "mpc_multi_step" in requested_controller_names_for_loading:
         predictor_multi_step = GlobalModelMLPredictor(
             base_load_model=_load_xgb_model(
-                _target_model_path("base_load", "multi_step", "multi_step.json"),
+                model_directories_by_target["base_load"] / "multi_step" / "multi_step.json",
                 XGBRegressor,
             ),
             pv_gen_model=_load_xgb_model(
-                _target_model_path("pv_gen", "multi_step", "multi_step.json"),
+                model_directories_by_target["pv_gen"] / "multi_step" / "multi_step.json",
                 XGBRegressor,
             ),
             ev1_model=_load_xgb_model(
-                _target_model_path("ev1_status", "multi_step", "multi_step.json"),
+                model_directories_by_target["ev1_status"] / "multi_step" / "multi_step.json",
                 XGBClassifier,
             ),
             ev2_model=_load_xgb_model(
-                _target_model_path("ev2_status", "multi_step", "multi_step.json"),
+                model_directories_by_target["ev2_status"] / "multi_step" / "multi_step.json",
                 XGBClassifier,
             ),
         )

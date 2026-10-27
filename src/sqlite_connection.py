@@ -140,22 +140,29 @@ def load_avg_profile(
     policy_name: str,
     scenario_name: str,
     table_name: str,
+    run_id: str | None = None,
 ) -> pd.DataFrame:
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
     
     with create_results_connection() as conn:
         try:
+            run_filter = " AND run_id = ?" if run_id is not None else ""
+            params = (
+                (policy_name, scenario_name, run_id)
+                if run_id is not None
+                else (policy_name, scenario_name)
+            )
             result = pd.read_sql_query(
                 f"""
                 SELECT period, AVG(value) AS value
                 FROM {table_name}
-                WHERE policy = ? AND scenario = ?
+                WHERE policy = ? AND scenario = ?{run_filter}
                 GROUP BY period
                 ORDER BY period
                 """,
                 conn,
-                params=(policy_name, scenario_name),
+                params=params,
             )
         except (pd.errors.DatabaseError, sqlite3.OperationalError):
             return pd.DataFrame()
@@ -166,6 +173,42 @@ def load_avg_profile(
     result["policy"] = policy_name
     result["hour"] = (result["period"] - 1) / 4.0
     return result
+
+
+def load_run_ids() -> list[str]:
+    with create_results_connection() as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT run_id
+                FROM (
+                    SELECT DISTINCT CAST(run_id AS TEXT) AS run_id
+                    FROM results
+                    WHERE run_id IS NOT NULL AND TRIM(run_id) <> ''
+                )
+                ORDER BY CAST(run_id AS INTEGER) DESC, run_id DESC
+                """
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [row[0] for row in rows]
+
+
+def load_scenarios_for_run(run_id: str) -> list[str]:
+    with create_results_connection() as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT scenario
+                FROM results
+                WHERE run_id = ?
+                ORDER BY scenario
+                """,
+                (run_id,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [row[0] for row in rows]
 
 
 def load_source_avg_profile(table_name: str) -> pd.DataFrame:
