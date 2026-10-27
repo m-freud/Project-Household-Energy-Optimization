@@ -11,6 +11,7 @@ sys.path.insert(0, str(repo_root))
 from training._archive.split.clean_split import PARTITIONS
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
+from multiprocessing import get_context
 from pathlib import Path
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.runtime_config import RuntimeConfig
@@ -19,6 +20,8 @@ from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBuf
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.global_model.global_model_ml_predictor import GlobalModelMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.composite.composite_ml_predictor import CompositeMLPredictor
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
@@ -38,6 +41,7 @@ from xgboost import XGBClassifier, XGBRegressor
 import argparse
 import numpy as np
 import pickle
+import re
 
 
 TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
@@ -114,9 +118,25 @@ def make_mpc_controller(
     )
 
 
-def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
+_WORKER_RUN_CONTEXT: RunContext | None = None
+
+
+def _initialize_household_worker(run_context: RunContext) -> None:
+    global _WORKER_RUN_CONTEXT
+    _WORKER_RUN_CONTEXT = run_context
+
+
+def _run_household_worker(
+    player_id: int,
+    run_context: RunContext | None = None,
+) -> dict:
     # Worker processes create isolated DB connections; only the parent writes results.
     from src.sqlite_connection import create_sqlite_connection
+
+    if run_context is None:
+        run_context = _WORKER_RUN_CONTEXT
+    if run_context is None:
+        raise RuntimeError("Household worker has no run context.")
 
     worker_conn = create_sqlite_connection()
     try:
@@ -129,8 +149,21 @@ def _run_household_worker(player_id: int, run_context: RunContext) -> dict:
 
         household = sim.create_household(player_id, run_context)
         controller = sim.create_controller(household, run_context)
-        # print("running h", household.player_id, end=" ... ", flush=True)
+        print(
+            f"running household {player_id} in scenario {scenario.name} "
+            f"with controller {controller.name}, run_id={run_context.run_id}",
+            flush=True,
+        )
         for t in range(start_time, sim.num_timesteps + 1):
+            if controller.name in {
+                "mpc_single_step",
+                "mpc_multi_step",
+                "mpc_composite_horizons",
+            } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps):
+                print(
+                    f"{controller.name}: household {player_id}, timestep {t}/{sim.num_timesteps}",
+                    flush=True,
+                )
             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
 
         return {
@@ -469,6 +502,15 @@ class Simulation:
         print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         for t in range(start_time, self.num_timesteps + 1):
+            if controller.name in {
+                "mpc_single_step",
+                "mpc_multi_step",
+                "mpc_composite_horizons",
+            } and (t == start_time or t % 8 == 0 or t == self.num_timesteps):
+                print(
+                    f"{controller.name}: household {player_id}, timestep {t}/{self.num_timesteps}",
+                    flush=True,
+                )
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
         if write_results_to_sqlite:
@@ -543,9 +585,14 @@ class Simulation:
             "total_consumptions": [],
         }
 
-        with ProcessPoolExecutor(max_workers=parallel_workers) as executor:
+        with ProcessPoolExecutor(
+            max_workers=parallel_workers,
+            mp_context=get_context("spawn"),
+            initializer=_initialize_household_worker,
+            initargs=(run_context,),
+        ) as executor:
             future_to_household = {
-                executor.submit(_run_household_worker, player_id, run_context): player_id
+                executor.submit(_run_household_worker, player_id): player_id
                 for player_id in selected_households
             }
 
@@ -559,10 +606,11 @@ class Simulation:
                 results["net_loads"].append(payload["net_load"])
                 results["total_costs"].append(payload["total_cost"])
                 results["total_consumptions"].append(payload["total_consumption"])
-                # print(
-                #     f"completed h {player_id},scenario: {payload['scenario']}, "
-                #     f"controller: {payload['policy']}, run_id={payload['run_id']}"
-                # )
+                print(
+                    f"completed household {player_id} in scenario {payload['scenario']} "
+                    f"with controller {payload['policy']}, run_id={payload['run_id']}",
+                    flush=True,
+                )
 
         return results
 
@@ -834,16 +882,110 @@ if __name__ == "__main__":
             ev2_status_model=ev2_status_model,
         )
 
-    predictor_xgb = _build_predictor("xgb")
-    predictor_rf = _build_predictor("rf")
-    predictor_ridge = _build_predictor("ridge")
-    predictor_modular = ModularPredictor(
-        default_predictor=OraclePredictor(),
-        target_predictors={
-            "base_load": predictor_xgb,
-            "pv_gen": OraclePredictor(),
-            "ev_status": HistoryAveragePredictor(conf_interval_frct=0.0),
-        },
+    models_root = RuntimeConfig.ROOT_DIR / "models"
+    model_directories_by_target = {
+        "base_load": models_root / "load",
+        "pv_gen": models_root / "pv",
+        "ev1_status": models_root / "ev1",
+        "ev2_status": models_root / "ev2",
+    }
+
+    def _target_model_path(target: str, *parts: str) -> Path:
+        return model_directories_by_target[target].joinpath(*parts)
+
+    def _load_composite_model_bank(
+        target: str,
+        model_class: type[TXGBModel],
+    ) -> dict[int, TXGBModel]:
+        model_dir = _target_model_path(target, "per_horizon_single_step")
+        model_paths = sorted(model_dir.glob("single_y*.json"))
+        model_bank: dict[int, TXGBModel] = {}
+        for model_path in model_paths:
+            match = re.fullmatch(r"single_y(\d+)\.json", model_path.name)
+            if match is not None:
+                model_bank[int(match.group(1))] = _load_xgb_model(model_path, model_class)
+        if not model_bank:
+            raise FileNotFoundError(
+                f"No per-horizon models found for '{target}' in '{model_dir}'."
+            )
+        return model_bank
+
+    requested_controller_names_for_loading = (
+        set()
+        if args.controllers == "all"
+        else {
+            name.strip()
+            for name in args.controllers.split(",")
+            if name.strip()
+        }
+    )
+    load_all_controllers = args.controllers == "all"
+
+    predictor_single_step: BasePredictor | None = None
+    if load_all_controllers or "mpc_single_step" in requested_controller_names_for_loading:
+        predictor_single_step = RecursiveMLPredictor(
+            base_load_model=_load_xgb_model(
+                _target_model_path("base_load", "single_step", "single_step.json"),
+                XGBRegressor,
+            ),
+            pv_gen_model=_load_xgb_model(
+                _target_model_path("pv_gen", "single_step", "single_step.json"),
+                XGBRegressor,
+            ),
+            ev1_status_model=_load_xgb_model(
+                _target_model_path("ev1_status", "single_step", "single_step.json"),
+                XGBClassifier,
+            ),
+            ev2_status_model=_load_xgb_model(
+                _target_model_path("ev2_status", "single_step", "single_step.json"),
+                XGBClassifier,
+            ),
+        )
+
+    predictor_multi_step: BasePredictor | None = None
+    if load_all_controllers or "mpc_multi_step" in requested_controller_names_for_loading:
+        predictor_multi_step = GlobalModelMLPredictor(
+            base_load_model=_load_xgb_model(
+                _target_model_path("base_load", "multi_step", "multi_step.json"),
+                XGBRegressor,
+            ),
+            pv_gen_model=_load_xgb_model(
+                _target_model_path("pv_gen", "multi_step", "multi_step.json"),
+                XGBRegressor,
+            ),
+            ev1_model=_load_xgb_model(
+                _target_model_path("ev1_status", "multi_step", "multi_step.json"),
+                XGBClassifier,
+            ),
+            ev2_model=_load_xgb_model(
+                _target_model_path("ev2_status", "multi_step", "multi_step.json"),
+                XGBClassifier,
+            ),
+        )
+
+    predictor_composite_horizons: BasePredictor | None = None
+    if load_all_controllers or "mpc_composite_horizons" in requested_controller_names_for_loading:
+        predictor_composite_horizons = CompositeMLPredictor(
+            base_load_model_bank=_load_composite_model_bank("base_load", XGBRegressor),
+            pv_gen_model_bank=_load_composite_model_bank("pv_gen", XGBRegressor),
+            ev1_model_bank=_load_composite_model_bank("ev1_status", XGBClassifier),
+            ev2_model_bank=_load_composite_model_bank("ev2_status", XGBClassifier),
+        )
+
+    needs_xgb_predictor = load_all_controllers or bool(
+        requested_controller_names_for_loading
+        & {"mpc_xgb", "mpc_modular", "mpc_modular_xgb"}
+    )
+    predictor_xgb = _build_predictor("xgb") if needs_xgb_predictor else None
+    predictor_rf = (
+        _build_predictor("rf")
+        if load_all_controllers or "mpc_rf" in requested_controller_names_for_loading
+        else None
+    )
+    predictor_ridge = (
+        _build_predictor("ridge")
+        if load_all_controllers or "mpc_ridge" in requested_controller_names_for_loading
+        else None
     )
     _oracle = OraclePredictor()
     predictor_modular_oracle = ModularPredictor(
@@ -880,26 +1022,6 @@ if __name__ == "__main__":
                 conf_interval_frct=0.0,
             ),
         ),
-        "mpc_xgb": make_mpc_controller(
-            "mpc_xgb",
-            horizon=96,
-            predictor=predictor_xgb,
-        ),
-        "mpc_rf": make_mpc_controller(
-            "mpc_rf",
-            horizon=96,
-            predictor=predictor_rf,
-        ),
-        "mpc_ridge": make_mpc_controller(
-            "mpc_ridge",
-            horizon=96,
-            predictor=predictor_ridge,
-        ),
-        "mpc_modular": make_mpc_controller(
-            "mpc_modular",
-            horizon=96,
-            predictor=predictor_modular,
-        ),
         "mpc_modular_oracle": make_mpc_controller(
             "mpc_modular_oracle",
             horizon=96,
@@ -910,19 +1032,69 @@ if __name__ == "__main__":
             horizon=96,
             predictor=predictor_modular_avg,
         ),
-        "mpc_modular_xgb": make_mpc_controller(
-            "mpc_modular_xgb",
-            horizon=96,
-            predictor=ModularPredictor(
-                default_predictor=predictor_xgb,
-                target_predictors={
-                    "base_load": predictor_xgb,
-                    "pv_gen": predictor_xgb,
-                    "ev_status": predictor_xgb,
-                },
-            ),
-        )
     }
+    if predictor_xgb is not None:
+        controller_factories_by_name["mpc_xgb"] = make_mpc_controller(
+            "mpc_xgb",
+            horizon=96,
+            predictor=predictor_xgb,
+        )
+        if load_all_controllers or "mpc_modular" in requested_controller_names_for_loading:
+            controller_factories_by_name["mpc_modular"] = make_mpc_controller(
+                "mpc_modular",
+                horizon=96,
+                predictor=ModularPredictor(
+                    default_predictor=OraclePredictor(),
+                    target_predictors={
+                        "base_load": predictor_xgb,
+                        "pv_gen": OraclePredictor(),
+                        "ev_status": HistoryAveragePredictor(conf_interval_frct=0.0),
+                    },
+                ),
+            )
+        if load_all_controllers or "mpc_modular_xgb" in requested_controller_names_for_loading:
+            controller_factories_by_name["mpc_modular_xgb"] = make_mpc_controller(
+                "mpc_modular_xgb",
+                horizon=96,
+                predictor=ModularPredictor(
+                    default_predictor=predictor_xgb,
+                    target_predictors={
+                        "base_load": predictor_xgb,
+                        "pv_gen": predictor_xgb,
+                        "ev_status": predictor_xgb,
+                    },
+                ),
+            )
+    if predictor_rf is not None:
+        controller_factories_by_name["mpc_rf"] = make_mpc_controller(
+            "mpc_rf",
+            horizon=96,
+            predictor=predictor_rf,
+        )
+    if predictor_ridge is not None:
+        controller_factories_by_name["mpc_ridge"] = make_mpc_controller(
+            "mpc_ridge",
+            horizon=96,
+            predictor=predictor_ridge,
+        )
+    if predictor_single_step is not None:
+        controller_factories_by_name["mpc_single_step"] = make_mpc_controller(
+            "mpc_single_step",
+            horizon=96,
+            predictor=predictor_single_step,
+        )
+    if predictor_multi_step is not None:
+        controller_factories_by_name["mpc_multi_step"] = make_mpc_controller(
+            "mpc_multi_step",
+            horizon=96,
+            predictor=predictor_multi_step,
+        )
+    if predictor_composite_horizons is not None:
+        controller_factories_by_name["mpc_composite_horizons"] = make_mpc_controller(
+            "mpc_composite_horizons",
+            horizon=96,
+            predictor=predictor_composite_horizons,
+        )
 
     scenarios_by_name = scenario_catalog
 
