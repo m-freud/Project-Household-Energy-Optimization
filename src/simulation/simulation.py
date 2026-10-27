@@ -254,7 +254,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run HEMS simulation")
     parser.add_argument(
         "--controllers",
-        default="mpc_oracle,mpc_history_avg,mpc_single_model",
+        default="mpc_oracle,mpc_history_avg,mpc_single_step",
         help="Comma-separated controller names (default: all)",
     )
     parser.add_argument(
@@ -1044,55 +1044,76 @@ class Simulation:
 
 
 
-models_root = Path(RuntimeConfig.ROOT_DIR / "models")
-
-model_directories_by_target = {
-    "base_load": Path(models_root / "load"),
-    "pv_gen": Path(models_root / "pv"),
-    "ev1_status": Path(models_root / "ev1"),
-    "ev2_status": Path(models_root / "ev2"),
-}
-
-controller_factories_by_name = {
-    "no_control": make_function_controller("no_control", no_control),
-    "fast_charge": make_function_controller("fast_charge", fast_charge_policy),
-    "even_linear": make_function_controller("even_linear", even_linear_policy),
-    "price_aware_linear": make_function_controller(
+def build_controller_factories(
+    requested_names: list[str] | None = None,
+) -> dict[str, Callable[[Household, Scenario], BaseController]]:
+    available_names = {
+        "no_control",
+        "fast_charge",
+        "even_linear",
         "price_aware_linear",
-        partial(price_aware_linear, base_behaviour="even_linear"),
-    ),
-    "waterfall": make_function_controller("waterfall", waterfall_policy),
-    "mpc_oracle": make_mpc_controller("mpc_oracle", horizon=96, predictor=OraclePredictor()),
-    "mpc_history_avg": make_mpc_controller(
+        "waterfall",
+        "mpc_oracle",
         "mpc_history_avg",
-        predictor=HistoryAveragePredictor(
-            conf_interval_frct=0.0,
-        ),
-    ),
-    "mpc_single_step": make_mpc_controller(
         "mpc_single_step",
-        horizon=96,
-        predictor=build_single_step_predictor(
-            model_directories_by_target
-        ),
-    ),
-    "mpc_multi_step": make_mpc_controller(
         "mpc_multi_step",
-        horizon=96,
-        predictor=build_multi_step_predictor(
-            model_directories_by_target
-        ),
-    ),
-    "mpc_composite_horizons": make_mpc_controller(
         "mpc_composite_horizons",
-        horizon=96,
-        predictor=build_composite_horizons_predictor(
-            model_directories_by_target
+    }
+    selected_names = available_names if requested_names is None else set(requested_names)
+    unknown_names = selected_names - available_names
+    if unknown_names:
+        raise ValueError(f"Unknown controllers: {sorted(unknown_names)}")
+
+    factories: dict[str, Callable[[Household, Scenario], BaseController]] = {}
+    function_controllers = {
+        "no_control": no_control,
+        "fast_charge": fast_charge_policy,
+        "even_linear": even_linear_policy,
+        "price_aware_linear": partial(
+            price_aware_linear,
+            base_behaviour="even_linear",
         ),
-    )
-}
+        "waterfall": waterfall_policy,
+    }
+    for name, step_function in function_controllers.items():
+        if name in selected_names:
+            factories[name] = make_function_controller(name, step_function)
 
+    if "mpc_oracle" in selected_names:
+        factories["mpc_oracle"] = make_mpc_controller(
+            "mpc_oracle",
+            horizon=96,
+            predictor=OraclePredictor(),
+        )
+    if "mpc_history_avg" in selected_names:
+        factories["mpc_history_avg"] = make_mpc_controller(
+            "mpc_history_avg",
+            predictor=HistoryAveragePredictor(conf_interval_frct=0.0),
+        )
 
+    if not any(name in selected_names for name in {"mpc_single_step", "mpc_multi_step", "mpc_composite_horizons"}):
+        return factories
+
+    model_directories_by_target = {
+        "base_load": RuntimeConfig.ROOT_DIR / "models" / "load",
+        "pv_gen": RuntimeConfig.ROOT_DIR / "models" / "pv",
+        "ev1_status": RuntimeConfig.ROOT_DIR / "models" / "ev1",
+        "ev2_status": RuntimeConfig.ROOT_DIR / "models" / "ev2",
+    }
+    predictor_builders = {
+        "mpc_single_step": build_single_step_predictor,
+        "mpc_multi_step": build_multi_step_predictor,
+        "mpc_composite_horizons": build_composite_horizons_predictor,
+    }
+    for name, build_predictor in predictor_builders.items():
+        if name in selected_names:
+            factories[name] = make_mpc_controller(
+                name,
+                horizon=96,
+                predictor=build_predictor(model_directories_by_target),
+            )
+
+    return factories
 
 if __name__ == "__main__":
     # parse args
@@ -1101,29 +1122,19 @@ if __name__ == "__main__":
     # Create a simulation instance
     sim = Simulation(sqlite_conn, results_conn=create_results_connection())
 
-    selected_controller_names = (
-        set()
+    requested_controller_names = (
+        None
         if args.controllers == "all"
-        else {
-            name.strip()
-            for name in args.controllers.split(",")
-            if name.strip()
-        }
-    )
-
-    # collect controllers
-    if args.controllers == "all":
-        selected_controller_names = list(controller_factories_by_name.keys())
-    else:
-        requested_controller_names = [
+        else [
             name.strip() for name in args.controllers.split(",") if name.strip()
         ]
-        unknown_controller_names = [
-            name for name in requested_controller_names if name not in controller_factories_by_name
-        ]
-        if unknown_controller_names:
-            raise ValueError(f"Unknown controllers: {unknown_controller_names}")
-        selected_controller_names = requested_controller_names
+    )
+    controller_factories_by_name = build_controller_factories(requested_controller_names)
+    selected_controller_names = (
+        list(controller_factories_by_name)
+        if requested_controller_names is None
+        else requested_controller_names
+    )
 
     # collect scenarios
     if args.scenarios == "all":
