@@ -3,13 +3,18 @@ from typing import Callable
 from src.simulation.household import Household
 from src.simulation.scenarios.scenario import Scenario, default_scenario
 from src.simulation.controllers.base_controller import BaseController
-from src.sqlite_connection import sqlite_conn as _default_conn
+from src.sqlite_connection import create_results_connection
 
 
 def _next_run_id() -> str:
-    try:
-        cursor = _default_conn.cursor()
-        result = cursor.execute(
+    with create_results_connection() as conn:
+        results_table = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'results'"
+        ).fetchone()
+        if results_table is None:
+            return "1"
+
+        result = conn.execute(
             '''
             SELECT COALESCE(MAX(CAST(run_id AS INTEGER)), 0) + 1
             FROM results
@@ -19,8 +24,6 @@ def _next_run_id() -> str:
             '''
         ).fetchone()
         return str(result[0])
-    except Exception:
-        return "1"
 
 
 @dataclass
