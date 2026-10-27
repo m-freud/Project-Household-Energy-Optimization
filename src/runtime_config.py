@@ -29,7 +29,7 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))
 
     # sqlite
-    SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy.db")))
+    SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy_v2.db")))
     RESULTS_SQLITE_PATH = Path(
         os.getenv("RESULTS_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "results.db"))
     )

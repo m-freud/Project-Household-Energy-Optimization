@@ -126,10 +126,9 @@ class Simulation:
             results_conn=None
             ):
         self.sqlite_conn = sqlite_conn
+        self.results_conn = results_conn or create_results_connection()
+        
         self.sqlite_cursor = self.sqlite_conn.cursor()
-        self.results_conn = (
-            results_conn if results_conn is not None else create_results_connection()
-        )
         self.results_cursor = self.results_conn.cursor()
 
         self.num_households = 250
@@ -319,12 +318,11 @@ class Simulation:
                 device_config = getattr(scenario, component.name, None)
                 if device_config:
                     component.soc = device_config.start_soc * component.capacity
-                    # print(f"Set initial SOC of {component.name} to {component.soc} kWh which is {device_config.start_soc*100}% of capacity")
                 else:
                     print(f"No scenario config found for {component.name}, using default initial SOC of {component.soc} kWh")
 
 
-        # only query once for all profiles. the simulation now knows the future
+        # query full day profiles. the simulation now knows the future
         self.household_profiles = fetch_multiple_timeseries(
             self.sqlite_cursor,
             player_id,
@@ -337,7 +335,7 @@ class Simulation:
         household.oracle_profiles = self.household_profiles # just pass them through for easy lookup if needed
 
         # set default drive load for EVs based on first non-zero value in the load profile
-        # technically this is an illegal prediction, but it is a good proxy for "yesterdays last value"
+        # technically this is an illegal prediction, but it is a good proxy for "yesterdays last value",
         # and we have to start somewhere.
         def _first_non_zero_value(values: list[float]) -> float:
             for value in values:
