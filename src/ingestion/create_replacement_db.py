@@ -282,13 +282,123 @@ def replace_ev2_status() -> None:
         ev2_conn.close()
 
 
+def _replace_ev_availability(
+    status_table: str,
+    at_home_table: str,
+    at_station_table: str,
+    station_status: int | None,
+) -> None:
+    conn = sqlite3.connect(ENERGY_V2_DB)
+    try:
+        columns = [
+            row[1]
+            for row in conn.execute(f'PRAGMA table_info("{status_table}")')
+        ]
+        if not columns or columns[0] != "period":
+            raise ValueError(f"{status_table} must have period as its first column")
+
+        profile_columns = columns[1:]
+        expected_profile_columns = [str(player_id) for player_id in range(1, N_PLAYERS + 1)]
+        if profile_columns != expected_profile_columns:
+            raise ValueError(
+                f"{status_table}: expected household columns 1..{N_PLAYERS}"
+            )
+
+        quoted_profiles = ", ".join(f'"{column}"' for column in profile_columns)
+        rows = conn.execute(
+            f'SELECT "period", {quoted_profiles} FROM "{status_table}" ORDER BY "period"'
+        ).fetchall()
+        if len(rows) != N_PERIODS or [row[0] for row in rows] != list(
+            range(1, N_PERIODS + 1)
+        ):
+            raise ValueError(
+                f"{status_table}: expected periods 1..{N_PERIODS}, "
+                f"found {len(rows)} rows"
+            )
+
+        valid_statuses = {0, 1, 2}
+        for row in rows:
+            invalid_values = {
+                value for value in row[1:] if value is None or value not in valid_statuses
+            }
+            if invalid_values:
+                raise ValueError(
+                    f"{status_table} contains invalid status values: "
+                    f"{sorted(invalid_values, key=str)}"
+                )
+
+        def create_availability_table(table_name: str, values: list[tuple]) -> None:
+            conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+            profile_definitions = ", ".join(
+                f'"{column}" INTEGER' for column in profile_columns
+            )
+            conn.execute(
+                f'CREATE TABLE "{table_name}" '
+                f'("period" INTEGER PRIMARY KEY, {profile_definitions})'
+            )
+            conn.executemany(
+                f'INSERT INTO "{table_name}" '
+                f'("period", {quoted_profiles}) '
+                f'VALUES ({", ".join("?" for _ in range(N_PLAYERS + 1))})',
+                values,
+            )
+
+        home_rows = [
+            (row[0], *(int(status == 0) for status in row[1:]))
+            for row in rows
+        ]
+        if station_status is None:
+            station_rows = [
+                (row[0], *([0] * N_PLAYERS))
+                for row in rows
+            ]
+        else:
+            station_rows = [
+                (row[0], *(int(status == station_status) for status in row[1:]))
+                for row in rows
+            ]
+
+        conn.execute("BEGIN")
+        create_availability_table(at_home_table, home_rows)
+        create_availability_table(at_station_table, station_rows)
+        conn.commit()
+        print(f"Created {at_home_table} and {at_station_table} from {status_table}")
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def replace_ev1_availability() -> None:
+    """Derive EV1 home and charging-station profiles from EV1 status."""
+    _replace_ev_availability(
+        status_table="ev1_status",
+        at_home_table="ev1_at_home",
+        at_station_table="ev1_at_charging_station",
+        station_status=2,
+    )
+
+
+def replace_ev2_availability() -> None:
+    """Derive EV2 home profiles; EV2 has no charging-station availability."""
+    _replace_ev_availability(
+        status_table="ev2_status",
+        at_home_table="ev2_at_home",
+        at_station_table="ev2_at_charging_station",
+        station_status=None,
+    )
+
+
 def main():
     print("Ingesting load profiles")
-    copy_energy_db()
-    replace_base_load()
-    replace_pv_gen()
-    replace_ev1_status()
-    replace_ev2_status()
+    # copy_energy_db()
+    # replace_base_load()
+    # replace_pv_gen()
+    # replace_ev1_status()
+    # replace_ev2_status()
+    replace_ev1_availability()
+    replace_ev2_availability()
 
 
 
