@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-DB_PATH="$SCRIPT_DIR/sqlite/energy.db"
+DB_PATH="$SCRIPT_DIR/sqlite/results.db"
 FULL_RESET="false"
 
 while [[ $# -gt 0 ]]; do
@@ -70,7 +70,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-db_path = Path("sqlite/energy.db")
+db_path = Path("sqlite/results.db")
 full_reset = os.environ.get("FULL_RESET", "false") == "true"
 
 tables = [
