@@ -97,6 +97,51 @@ def _parse_household_selection(value: str) -> str | list[int]:
     return household_ids
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run HEMS simulation")
+    parser.add_argument(
+        "--controllers",
+        default="mpc_oracle,mpc_history_avg,mpc_single_model",
+        help="Comma-separated controller names (default: all)",
+    )
+    parser.add_argument(
+        "--scenarios",
+        default="default_scenario",
+        help="Comma-separated scenario names (default: all)",
+    )
+    parser.add_argument(
+        "--households",
+        type=_parse_household_selection,
+        default="1",
+        help="Household IDs/ranges (e.g. 5-25 or 1,3,5-8), 'all', or 'test_set' (default: 1)",
+    )
+    parser.add_argument(
+        "--max-households",
+        type=int,
+        default=None,
+        help="Limit number of households after filtering",
+    )
+    parser.add_argument(
+        "--start-time",
+        type=int,
+        default=1,
+        help="Simulation start timestep (1..96)",
+    )
+    parser.add_argument(
+        "--parallel-households",
+        action="store_true",
+        default=True,
+        help="Run households in parallel using process workers",
+    )
+    parser.add_argument(
+        "--parallel-workers",
+        type=int,
+        default=6,
+        help="Number of worker processes for --parallel-households (default: Python decides)",
+    )
+    return parser
+
+
 def build_function_controller(
     household: Household,
     scenario: Scenario,
@@ -822,48 +867,7 @@ class Simulation:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run HEMS simulation")
-    parser.add_argument(
-        "--controllers",
-        default="mpc_oracle,mpc_history_avg,mpc_single_model",
-        help="Comma-separated controller names (default: all)",
-    )
-    parser.add_argument(
-        "--scenarios",
-        default="default_scenario",
-        help="Comma-separated scenario names (default: all)",
-    )
-    parser.add_argument(
-        "--households",
-        type=_parse_household_selection,
-        default="1",
-        help="Household IDs/ranges (e.g. 5-25 or 1,3,5-8), 'all', or 'test_set' (default: 1)",
-    )
-    parser.add_argument(
-        "--max-households",
-        type=int,
-        default=None,
-        help="Limit number of households after filtering",
-    )
-    parser.add_argument(
-        "--start-time",
-        type=int,
-        default=1,
-        help="Simulation start timestep (1..96)",
-    )
-    parser.add_argument(
-        "--parallel-households",
-        action="store_true",
-        default=True,
-        help="Run households in parallel using process workers",
-    )
-    parser.add_argument(
-        "--parallel-workers",
-        type=int,
-        default=6,
-        help="Number of worker processes for --parallel-households (default: Python decides)",
-    )
-    args = parser.parse_args()
+    args = build_parser().parse_args()
 
     # Create a simulation instance
     sim = Simulation(sqlite_conn, results_conn=create_results_connection())
