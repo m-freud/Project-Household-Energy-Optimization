@@ -30,6 +30,9 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
 
     # sqlite
     SQLITE_PATH = Path(os.getenv("SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy.db")))
+    RESULTS_SQLITE_PATH = Path(
+        os.getenv("RESULTS_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "results.db"))
+    )
 
     DURATION_TIMESTEP = 0.25 # 4 per hour
     TOTAL_TIMESTEPS_DAY = int(24 / DURATION_TIMESTEP)
@@ -143,4 +146,3 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     def get_model_path(cls, family: str, target: str, player_id: int) -> Path:
         fold_id = cls.get_fold_for_player(target=target, player_id=player_id)
         return cls.get_model_path_for_fold(family=family, target=target, fold_id=fold_id)
-

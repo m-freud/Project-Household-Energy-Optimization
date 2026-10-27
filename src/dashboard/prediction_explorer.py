@@ -22,7 +22,11 @@ from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
-from src.sqlite_connection import create_sqlite_connection, load_source_avg_profile
+from src.sqlite_connection import (
+    create_results_connection,
+    create_sqlite_connection,
+    load_source_avg_profile,
+)
 
 
 TXGBModel = TypeVar("TXGBModel", XGBRegressor, XGBClassifier)
@@ -482,9 +486,14 @@ def render_prediction_explorer(
         completed_jobs = 0
 
         connection = create_sqlite_connection()
+        results_connection = create_results_connection()
         try:
             # Fresh databases may not have results schema yet.
-            sim = Simulation(connection, ensure_results_table=True)
+            sim = Simulation(
+                connection,
+                results_conn=results_connection,
+                ensure_results_table=True,
+            )
             controller_factory = _build_mpc_controller_factory(
                 policy_name=effective_policy_name,
                 horizon=96,
@@ -523,6 +532,7 @@ def render_prediction_explorer(
             return
         finally:
             connection.close()
+            results_connection.close()
 
         progress.progress(1.0, text="Finished. Results were saved to SQLite.")
         status.success(

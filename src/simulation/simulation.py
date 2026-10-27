@@ -35,7 +35,11 @@ from src.simulation.devices.pv import PV
 from src.simulation.household import Household
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
-from src.sqlite_connection import sqlite_conn, fetch_multiple_timeseries
+from src.sqlite_connection import (
+    create_results_connection,
+    fetch_multiple_timeseries,
+    sqlite_conn,
+)
 from typing import Any, Callable, TypeVar
 from xgboost import XGBClassifier, XGBRegressor
 import argparse
@@ -171,7 +175,11 @@ def _run_household_worker(
 
     worker_conn = create_sqlite_connection()
     try:
-        sim = Simulation(worker_conn, ensure_results_table=False)
+        sim = Simulation(
+            worker_conn,
+            ensure_results_table=False,
+            results_conn=worker_conn,
+        )
         scenario = run_context.scenario
 
         start_time = run_context.start_time
@@ -227,9 +235,13 @@ def _run_household_worker(
 
 
 class Simulation:
-    def __init__(self, sqlite_conn, ensure_results_table: bool = True):
+    def __init__(self, sqlite_conn, ensure_results_table: bool = True, results_conn=None):
         self.sqlite_conn = sqlite_conn
         self.sqlite_cursor = self.sqlite_conn.cursor()
+        self.results_conn = (
+            results_conn if results_conn is not None else create_results_connection()
+        )
+        self.results_cursor = self.results_conn.cursor()
 
         self.num_households = 250
         self.num_timesteps = 96
@@ -260,7 +272,7 @@ class Simulation:
 
 
     def _ensure_results_table(self):
-        self.sqlite_cursor.execute('''
+        self.results_cursor.execute('''
             CREATE TABLE IF NOT EXISTS results (
                 run_id TEXT,
                 policy TEXT,
@@ -283,7 +295,7 @@ class Simulation:
                 soc_at_deadline_ev2 REAL
             )''')
         
-        self.sqlite_conn.commit()
+        self.results_conn.commit()
 
 
     def create_household(self, player_id:int, run_context: RunContext, bess_for_all: bool=False):
@@ -729,7 +741,7 @@ class Simulation:
     
     def load_results_payload_to_sqlite(self, payload: dict):
         # load dict to sqlite
-        self.sqlite_cursor.execute(
+        self.results_cursor.execute(
             '''
             INSERT INTO results (
             run_id,
@@ -763,7 +775,7 @@ class Simulation:
                 payload["soc_at_deadline_ev2"],
             ),
         )
-        self.sqlite_conn.commit()
+        self.results_conn.commit()
 
 
     def load_history_payload_to_sqlite(self, payload: dict):
@@ -774,7 +786,7 @@ class Simulation:
         history = payload["history"]
 
         for measurement in DEFAULT_HISTORY_MEASUREMENTS:
-            self.sqlite_cursor.execute(
+            self.results_cursor.execute(
                 f'''
                 CREATE TABLE IF NOT EXISTS {measurement} (
                     player_id INTEGER,
@@ -789,7 +801,7 @@ class Simulation:
             if not rows:
                 continue
 
-            self.sqlite_cursor.executemany(
+            self.results_cursor.executemany(
                 f'''
                 INSERT INTO {measurement} (
                 player_id, scenario, policy, period, value
@@ -801,7 +813,7 @@ class Simulation:
                 ],
             )
 
-        self.sqlite_conn.commit()
+        self.results_conn.commit()
 
 
     def make_mpc_controller(self, name: str, horizon: int, predictor: BasePredictor, duration_hours: float = 0.25, buffer_config: DeviceBufferConfig | None = None) -> Callable[[Household, Scenario], MPCController]:
@@ -854,7 +866,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create a simulation instance
-    sim = Simulation(sqlite_conn)
+    sim = Simulation(sqlite_conn, results_conn=create_results_connection())
 
     def _load_xgb_model(model_path: Path, model_class: type[TXGBModel]) -> TXGBModel:
         model = model_class()

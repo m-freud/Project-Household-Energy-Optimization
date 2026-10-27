@@ -8,12 +8,29 @@ def create_sqlite_connection():
     return sqlite3.connect(RuntimeConfig.SQLITE_PATH)
 
 
+def create_results_connection():
+    return sqlite3.connect(RuntimeConfig.RESULTS_SQLITE_PATH)
+
+
 def get_sqlite_cursor():
     return create_sqlite_connection().cursor()
 
 
 sqlite_conn = create_sqlite_connection()
 sqlite_cursor = get_sqlite_cursor()
+
+RESULT_TIMESERIES_TABLES = {
+    "net_load",
+    "net_cost",
+    "total_consumption",
+    "total_cost",
+    "bess_soc",
+    "bess_power",
+    "ev1_soc",
+    "ev1_power",
+    "ev2_soc",
+    "ev2_power",
+}
 
 
 def _is_safe_identifier(value: str) -> bool:
@@ -29,7 +46,13 @@ def load_series(
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
 
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    database_path = (
+        RuntimeConfig.RESULTS_SQLITE_PATH
+        if table_name in RESULT_TIMESERIES_TABLES
+        else RuntimeConfig.SQLITE_PATH
+    )
+
+    with sqlite3.connect(database_path) as conn:
         try:
             table_info = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
         except sqlite3.OperationalError:
@@ -121,7 +144,7 @@ def load_avg_profile(
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
     
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with create_results_connection() as conn:
         try:
             result = pd.read_sql_query(
                 f"""
@@ -220,7 +243,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
 
 
 def load_policies() -> list[str]:
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with create_results_connection() as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT policy FROM results ORDER BY policy"
@@ -231,7 +254,7 @@ def load_policies() -> list[str]:
 
 
 def load_scenarios() -> list[str]:
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with create_results_connection() as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT scenario FROM results ORDER BY scenario"
@@ -242,7 +265,7 @@ def load_scenarios() -> list[str]:
 
 
 def load_household_ids_from_results() -> list[int]:
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with create_results_connection() as conn:
         try:
             rows = conn.execute(
                 "SELECT DISTINCT player_id FROM results ORDER BY player_id"
@@ -284,7 +307,7 @@ def load_household_result(
     scenario_name: str,
     policy_name: str,
 ) -> pd.DataFrame:
-    with sqlite3.connect(RuntimeConfig.SQLITE_PATH) as conn:
+    with create_results_connection() as conn:
         try:
             result = pd.read_sql_query(
                 """
