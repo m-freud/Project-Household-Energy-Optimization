@@ -591,48 +591,66 @@ class Simulation:
         return make_mpc_controller(name=name, horizon=horizon, predictor=predictor, duration_hours=duration_hours, buffer_config=buffer_config)
 
 
-
-
-if __name__ == "__main__":
-    # parse args
-    args = build_parser().parse_args()
-
-    # Create a simulation instance
-    sim = Simulation(source_sqlite_conn, results_conn=create_results_connection())
-
-    requested_controller_names = (
-        None
-        if args.controllers == "all"
-        else [
-            name.strip() for name in args.controllers.split(",") if name.strip()
-        ]
-    )
-    controller_factories_by_name = build_controller_factories(requested_controller_names)
-    selected_controller_names = (
-        list(controller_factories_by_name)
-        if requested_controller_names is None
-        else requested_controller_names
-    )
-
-    # collect scenarios
-    if args.scenarios == "all":
-        selected_scenarios = list(scenario_catalog.values())
+def parse_scenarios(scenarios_arg: str) -> list[Scenario]:
+    if scenarios_arg == "all":
+        return list(scenario_catalog.values())
     else:
         requested_scenario_names = [
-            name.strip() for name in args.scenarios.split(",") if name.strip()
+            name.strip() for name in scenarios_arg.split(",") if name.strip()
         ]
         unknown_scenario_names = [
             name for name in requested_scenario_names if name not in scenario_catalog
         ]
         if unknown_scenario_names:
             raise ValueError(f"Unknown scenarios: {unknown_scenario_names}")
-        selected_scenarios = [scenario_catalog[name] for name in requested_scenario_names]
+        return [scenario_catalog[name] for name in requested_scenario_names]
+
+
+def parse_controllers(controllers_arg: str) -> list[str] | None:
+    if controllers_arg == "all":
+        return None
+    else:
+        return [name.strip() for name in controllers_arg.split(",") if name.strip()]
+
+
+def parse_household_ids(households_arg: str | list[int]) -> list[int] | None:
+    if isinstance(households_arg, list):
+        return households_arg
+    if households_arg == "all":
+        return None
+    else:
+        household_ids = []
+        for part in households_arg.split(","):
+            part = part.strip()
+            if "-" in part:
+                start, end = map(int, part.split("-"))
+                household_ids.extend(range(start, end + 1))
+            else:
+                household_ids.append(int(part))
+        return household_ids
+
+
+
+def main():
+    # collect args
+    args = build_parser().parse_args()
+
+    # Create a simulation instance
+    sim = Simulation(source_sqlite_conn, results_conn=create_results_connection())
+
+    # translate args into simulation parameters
+    requested_controller_names = parse_controllers(args.controllers)
+    controller_factories_by_name = build_controller_factories(requested_controller_names)
+    selected_controller_names = (
+        list(controller_factories_by_name)
+        if requested_controller_names is None
+        else requested_controller_names
+    )   
+
+    selected_scenarios = parse_scenarios(args.scenarios)
 
     # collect households
-    if args.households == "all":
-        selected_household_ids = None
-    else:
-        selected_household_ids = args.households
+    selected_household_ids = parse_household_ids(args.households)
 
     # create run contexts for each combination of controller and scenario
     run_contexts = [
@@ -654,3 +672,9 @@ if __name__ == "__main__":
         parallel_households=args.parallel_households,
         parallel_workers=args.parallel_workers,
     )
+
+
+
+if __name__ == "__main__":
+    main()
+    
