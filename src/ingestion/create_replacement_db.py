@@ -707,6 +707,138 @@ def replace_ev2_max_charge() -> None:
     _replace_ev_max_charge(2, has_station=False)
 
 
+def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
+    conn = sqlite3.connect(ENERGY_V2_DB)
+    try:
+        expected_profile_columns = [
+            str(player_id) for player_id in range(1, N_PLAYERS + 1)
+        ]
+        buy_price_columns = [
+            row[1] for row in conn.execute('PRAGMA table_info("buy_price")')
+        ]
+        expected_columns = ["period", *expected_profile_columns]
+        if buy_price_columns != expected_columns:
+            raise ValueError(
+                f"buy_price must contain periods and players 1..{N_PLAYERS}"
+            )
+
+        home_table = f"ev{ev_num}_at_home"
+        station_table = f"ev{ev_num}_at_charging_station"
+        for table_name in (home_table, station_table):
+            columns = [
+                row[1] for row in conn.execute(f'PRAGMA table_info("{table_name}")')
+            ]
+            if columns != expected_columns:
+                raise ValueError(
+                    f"{table_name} must contain periods and players 1..{N_PLAYERS}"
+                )
+
+        selected_columns = ", ".join(f'"{player_id}"' for player_id in range(1, N_PLAYERS + 1))
+        buy_price_rows = conn.execute(
+            f'SELECT "period", {selected_columns} FROM "buy_price" ORDER BY "period"'
+        ).fetchall()
+        home_rows = conn.execute(
+            f'SELECT "period", {selected_columns} FROM "{home_table}" ORDER BY "period"'
+        ).fetchall()
+        station_rows = conn.execute(
+            f'SELECT "period", {selected_columns} FROM "{station_table}" ORDER BY "period"'
+        ).fetchall()
+        expected_periods = list(range(1, N_PERIODS + 1))
+        for table_name, rows in (
+            ("buy_price", buy_price_rows),
+            (home_table, home_rows),
+            (station_table, station_rows),
+        ):
+            if len(rows) != N_PERIODS or [row[0] for row in rows] != expected_periods:
+                raise ValueError(f"{table_name}: expected periods 1..{N_PERIODS}")
+
+        station_prices = {player_id: 0.0 for player_id in range(1, N_PLAYERS + 1)}
+        if has_station:
+            price_rows = conn.execute(
+                f'SELECT "player_id", "station_price" '
+                f'FROM "ev{ev_num}" ORDER BY "player_id"'
+            ).fetchall()
+            station_prices = {
+                int(player_id): float(price)
+                for player_id, price in price_rows
+                if price is not None
+            }
+            if set(station_prices) != set(range(1, N_PLAYERS + 1)):
+                raise ValueError(
+                    f"ev{ev_num}.station_price must contain non-null values "
+                    f"for players 1..{N_PLAYERS}"
+                )
+
+        for player_id, price in station_prices.items():
+            if not math.isfinite(price) or price < 0:
+                raise ValueError(
+                    f"EV{ev_num} player {player_id} has invalid station price"
+                )
+
+        result_rows = []
+        for buy_row, home_row, station_row in zip(
+            buy_price_rows, home_rows, station_rows
+        ):
+            values = []
+            for index, player_id in enumerate(range(1, N_PLAYERS + 1), start=1):
+                home_price = buy_row[index]
+                at_home = home_row[index]
+                at_station = station_row[index]
+                if home_price is None or not math.isfinite(float(home_price)):
+                    raise ValueError(
+                        f"buy_price contains an invalid value in period {buy_row[0]}, "
+                        f"player {player_id}"
+                    )
+                if at_home not in (0, 1) or at_station not in (0, 1):
+                    raise ValueError(
+                        f"EV{ev_num} availability values must be 0 or 1"
+                    )
+                if at_home and at_station:
+                    raise ValueError(
+                        f"EV{ev_num} player {player_id} cannot be home and at a station "
+                        f"in period {buy_row[0]}"
+                    )
+                values.append(
+                    float(home_price) if at_home
+                    else station_prices[player_id] if at_station
+                    else 0.0
+                )
+            result_rows.append((buy_row[0], *values))
+
+        table_name = f"ev{ev_num}_buy_price"
+        profile_definitions = ", ".join(
+            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+        )
+        placeholders = ", ".join("?" for _ in range(N_PLAYERS + 1))
+        conn.execute("BEGIN")
+        conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+        conn.execute(
+            f'CREATE TABLE "{table_name}" '
+            f'("period" INTEGER PRIMARY KEY, {profile_definitions})'
+        )
+        conn.executemany(
+            f'INSERT INTO "{table_name}" VALUES ({placeholders})',
+            result_rows,
+        )
+        conn.commit()
+        print(f"Created {table_name} from home and station prices")
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def replace_ev1_buy_price() -> None:
+    """Use household prices at home and each EV1's static station price."""
+    _replace_ev_buy_price(1, has_station=True)
+
+
+def replace_ev2_buy_price() -> None:
+    """Use household prices at home; EV2 has no station tariff."""
+    _replace_ev_buy_price(2, has_station=False)
+
+
 
 def main():
     print("Ingesting load profiles")
@@ -715,12 +847,14 @@ def main():
     # replace_pv_gen()
     # replace_ev1_status()
     # replace_ev2_status()
-    replace_ev1_availability() # backwards comp
-    replace_ev2_availability() # backwards comp
-    replace_ev1_load()
-    replace_ev2_load()
-    replace_ev1_max_charge()
-    replace_ev2_max_charge()
+    # replace_ev1_availability() # backwards comp
+    # replace_ev2_availability() # backwards comp
+    # replace_ev1_load()
+    # replace_ev2_load()
+    # replace_ev1_max_charge()
+    # replace_ev2_max_charge()
+    replace_ev1_buy_price()
+    replace_ev2_buy_price()
 
 
 
