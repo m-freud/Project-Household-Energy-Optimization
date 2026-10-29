@@ -842,17 +842,17 @@ def replace_ev2_buy_price() -> None:
 
 def main():
     print("Ingesting load profiles")
-    # copy_energy_db()
-    # replace_base_load()
-    # replace_pv_gen()
-    # replace_ev1_status()
-    # replace_ev2_status()
-    # replace_ev1_availability() # backwards comp
-    # replace_ev2_availability() # backwards comp
-    # replace_ev1_load()
-    # replace_ev2_load()
-    # replace_ev1_max_charge()
-    # replace_ev2_max_charge()
+    copy_energy_db()
+    replace_base_load()
+    replace_pv_gen()
+    replace_ev1_status()
+    replace_ev2_status()
+    replace_ev1_availability() # backwards comp
+    replace_ev2_availability() # backwards comp
+    replace_ev1_load()
+    replace_ev2_load()
+    replace_ev1_max_charge()
+    replace_ev2_max_charge()
     replace_ev1_buy_price()
     replace_ev2_buy_price()
 
