@@ -72,11 +72,14 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         }
 
-        # here we need features before bypass because bypass depends on some of the features
-        all_features = _build_ev_status_features(ev_status_data)
-
         # bypass model if possible
-        bypass = _try_bypass(current_timestep, all_features)
+        bypass = _try_bypass(
+            current_time=current_timestep,
+            ev_key=ev_key,
+            status_history=sim_status_history,
+            current_status=current_status,
+        )
+        sim_status_history.append(current_status)
         if bypass is not None:
             current_status = bypass
             current_at_home, current_at_station = _status_to_home_station(current_status)
@@ -85,6 +88,7 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
             current_timestep += 1
             continue
 
+        all_features = _build_ev_status_features(ev_status_data)
         model_family_name = ModelConfig.get_model_family_name(model)
         model_features = get_model_feature_names(
             model,
@@ -98,9 +102,6 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
 
         # ensure correct order of features for the model
         model_input = [all_features[f] for f in model_features]
-
-        # update history before predicting next value
-        sim_status_history.append(current_status)
 
         # predict next value, save as split into at_home and at_station
         current_status = int(model.predict([model_input])[0])  # type: ignore

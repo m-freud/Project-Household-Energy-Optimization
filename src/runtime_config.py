@@ -39,8 +39,8 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     DURATION_TIMESTEP = 0.25 # 4 per hour
     TOTAL_TIMESTEPS_DAY = int(24 / DURATION_TIMESTEP)
 
-    # observed ev availabilities
-    EV_COMMUTE_WINDOWS_OBSERVED = {
+    # Previous commute-window settings retained for comparison.
+    EV_COMMUTE_WINDOWS_OBSERVED_ORIGINAL = {
         "ev1": [
             {"window": 1, "earliest_start": 33, "latest_end": 48, "max_unavailable_steps": 5},
             {"window": 2, "earliest_start": 71, "latest_end": 85, "max_unavailable_steps": 5},
@@ -51,8 +51,7 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
         ],
     }
 
-    # rounded allowed windows for predictions
-    EV_COMMUTE_WINDOWS_ALLOWED = {
+    EV_COMMUTE_WINDOWS_ALLOWED_ORIGINAL = {
         "ev1": [
             {"window": 1, "earliest_start": 32, "latest_end": 50, "max_unavailable_steps": 5},
             {"window": 2, "earliest_start": 70, "latest_end": 88, "max_unavailable_steps": 5},
@@ -61,7 +60,33 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
             {"window": 1, "earliest_start": 32, "latest_end": 50, "max_unavailable_steps": 5},
             {"window": 2, "earliest_start": 70, "latest_end": 88, "max_unavailable_steps": 5},
         ],
-    }   
+    }
+
+    # Observed status-1 episodes in energy_v2.db; periods are 1-based.
+    EV_COMMUTE_WINDOWS_OBSERVED = {
+        "ev1": [
+            {"window": 1, "earliest_start": 33, "latest_end": 50, "max_unavailable_steps": 5},
+            {"window": 2, "earliest_start": 71, "latest_end": 88, "max_unavailable_steps": 8},
+        ],
+        # EV2 has many profiles with more than two episodes, so both model windows
+        # use its global observed bounds to retain the existing two-window interface.
+        "ev2": [
+            {"window": 1, "earliest_start": 21, "latest_end": 88, "max_unavailable_steps": 10},
+            {"window": 2, "earliest_start": 21, "latest_end": 88, "max_unavailable_steps": 10},
+        ],
+    }
+
+    # Allowed windows rounded outward to half-hour (2-period) boundaries.
+    EV_COMMUTE_WINDOWS_ALLOWED = {
+        "ev1": [
+            {"window": 1, "earliest_start": 32, "latest_end": 50, "max_unavailable_steps": 5},
+            {"window": 2, "earliest_start": 70, "latest_end": 88, "max_unavailable_steps": 8},
+        ],
+        "ev2": [
+            {"window": 1, "earliest_start": 20, "latest_end": 88, "max_unavailable_steps": 10},
+            {"window": 2, "earliest_start": 20, "latest_end": 88, "max_unavailable_steps": 10},
+        ],
+    }
 
     # pv window for predictions
     PV_GENERATION_WINDOW_OBSERVED = {

@@ -1,3 +1,4 @@
+from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.shared_helpers._misc import encode_time_cyclic
 
 
@@ -146,17 +147,49 @@ def _build_ev_status_features(ev_status_data) -> dict:
     return features
 
 
-def _try_bypass(current_time: int, features: dict) -> int | None:
-    """
-    bypass the model if we are past the last timestep
-    """
-    if current_time >= 96:
-        return 0 # at home
+def _try_bypass(
+    current_time: int,
+    ev_key: str,
+    status_history: list[int],
+    current_status: int,
+) -> int | None:
+    """Return a deterministic next status using the configured EV commute rules."""
+    windows = RuntimeConfig.EV_COMMUTE_WINDOWS_ALLOWED[ev_key]
+    first_window, second_window = windows
+    target_time = current_time + 1
+    if target_time > 96:
+        return 0
 
-    if current_time < features["start1_earliest"] or features["end2_observed"]:
-        return 0 # at home
+    phase_id = _get_phase_id_seq([*status_history, current_status])[-1]
+    steps_in_current_state = 1
+    for previous_status in reversed(status_history):
+        if previous_status != current_status:
+            break
+        steps_in_current_state += 1
 
-    if (features["end1_observed"] or current_time > features["end1_latest"]) and current_time < features["start2_earliest"]:
-        return 2 # at station
+    if (
+        phase_id == 1
+        and steps_in_current_state >= first_window["max_unavailable_steps"]
+    ):
+        return 2
+    if (
+        phase_id == 3
+        and steps_in_current_state >= second_window["max_unavailable_steps"]
+    ):
+        return 0
+
+    if phase_id == 4 or target_time > second_window["latest_end"]:
+        return 0
+    if target_time < first_window["earliest_start"]:
+        return 0
+
+    if (
+        target_time > first_window["latest_end"]
+        and target_time < second_window["earliest_start"]
+    ):
+        if phase_id in (1, 2):
+            return 2
+        if phase_id == 0:
+            return 0
 
     return None

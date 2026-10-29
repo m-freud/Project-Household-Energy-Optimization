@@ -1,5 +1,3 @@
-# print FULL content of head(20) of T_VISTA1218_V1.csv
-
 import pandas as pd
 from pathlib import Path
 
