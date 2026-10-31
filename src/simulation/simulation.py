@@ -10,6 +10,7 @@ sys.path.insert(0, str(repo_root))
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context
 from pathlib import Path
+import time
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
@@ -38,6 +39,14 @@ from typing import Callable
 
 
 _WORKER_RUN_CONTEXT: RunContext | None = None
+
+
+def _format_duration(seconds: float) -> str:
+    total_seconds = max(0, int(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
 
 def _initialize_household_worker(run_context: RunContext) -> None:
     global _WORKER_RUN_CONTEXT
@@ -76,12 +85,13 @@ def _run_household_worker(
             f"with controller {controller.name}, run_id={run_context.run_id}",
             flush=True,
         )
+        verbose_logging = False
         for t in range(start_time, sim.num_timesteps + 1):
             if controller.name in {
                 "mpc_single_step",
                 "mpc_multi_step",
                 "mpc_composite_horizons",
-            } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps):
+            } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps) and verbose_logging:
                 print(
                     f"{controller.name}: household {player_id}, timestep {t}/{sim.num_timesteps}",
                     flush=True,
@@ -432,15 +442,6 @@ class Simulation:
         print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         for t in range(start_time, self.num_timesteps + 1):
-            if controller.name in {
-                "mpc_single_step",
-                "mpc_multi_step",
-                "mpc_composite_horizons",
-            } and (t == start_time or t % 8 == 0 or t == self.num_timesteps):
-                print(
-                    f"{controller.name}: household {player_id}, timestep {t}/{self.num_timesteps}",
-                    flush=True,
-                )
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
 
         if write_results_to_sqlite:
@@ -470,6 +471,7 @@ class Simulation:
         parallel_households: bool = True,
         parallel_workers: int | None = 6, # optimal number depends on CPUs of your machine
         write_results_to_sqlite: bool = True,
+        on_household_complete: Callable[[RunContext], None] | None = None,
     ):
         if household_ids is None:
             selected_households = list(range(1, self.num_households + 1))
@@ -489,6 +491,7 @@ class Simulation:
                 selected_households,
                 parallel_workers=parallel_workers,
                 write_results_to_sqlite=write_results_to_sqlite,
+                on_household_complete=on_household_complete,
             )
 
         results = {
@@ -504,6 +507,8 @@ class Simulation:
             results["net_loads"].append(household.net_load)
             results["total_costs"].append(float(household.total_cost))
             results["total_consumptions"].append(float(household.total_consumption))
+            if on_household_complete is not None:
+                on_household_complete(run_context)
 
         return results
 
@@ -514,6 +519,7 @@ class Simulation:
         selected_households: list[int],
         parallel_workers: int | None = 6,
         write_results_to_sqlite: bool = True,
+        on_household_complete: Callable[[RunContext], None] | None = None,
     ):
         results = {
             "net_costs": [],
@@ -543,11 +549,14 @@ class Simulation:
                 results["net_loads"].append(payload["net_load"])
                 results["total_costs"].append(payload["total_cost"])
                 results["total_consumptions"].append(payload["total_consumption"])
-                print(
-                    f"completed household {player_id} in scenario {payload['scenario']} "
-                    f"with controller {payload['policy']}, run_id={payload['run_id']}",
-                    flush=True,
-                )
+                if on_household_complete is not None:
+                    on_household_complete(run_context)
+                else:
+                    print(
+                        f"completed household {player_id} in scenario {payload['scenario']} "
+                        f"with controller {payload['policy']}, run_id={payload['run_id']}",
+                        flush=True,
+                    )
 
         return results
 
@@ -568,6 +577,36 @@ class Simulation:
             "total_consumptions": [],
         }
 
+        if household_ids is None:
+            selected_households = list(range(1, self.num_households + 1))
+        else:
+            selected_households = [
+                player_id
+                for player_id in household_ids
+                if 1 <= player_id <= self.num_households
+            ]
+        if max_households is not None and max_households >= 0:
+            selected_households = selected_households[:max_households]
+
+        total_households = len(run_contexts) * len(selected_households)
+        completed_households = 0
+        started_at = time.monotonic()
+
+        def report_progress(run_context: RunContext) -> None:
+            nonlocal completed_households
+            completed_households += 1
+            elapsed = time.monotonic() - started_at
+            estimated_total = elapsed * total_households / completed_households
+            remaining = estimated_total - elapsed
+            percentage = completed_households / total_households * 100
+            print(
+                f"Progress: {completed_households}/{total_households} "
+                f"({percentage:.1f}%) | {run_context.controller_name} / "
+                f"{run_context.scenario.name} | elapsed "
+                f"{_format_duration(elapsed)} | ETA {_format_duration(remaining)}",
+                flush=True,
+            )
+
         for run_context in run_contexts:
             batch_results = self.run_all_households(
                 run_context,
@@ -576,6 +615,7 @@ class Simulation:
                 parallel_households=parallel_households,
                 parallel_workers=parallel_workers,
                 write_results_to_sqlite=write_results_to_sqlite,
+                on_household_complete=report_progress,
             )
             if batch_results is not None:
                 results["net_costs"].extend(batch_results["net_costs"])
