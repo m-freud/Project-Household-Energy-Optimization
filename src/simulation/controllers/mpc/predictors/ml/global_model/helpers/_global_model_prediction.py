@@ -7,6 +7,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLi
 
 Task = Literal["regression", "classification"]
 FeatureBuilder = Callable[[int, float, list[float]], dict[str, Any]]
+Bypass = Callable[[int, list[float], float], float | None]
 
 
 def _linear_interpolate(predictions: dict[int, float], horizon: int) -> list[float]:
@@ -57,6 +58,56 @@ def _model_input(
     return [features[name] for name in model_features]
 
 
+def _try_forecast_bypass(
+    bypass: Bypass | None,
+    current_timestep: int,
+    current_value: float,
+    history: list[float],
+    predictions: dict[int, float],
+    offset: int,
+) -> float | None:
+    if bypass is None:
+        return None
+
+    forecast_prefix = [current_value]
+    for forecast_offset in range(1, offset):
+        previous_offset = max(
+            candidate for candidate in predictions if candidate <= forecast_offset
+        )
+        forecast_prefix.append(predictions[previous_offset])
+    return bypass(
+        current_timestep + offset - 1,
+        history + forecast_prefix[:-1],
+        forecast_prefix[-1],
+    )
+
+
+def _apply_forecast_bypasses(
+    values: list[float],
+    bypass: Bypass | None,
+    current_timestep: int,
+    history: list[float],
+    task: Task,
+) -> list[float]:
+    if bypass is None:
+        return values
+
+    result = list(values)
+    for offset in range(1, len(result)):
+        bypass_value = bypass(
+            current_timestep + offset - 1,
+            history + result[:offset - 1],
+            result[offset - 1],
+        )
+        if bypass_value is not None:
+            result[offset] = (
+                int(round(bypass_value))
+                if task == "classification"
+                else bypass_value
+            )
+    return result
+
+
 def _recursive_interpolate(
     model: ModelLike,
     horizons: Sequence[int],
@@ -67,6 +118,7 @@ def _recursive_interpolate(
     model_features: list[str],
     feature_builder: FeatureBuilder,
     task: Task,
+    bypass: Bypass | None,
 ) -> list[float]:
     while True:
         gap_info = _first_gap(sorted(predictions), horizon)
@@ -76,6 +128,22 @@ def _recursive_interpolate(
         model_horizon = _largest_fitting_horizon(horizons, gap - 1)
         if model_horizon is None:
             break
+        target_offset = left + model_horizon
+        bypass_value = _try_forecast_bypass(
+            bypass,
+            current_timestep,
+            predictions[0],
+            history,
+            predictions,
+            target_offset,
+        )
+        if bypass_value is not None:
+            predictions[target_offset] = (
+                int(round(bypass_value))
+                if task == "classification"
+                else bypass_value
+            )
+            continue
         history_for_model = history + [
             predictions[offset] for offset in sorted(predictions) if 0 <= offset < left
         ]
@@ -94,7 +162,13 @@ def _recursive_interpolate(
         if offset not in predictions:
             previous = max(candidate for candidate in predictions if candidate < offset)
             predictions[offset] = predictions[previous]
-    return [predictions[offset] for offset in range(horizon)]
+    return _apply_forecast_bypasses(
+        [predictions[offset] for offset in range(horizon)],
+        bypass,
+        current_timestep,
+        history,
+        task,
+    )
 
 
 def predict_global(
@@ -108,6 +182,7 @@ def predict_global(
     feature_builder: FeatureBuilder,
     interpolation: str,
     task: Task = "regression",
+    bypass: Bypass | None = None,
 ) -> list[float]:
     if horizon <= 0:
         return []
@@ -121,6 +196,21 @@ def predict_global(
 
     predictions: dict[int, float] = {0: current_value}
     for prediction_horizon in horizons:
+        bypass_value = _try_forecast_bypass(
+            bypass,
+            current_timestep,
+            current_value,
+            history,
+            predictions,
+            prediction_horizon,
+        )
+        if bypass_value is not None:
+            predictions[prediction_horizon] = (
+                int(round(bypass_value))
+                if task == "classification"
+                else bypass_value
+            )
+            continue
         model_input = _model_input(
             model_features,
             feature_builder,
@@ -133,7 +223,14 @@ def predict_global(
         predictions[prediction_horizon] = int(round(value)) if task == "classification" else value
 
     if interpolation == "linear":
-        return _linear_interpolate(predictions, horizon)
+        return _apply_forecast_bypasses(
+            _linear_interpolate(predictions, horizon),
+            bypass,
+            current_timestep,
+            history,
+            task,
+        )
+
     return _recursive_interpolate(
         model=model,
         horizons=horizons,
@@ -144,4 +241,5 @@ def predict_global(
         model_features=model_features,
         feature_builder=feature_builder,
         task=task,
+        bypass=bypass,
     )

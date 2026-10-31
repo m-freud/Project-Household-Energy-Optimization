@@ -5,7 +5,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
 )
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import _build_base_load_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import (
+    _build_base_load_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import predict_composite
 
 def predict_base_load(
@@ -27,6 +30,14 @@ def predict_base_load(
             base_load_history=feature_history,
         )
 
+    def try_bypass(
+        timestep: int,
+        status_history: list[float],
+        current_value: float,
+    ) -> float | None:
+        _ = status_history, current_value
+        return _try_bypass(timestep)
+
     base_load = predict_composite(
         model_bank=model_bank,
         current_timestep=household.current_timestep,
@@ -37,6 +48,7 @@ def predict_base_load(
         feature_builder=build_features,
         interpolation=interpolation,
         task="regression",
+        bypass=try_bypass,
     )
     base_load_lb, base_load_ub = make_band(base_load, interval_width_frct)
     return {

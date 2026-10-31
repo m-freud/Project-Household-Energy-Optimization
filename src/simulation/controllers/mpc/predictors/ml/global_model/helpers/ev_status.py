@@ -4,7 +4,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     ModelLike,
     get_model_feature_names,
 )
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status import _build_ev_status_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status import (
+    _build_ev_status_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import predict_global
 from src.simulation.household import Household
 
@@ -59,6 +62,18 @@ def _predict_single_ev_status(
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         })
 
+    def try_bypass(
+        timestep: int,
+        preceding_statuses: list[float],
+        current_status: float,
+    ) -> float | None:
+        return _try_bypass(
+            current_time=timestep,
+            ev_key=ev_key,
+            status_history=[int(round(status)) for status in preceding_statuses],
+            current_status=int(round(current_status)),
+        )
+
     statuses = predict_global(
         model=model,
         prediction_horizons=prediction_horizons,
@@ -70,6 +85,7 @@ def _predict_single_ev_status(
         feature_builder=build_features,
         interpolation=interpolation,
         task="classification",
+        bypass=try_bypass,
     )
     flags = [_status_to_flags(int(status)) for status in statuses]
     return [home for home, _ in flags], [station for _, station in flags]

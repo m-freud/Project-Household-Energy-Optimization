@@ -3,7 +3,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLi
 from src.simulation.controllers.mpc.predictors.ml.model_interface import get_model_feature_names
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import _build_base_load_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load import (
+    _build_base_load_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import predict_global
 
 
@@ -24,6 +27,14 @@ def predict_base_load(
     def build_features(timestep: int, value: float, feature_history: list[float]) -> dict:
         return _build_base_load_features(timestep, value, feature_history)
 
+    def try_bypass(
+        timestep: int,
+        status_history: list[float],
+        current_value: float,
+    ) -> float | None:
+        _ = status_history, current_value
+        return _try_bypass(timestep)
+
     base_load = predict_global(
         model=model,
         prediction_horizons=prediction_horizons,
@@ -35,6 +46,7 @@ def predict_base_load(
         feature_builder=build_features,
         interpolation=interpolation,
         task="regression",
+        bypass=try_bypass,
     )
     lb, ub = make_band(base_load, interval_width_frct)
     return {"base_load": base_load, "base_load_lb": lb, "base_load_ub": ub}

@@ -87,7 +87,7 @@ def _build_pv_gen_features(
     return features
 
 
-def _try_bypass(current_time: int) -> float | None:
+def _try_bypass(current_time: int) -> float | None: #TODO stimmt das noch?
     # post-midnight bypass is implied
     if current_time < RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["earliest_start"] \
        or current_time > RuntimeConfig.PV_GENERATION_WINDOW_ALLOWED["latest_end"]:

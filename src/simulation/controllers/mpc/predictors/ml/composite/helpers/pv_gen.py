@@ -6,7 +6,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
 )
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import _build_pv_gen_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import (
+    _build_pv_gen_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import predict_composite
 
 
@@ -35,6 +38,14 @@ def predict_pv_gen(
                 daylight_end=daylight["latest_end"],
             )
 
+        def try_bypass(
+            timestep: int,
+            status_history: list[float],
+            current_value: float,
+        ) -> float | None:
+            _ = status_history, current_value
+            return _try_bypass(timestep)
+
         pv_gen = predict_composite(
             model_bank=model_bank,
             current_timestep=household.current_timestep,
@@ -45,6 +56,7 @@ def predict_pv_gen(
             feature_builder=build_features,
             interpolation=interpolation,
             task="regression",
+            bypass=try_bypass,
         )
 
     pv_gen_lb, pv_gen_ub = make_band(pv_gen, interval_width_frct)

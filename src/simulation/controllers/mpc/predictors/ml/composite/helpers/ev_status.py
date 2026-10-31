@@ -4,7 +4,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     TClassifier,
     get_model_feature_names,
 )
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status import _build_ev_status_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status import (
+    _build_ev_status_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import predict_composite
 from src.simulation.household import Household
 
@@ -53,10 +56,6 @@ def _predict_single_ev_status(
         model_features = get_model_feature_names(next(iter(model_bank.values())), model_features)
 
     def build_features(timestep: int, value: float, feature_history: list[float]) -> dict:
-        window = {
-            "earliest_start": windows[0]["earliest_start"],
-            "latest_end": windows[0]["latest_end"],
-        }
         return _build_ev_status_features({
             "timestep": timestep,
             "status": int(round(value)),
@@ -69,16 +68,29 @@ def _predict_single_ev_status(
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
         })
 
+    def try_bypass(
+        timestep: int,
+        preceding_statuses: list[float],
+        current_status: float,
+    ) -> float | None:
+        return _try_bypass(
+            current_time=timestep,
+            ev_key=ev_key,
+            status_history=[int(round(status)) for status in preceding_statuses],
+            current_status=int(round(current_status)),
+        )
+
     statuses = predict_composite(
         model_bank=model_bank,
         current_timestep=household.current_timestep,
         current_value=current_status,
-        history=status_history,
+        history=[float(status) for status in status_history],
         horizon=horizon,
         model_features=model_features,
         feature_builder=build_features,
         interpolation=interpolation,
         task="classification",
+        bypass=try_bypass,
     )
     flags = [_status_to_flags(int(status)) for status in statuses]
     return [home for home, _ in flags], [station for _, station in flags]

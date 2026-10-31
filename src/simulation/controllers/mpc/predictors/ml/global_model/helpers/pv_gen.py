@@ -4,7 +4,10 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLi
 from src.simulation.controllers.mpc.predictors.ml.model_interface import get_model_feature_names
 from src.simulation.controllers.mpc.predictors.shared.make_band import make_band
 from src.simulation.household import Household
-from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import _build_pv_gen_features
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import (
+    _build_pv_gen_features,
+    _try_bypass,
+)
 from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import predict_global
 
 
@@ -32,6 +35,14 @@ def predict_pv_gen(
                 daylight["earliest_start"], daylight["latest_end"],
             )
 
+        def try_bypass(
+            timestep: int,
+            status_history: list[float],
+            current_value: float,
+        ) -> float | None:
+            _ = status_history, current_value
+            return _try_bypass(timestep)
+
         values = predict_global(
             model=model,
             prediction_horizons=prediction_horizons,
@@ -43,6 +54,7 @@ def predict_pv_gen(
             feature_builder=build_features,
             interpolation=interpolation,
             task="regression",
+            bypass=try_bypass,
         )
     lb, ub = make_band(values, interval_width_frct)
     return {"pv_gen": values, "pv_gen_lb": lb, "pv_gen_ub": ub}
