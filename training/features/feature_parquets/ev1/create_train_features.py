@@ -15,7 +15,7 @@ PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
 MAX_PROFILES = 1_000
 RANDOM_SEED = 42
-TARGET_OFFSETS = (2, 4, 8, 16, 32, 64)
+TARGET_OFFSETS = tuple(range(1, PERIODS_PER_DAY))
 CHUNK_NAME_PATTERN = re.compile(r"ev1_status_features_\d+-\d+\.parquet")
 
 sys.path.insert(0, str(ROOT_DIR))
@@ -88,7 +88,6 @@ def _make_profile_features(
         group_cols=("profile_id",),
         target_fill_value=-1,
     )
-    feature_df["y1"] = feature_df["next_state"]
     grouped_status = feature_df.groupby("profile_id")["status"]
     for offset in TARGET_OFFSETS:
         feature_df[f"y{offset}"] = (

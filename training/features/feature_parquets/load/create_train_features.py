@@ -15,7 +15,7 @@ PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
 TOTAL_PROFILES = 1_000
 RANDOM_SEED = 42
-TARGET_OFFSETS = (2, 4, 8, 16, 32, 64)
+TARGET_OFFSETS = tuple(range(1, PERIODS_PER_DAY))
 CHUNK_NAME_PATTERN = re.compile(r"ch_load_features_\d+-\d+\.parquet")
 
 sys.path.insert(0, str(ROOT_DIR))
@@ -118,7 +118,6 @@ def _make_daily_features(
         group_cols=group_cols,
         target_fill_value=-1.0,
     )
-    feature_df["y1"] = feature_df["next_value"]
     grouped_values = feature_df.groupby(list(group_cols))["base_load"]
     for offset in TARGET_OFFSETS:
         feature_df[f"y{offset}"] = grouped_values.shift(-offset).fillna(-1.0).astype(float)
