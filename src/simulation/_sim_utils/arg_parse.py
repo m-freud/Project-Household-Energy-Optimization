@@ -66,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Simulation start timestep (1..96)",
     )
     parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Override the automatically generated run ID for this simulation batch",
+    )
+    parser.add_argument(
         "--parallel-households",
         action="store_true",
         default=True,
@@ -78,4 +83,3 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of worker processes for --parallel-households (default: Python decides)",
     )
     return parser
-

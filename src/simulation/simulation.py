@@ -700,6 +700,7 @@ def main():
             controller_name=controller_name,
             controller_factory=controller_factories_by_name[controller_name],
             scenario=scenario,
+            run_id=args.run_id or "",
             start_time=args.start_time,
         )
         for controller_name in selected_controller_names
