@@ -9,19 +9,12 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 FEATURE_DIR = ROOT_DIR / "training" / "features" / "feature_parquets" / "load"
 MODEL_PATH = MODEL_DIR / "single_step" / "single_step.json"
 MULTI_STEP_MODEL_PATH = MODEL_DIR / "multi_step" / "multi_step.json"
+HIGH_RES_MULTI_STEP_MODEL_PATH = MODEL_DIR / "multi_step" / "multi_step_(1-95).json"
 PER_HORIZON_MODEL_DIR = MODEL_DIR / "per_horizon_single_step"
 TARGET_COLUMN = "next_value"
 MULTI_STEP_TARGET_COLUMNS = ("y1", "y2", "y4", "y8", "y16", "y32", "y64")
-TARGET_COLUMNS = {
-    "next_value",
-    "y1",
-    "y2",
-    "y4",
-    "y8",
-    "y16",
-    "y32",
-    "y64",
-}
+HIGH_RES_TARGET_COLUMNS = tuple(f"y{offset}" for offset in range(1, 96))
+TARGET_COLUMNS = {"next_value", *HIGH_RES_TARGET_COLUMNS}
 IDENTIFIER_COLUMNS = {"profile_id", "household_id", "date"}
 MODEL_PARAMS = {
     "learning_rate": 0.02,
@@ -176,5 +169,75 @@ def train_per_horizon_models() -> None:
         print(f"Saved model to {model_path}")
 
 
+def train_high_resolution_models() -> None:
+    parquet_paths = sorted(FEATURE_DIR.glob("ch_load_features_*.parquet"))
+    if not parquet_paths:
+        raise FileNotFoundError(f"No load feature Parquets found in {FEATURE_DIR}")
+
+    training_df = pd.concat(
+        [pd.read_parquet(path) for path in parquet_paths],
+        ignore_index=True,
+    )
+    missing_targets = set(HIGH_RES_TARGET_COLUMNS) - set(training_df.columns)
+    if missing_targets:
+        raise ValueError(f"Training data is missing targets: {sorted(missing_targets)}")
+
+    feature_columns = [
+        column
+        for column in training_df.columns
+        if column not in IDENTIFIER_COLUMNS | TARGET_COLUMNS
+    ]
+    if not feature_columns:
+        raise ValueError("No model feature columns found in the load Parquets")
+
+    feature_frames = []
+    target_series = []
+    for target_column in HIGH_RES_TARGET_COLUMNS:
+        valid_rows = training_df[target_column].ne(-1)
+        features = training_df.loc[valid_rows, feature_columns].copy()
+        features["y_offset"] = int(target_column[1:])
+        feature_frames.append(features)
+        target_series.append(training_df.loc[valid_rows, target_column])
+
+    features = pd.concat(feature_frames, ignore_index=True)
+    target = pd.concat(target_series, ignore_index=True)
+    if features.empty:
+        raise ValueError("No valid high-resolution multi-step target rows found")
+    if features.isna().any().any() or target.isna().any():
+        raise ValueError("Load training data contains missing model features or targets")
+
+    model = XGBRegressor(**MODEL_PARAMS)
+    model.fit(features, target)
+    HIGH_RES_MULTI_STEP_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    model.save_model(HIGH_RES_MULTI_STEP_MODEL_PATH)
+    print(
+        f"Trained high-resolution multi-step load model with {len(features)} rows "
+        f"and {len(features.columns)} features"
+    )
+    print(f"Saved model to {HIGH_RES_MULTI_STEP_MODEL_PATH}")
+
+    PER_HORIZON_MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    for target_column in HIGH_RES_TARGET_COLUMNS:
+        valid_rows = training_df[target_column].ne(-1)
+        horizon_df = training_df.loc[valid_rows]
+        if horizon_df.empty:
+            raise ValueError(f"No valid training rows found for '{target_column}'")
+        if horizon_df[feature_columns + [target_column]].isna().any().any():
+            raise ValueError(
+                f"Load training data contains missing features or targets for "
+                f"'{target_column}'"
+            )
+
+        model = XGBRegressor(**MODEL_PARAMS)
+        model.fit(horizon_df[feature_columns], horizon_df[target_column])
+        model_path = PER_HORIZON_MODEL_DIR / f"single_{target_column}_high_res.json"
+        model.save_model(model_path)
+        print(
+            f"Trained high-resolution {target_column} load model with "
+            f"{len(horizon_df)} rows and {len(feature_columns)} features"
+        )
+        print(f"Saved model to {model_path}")
+
+
 if __name__ == "__main__":
-    train_per_horizon_models()
+    train_high_resolution_models()

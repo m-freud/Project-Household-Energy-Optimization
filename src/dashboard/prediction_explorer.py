@@ -21,7 +21,9 @@ from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation._sim_utils.controller_factories import (
     build_multi_model_predictor,
+    build_multi_model_high_res_predictor,
     build_multi_step_predictor,
+    build_multi_step_high_res_predictor,
     build_single_step_predictor,
 )
 from src.simulation.run_context import RunContext
@@ -50,6 +52,8 @@ PREDICTOR_OPTIONS = {
     "multi_step_recursive": "multi_step (recursive interpolation)",
     "multi_model": "multi_model (linear interpolation)",
     "multi_model_recursive": "multi_model (recursive interpolation)",
+    "multi_step_high_res": "multi_step_high_res (1-95 horizons)",
+    "multi_model_high_res": "multi_model_high_res (1-95 horizons)",
 }
 
 PROFILE_OPTIONS = [
@@ -147,6 +151,8 @@ def _load_trained_mpc_predictor(predictor_name: str) -> BasePredictor:
             build_multi_model_predictor,
             interpolation="recursive",
         ),
+        "multi_step_high_res": build_multi_step_high_res_predictor,
+        "multi_model_high_res": build_multi_model_high_res_predictor,
     }
     try:
         build_predictor = builders[predictor_name]
@@ -171,6 +177,8 @@ def _build_predictor(
         "multi_step_recursive",
         "multi_model",
         "multi_model_recursive",
+        "multi_step_high_res",
+        "multi_model_high_res",
     }:
         return _load_trained_mpc_predictor(predictor_name)
     if predictor_name == "oracle":
@@ -265,6 +273,8 @@ def _build_default_policy_name(
         "multi_step_recursive",
         "multi_model",
         "multi_model_recursive",
+        "multi_step_high_res",
+        "multi_model_high_res",
     }:
         return f"mpc_{predictor_name}_{timestamp}"
     return f"mpc_oracle_{timestamp}"

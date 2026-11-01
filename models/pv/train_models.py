@@ -22,4 +22,5 @@ if __name__ == "__main__":
         max_depth=3,
         n_estimators=100,
         dataset_name="PV",
+        high_resolution=True,
     )

@@ -132,6 +132,29 @@ def _load_composite_model_bank(
     return model_bank
 
 
+def _load_high_res_composite_model_bank(
+    target: str,
+    model_class: type[TXGBModel],
+    model_directories_by_target: dict[str, Path],
+) -> dict[int, TXGBModel]:
+    model_dir = model_directories_by_target[target] / "per_horizon_single_step"
+    model_paths = sorted(model_dir.glob("single_y*_high_res.json"))
+    model_bank: dict[int, TXGBModel] = {}
+    for model_path in model_paths:
+        match = re.fullmatch(r"single_y(\d+)_high_res\.json", model_path.name)
+        if match is not None:
+            model_bank[int(match.group(1))] = _load_xgb_model(model_path, model_class)
+
+    expected_horizons = set(range(1, 96))
+    missing_horizons = expected_horizons - model_bank.keys()
+    if missing_horizons:
+        raise FileNotFoundError(
+            f"Missing high-resolution per-horizon models for '{target}' in "
+            f"'{model_dir}': {sorted(missing_horizons)}"
+        )
+    return model_bank
+
+
 def build_single_step_predictor(
     model_directories_by_target: dict[str, Path],
 ) -> RecursiveMLPredictor:
@@ -181,6 +204,38 @@ def build_multi_step_predictor(
     )
 
 
+def build_multi_step_high_res_predictor(
+    model_directories_by_target: dict[str, Path],
+) -> GlobalModelMLPredictor:
+    return GlobalModelMLPredictor(
+        base_load_model=_load_xgb_model(
+            model_directories_by_target["base_load"]
+            / "multi_step"
+            / "multi_step_(1-95).json",
+            XGBRegressor,
+        ),
+        pv_gen_model=_load_xgb_model(
+            model_directories_by_target["pv_gen"]
+            / "multi_step"
+            / "multi_step_(1-95).json",
+            XGBRegressor,
+        ),
+        ev1_model=_load_xgb_model(
+            model_directories_by_target["ev1_status"]
+            / "multi_step"
+            / "multi_step_(1-95).json",
+            XGBClassifier,
+        ),
+        ev2_model=_load_xgb_model(
+            model_directories_by_target["ev2_status"]
+            / "multi_step"
+            / "multi_step_(1-95).json",
+            XGBClassifier,
+        ),
+        prediction_horizons=tuple(range(1, 96)),
+    )
+
+
 def build_multi_model_predictor(
     model_directories_by_target: dict[str, Path],
     interpolation: Literal["linear", "recursive"] = "linear",
@@ -211,6 +266,33 @@ def build_multi_model_predictor(
     )
 
 
+def build_multi_model_high_res_predictor(
+    model_directories_by_target: dict[str, Path],
+) -> CompositeMLPredictor:
+    return CompositeMLPredictor(
+        base_load_model_bank=_load_high_res_composite_model_bank(
+            "base_load",
+            XGBRegressor,
+            model_directories_by_target,
+        ),
+        pv_gen_model_bank=_load_high_res_composite_model_bank(
+            "pv_gen",
+            XGBRegressor,
+            model_directories_by_target,
+        ),
+        ev1_model_bank=_load_high_res_composite_model_bank(
+            "ev1_status",
+            XGBClassifier,
+            model_directories_by_target,
+        ),
+        ev2_model_bank=_load_high_res_composite_model_bank(
+            "ev2_status",
+            XGBClassifier,
+            model_directories_by_target,
+        ),
+    )
+
+
 def build_controller_factories(
     requested_names: list[str] | None = None,
 ) -> dict[str, Callable[[Household, Scenario], BaseController]]:
@@ -227,8 +309,15 @@ def build_controller_factories(
         "mpc_multi_step_recursive",
         "mpc_multi_model",
         "mpc_multi_model_recursive",
+        "mpc_multi_step_high_res",
+        "mpc_multi_model_high_res",
     }
-    selected_names = available_names if requested_names is None else set(requested_names)
+    selected_names = (
+        available_names
+        - {"mpc_multi_step_high_res", "mpc_multi_model_high_res"}
+        if requested_names is None
+        else set(requested_names)
+    )
     unknown_names = selected_names - available_names
     if unknown_names:
         raise ValueError(f"Unknown controllers: {sorted(unknown_names)}")
@@ -268,6 +357,8 @@ def build_controller_factories(
             "mpc_multi_step_recursive",
             "mpc_multi_model",
             "mpc_multi_model_recursive",
+            "mpc_multi_step_high_res",
+            "mpc_multi_model_high_res",
         }
     ):
         return factories
@@ -290,6 +381,8 @@ def build_controller_factories(
             build_multi_model_predictor,
             interpolation="recursive",
         ),
+        "mpc_multi_step_high_res": build_multi_step_high_res_predictor,
+        "mpc_multi_model_high_res": build_multi_model_high_res_predictor,
     }
     for name, build_predictor in predictor_builders.items():
         if name in selected_names:

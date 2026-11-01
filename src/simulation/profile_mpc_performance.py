@@ -26,6 +26,8 @@ CONTROLLERS = (
     "mpc_multi_step_recursive",
     "mpc_multi_model",
     "mpc_multi_model_recursive",
+    "mpc_multi_step_high_res",
+    "mpc_multi_model_high_res",
 )
 PREDICTOR_METHODS = {
     "predict_ev_status": "ev_status",

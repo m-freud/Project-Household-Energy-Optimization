@@ -45,6 +45,33 @@ def test_multistep_predictor_builders_configure_load_and_pv_interpolation(
     assert linear_predictor.pv_gen_interpolation == "linear"
     assert recursive_predictor.base_load_interpolation == "recursive"
     assert recursive_predictor.pv_gen_interpolation == "recursive"
+    if builder is controller_factories.build_multi_step_predictor:
+        assert linear_predictor.prediction_horizons == [1, 2, 4, 8, 16, 32, 64]
+        assert recursive_predictor.prediction_horizons == [1, 2, 4, 8, 16, 32, 64]
+
+
+def test_high_resolution_multi_step_builder_uses_isolated_model_and_horizons(
+    monkeypatch,
+):
+    model_directories = {
+        target: Path(target)
+        for target in ("base_load", "pv_gen", "ev1_status", "ev2_status")
+    }
+    loaded_paths = []
+    stub_model = StubModel()
+
+    def load_model(path, _model_class):
+        loaded_paths.append(path)
+        return stub_model
+
+    monkeypatch.setattr(controller_factories, "_load_xgb_model", load_model)
+
+    predictor = controller_factories.build_multi_step_high_res_predictor(
+        model_directories
+    )
+
+    assert predictor.prediction_horizons == list(range(1, 96))
+    assert all(path.name == "multi_step_(1-95).json" for path in loaded_paths)
 
 
 def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch):
@@ -58,6 +85,8 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
         "build_single_step_predictor",
         "build_multi_step_predictor",
         "build_multi_model_predictor",
+        "build_multi_step_high_res_predictor",
+        "build_multi_model_high_res_predictor",
     ):
         monkeypatch.setattr(
             controller_factories,
@@ -71,6 +100,8 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
         "mpc_multi_step_recursive",
         "mpc_multi_model",
         "mpc_multi_model_recursive",
+        "mpc_multi_step_high_res",
+        "mpc_multi_model_high_res",
     ]
 
     factories = controller_factories.build_controller_factories(requested_names)
@@ -78,3 +109,27 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
     assert set(factories) == set(requested_names)
     with pytest.raises(ValueError, match="mpc_composite_horizons"):
         controller_factories.build_controller_factories(["mpc_composite_horizons"])
+
+
+def test_high_resolution_controllers_are_opt_in_until_models_are_trained(monkeypatch):
+    def build_stub_predictor(*args, **kwargs):
+        _ = (args, kwargs)
+        return object()
+
+    for builder_name in (
+        "build_single_step_predictor",
+        "build_multi_step_predictor",
+        "build_multi_model_predictor",
+        "build_multi_step_high_res_predictor",
+        "build_multi_model_high_res_predictor",
+    ):
+        monkeypatch.setattr(
+            controller_factories,
+            builder_name,
+            build_stub_predictor,
+        )
+
+    factories = controller_factories.build_controller_factories()
+
+    assert "mpc_multi_step_high_res" not in factories
+    assert "mpc_multi_model_high_res" not in factories

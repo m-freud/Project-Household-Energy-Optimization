@@ -29,6 +29,7 @@ def train_dataset_models(
     n_estimators: int,
     dataset_name: str,
     model_type: Literal["regression", "classification"] = "regression",
+    high_resolution: bool = False,
 ) -> None:
     if model_type not in {"regression", "classification"}:
         raise ValueError(f"Unsupported model type: {model_type}")
@@ -54,6 +55,15 @@ def train_dataset_models(
     )
     if not target_columns or "y1" not in target_columns:
         raise ValueError("Training data must contain at least the y1 target")
+    if high_resolution:
+        expected_target_columns = [f"y{offset}" for offset in range(1, 96)]
+        if target_columns != expected_target_columns:
+            missing_targets = sorted(set(expected_target_columns) - set(target_columns))
+            unexpected_targets = sorted(set(target_columns) - set(expected_target_columns))
+            raise ValueError(
+                "High-resolution training data must contain targets y1 through y95; "
+                f"missing={missing_targets}, unexpected={unexpected_targets}"
+            )
 
     numeric_columns = training_df.select_dtypes(include="number").columns
     feature_columns = [
@@ -81,15 +91,16 @@ def train_dataset_models(
             eval_metric="mlogloss",
         )
 
-    single_rows = training_df[target_column].ne(-1)
-    _fit_model(
-        training_df.loc[single_rows, feature_columns],
-        training_df.loc[single_rows, target_column],
-        model_dir / "single_step" / "single_step.json",
-        params,
-        f"{dataset_name} single-step",
-        model_type,
-    )
+    if not high_resolution:
+        single_rows = training_df[target_column].ne(-1)
+        _fit_model(
+            training_df.loc[single_rows, feature_columns],
+            training_df.loc[single_rows, target_column],
+            model_dir / "single_step" / "single_step.json",
+            params,
+            f"{dataset_name} single-step",
+            model_type,
+        )
 
     multi_feature_frames = []
     multi_target_series = []
@@ -103,7 +114,9 @@ def train_dataset_models(
     _fit_model(
         pd.concat(multi_feature_frames, ignore_index=True),
         pd.concat(multi_target_series, ignore_index=True),
-        model_dir / "multi_step" / "multi_step.json",
+        model_dir / "multi_step" / (
+            "multi_step_(1-95).json" if high_resolution else "multi_step.json"
+        ),
         params,
         f"{dataset_name} multi-step",
         model_type,
@@ -115,7 +128,11 @@ def train_dataset_models(
         _fit_model(
             training_df.loc[valid_rows, feature_columns],
             training_df.loc[valid_rows, target_name],
-            horizon_dir / f"single_{target_name}.json",
+            horizon_dir / (
+                f"single_{target_name}_high_res.json"
+                if high_resolution
+                else f"single_{target_name}.json"
+            ),
             params,
             f"{dataset_name} {target_name}",
             model_type,
