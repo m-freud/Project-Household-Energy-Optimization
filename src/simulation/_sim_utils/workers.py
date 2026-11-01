@@ -61,7 +61,9 @@
 #             if controller.name in {
 #                 "mpc_single_step",
 #                 "mpc_multi_step",
-#                 "mpc_composite_horizons",
+#                 "mpc_multi_step_recursive",
+#                 "mpc_multi_model",
+#                 "mpc_multi_model_recursive",
 #             } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps):
 #                 print(
 #                     f"{controller.name}: household {player_id}, timestep {t}/{sim.num_timesteps}",

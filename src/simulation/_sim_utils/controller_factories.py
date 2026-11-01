@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
+from typing import Literal
 from src.simulation.controllers.base_controller import BaseController
 from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
 from src.simulation.controllers.mpc.mpc_controller import MPCController
@@ -156,6 +157,7 @@ def build_single_step_predictor(
 
 def build_multi_step_predictor(
     model_directories_by_target: dict[str, Path],
+    interpolation: Literal["linear", "recursive"] = "linear",
 ) -> GlobalModelMLPredictor:
     return GlobalModelMLPredictor(
         base_load_model=_load_xgb_model(
@@ -174,11 +176,14 @@ def build_multi_step_predictor(
             model_directories_by_target["ev2_status"] / "multi_step" / "multi_step.json",
             XGBClassifier,
         ),
+        base_load_interpolation=interpolation,
+        pv_gen_interpolation=interpolation,
     )
 
 
-def build_composite_horizons_predictor(
+def build_multi_model_predictor(
     model_directories_by_target: dict[str, Path],
+    interpolation: Literal["linear", "recursive"] = "linear",
 ) -> CompositeMLPredictor:
     return CompositeMLPredictor(
         base_load_model_bank=_load_composite_model_bank(
@@ -201,6 +206,8 @@ def build_composite_horizons_predictor(
             XGBClassifier,
             model_directories_by_target,
         ),
+        base_load_interpolation=interpolation,
+        pv_gen_interpolation=interpolation,
     )
 
 
@@ -217,7 +224,9 @@ def build_controller_factories(
         "mpc_history_avg",
         "mpc_single_step",
         "mpc_multi_step",
-        "mpc_composite_horizons",
+        "mpc_multi_step_recursive",
+        "mpc_multi_model",
+        "mpc_multi_model_recursive",
     }
     selected_names = available_names if requested_names is None else set(requested_names)
     unknown_names = selected_names - available_names
@@ -251,7 +260,16 @@ def build_controller_factories(
             predictor=HistoryAveragePredictor(conf_interval_frct=0.0),
         )
 
-    if not any(name in selected_names for name in {"mpc_single_step", "mpc_multi_step", "mpc_composite_horizons"}):
+    if not any(
+        name in selected_names
+        for name in {
+            "mpc_single_step",
+            "mpc_multi_step",
+            "mpc_multi_step_recursive",
+            "mpc_multi_model",
+            "mpc_multi_model_recursive",
+        }
+    ):
         return factories
 
     model_directories_by_target = {
@@ -263,7 +281,15 @@ def build_controller_factories(
     predictor_builders = {
         "mpc_single_step": build_single_step_predictor,
         "mpc_multi_step": build_multi_step_predictor,
-        "mpc_composite_horizons": build_composite_horizons_predictor,
+        "mpc_multi_step_recursive": partial(
+            build_multi_step_predictor,
+            interpolation="recursive",
+        ),
+        "mpc_multi_model": build_multi_model_predictor,
+        "mpc_multi_model_recursive": partial(
+            build_multi_model_predictor,
+            interpolation="recursive",
+        ),
     }
     for name, build_predictor in predictor_builders.items():
         if name in selected_names:

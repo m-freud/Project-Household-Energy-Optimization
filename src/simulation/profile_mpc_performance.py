@@ -23,7 +23,9 @@ from src.sqlite_connection import create_source_connection
 CONTROLLERS = (
     "mpc_single_step",
     "mpc_multi_step",
-    "mpc_composite_horizons",
+    "mpc_multi_step_recursive",
+    "mpc_multi_model",
+    "mpc_multi_model_recursive",
 )
 PREDICTOR_METHODS = {
     "predict_ev_status": "ev_status",
