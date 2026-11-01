@@ -6,7 +6,7 @@ import math
 import pickle
 import re
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,9 +15,15 @@ from xgboost import XGBClassifier, XGBRegressor
 
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
+from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
+from src.simulation._sim_utils.controller_factories import (
+    build_composite_horizons_predictor,
+    build_multi_step_predictor,
+    build_single_step_predictor,
+)
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.scenarios.scenario import default_scenario
@@ -39,6 +45,9 @@ PREDICTOR_OPTIONS = {
     "xgb": "xgb (base load + pv gen + ev status)",
     "rf": "random forest (base load + pv gen + ev status)",
     "ridge": "ridge (base load + pv gen + ev status)",
+    "single_step": "single_step (recursive ML)",
+    "multi_step": "multi_step (global model)",
+    "composite": "multi_model (composite horizons)",
 }
 
 PROFILE_OPTIONS = [
@@ -116,6 +125,26 @@ def _load_predictor(family: str) -> RecursiveMLPredictor[Any, Any]:
     )
 
 
+@st.cache_resource(show_spinner=False)
+def _load_trained_mpc_predictor(predictor_name: str) -> BasePredictor:
+    model_directories_by_target = {
+        "base_load": RuntimeConfig.ROOT_DIR / "models" / "load",
+        "pv_gen": RuntimeConfig.ROOT_DIR / "models" / "pv",
+        "ev1_status": RuntimeConfig.ROOT_DIR / "models" / "ev1",
+        "ev2_status": RuntimeConfig.ROOT_DIR / "models" / "ev2",
+    }
+    builders = {
+        "single_step": build_single_step_predictor,
+        "multi_step": build_multi_step_predictor,
+        "composite": build_composite_horizons_predictor,
+    }
+    try:
+        build_predictor = builders[predictor_name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown trained MPC predictor: {predictor_name}") from exc
+    return build_predictor(model_directories_by_target)
+
+
 def _build_predictor(
     predictor_name: str,
     ma3_interval_width: float,
@@ -126,7 +155,11 @@ def _build_predictor(
         )
     if predictor_name in {"xgb", "rf", "ridge"}:
         return _load_predictor(predictor_name)
-    return OraclePredictor()
+    if predictor_name in {"single_step", "multi_step", "composite"}:
+        return _load_trained_mpc_predictor(predictor_name)
+    if predictor_name == "oracle":
+        return OraclePredictor()
+    raise ValueError(f"Unknown predictor: {predictor_name}")
 
 
 @st.cache_data(show_spinner=False)
@@ -210,6 +243,8 @@ def _build_default_policy_name(
         return f"mpc_rf_{timestamp}"
     if predictor_name == "ridge":
         return f"mpc_ridge_{timestamp}"
+    if predictor_name in {"single_step", "multi_step", "composite"}:
+        return f"mpc_{predictor_name}_{timestamp}"
     return f"mpc_oracle_{timestamp}"
 
 
@@ -501,7 +536,7 @@ def render_prediction_explorer(
                 ma3_interval_width=ma3_interval_width,
             )
 
-            for scenario in scenario_catalog:
+            for scenario in scenario_catalog.values():
                 run_context = RunContext(
                     controller_factory=controller_factory,
                     controller_name=effective_policy_name,
