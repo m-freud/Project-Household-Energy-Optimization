@@ -188,7 +188,7 @@ def _build_predictor(
 
 @st.cache_data(show_spinner=False)
 def _compute_snapshot(
-    player_id: int,
+    household_id: int,
     predictor_name: str,
     timestep: int,
     horizon: int,
@@ -205,7 +205,7 @@ def _compute_snapshot(
     try:
         sim = Simulation(connection, ensure_results_table=False)
         run_context = RunContext(scenario=scenario, start_time=1)
-        household = sim.create_household(player_id, run_context)
+        household = sim.create_household(household_id, run_context)
 
         current_timestep = max(1, min(96, int(timestep)))
         for period in range(1, current_timestep + 1):
@@ -399,7 +399,7 @@ def render_prediction_explorer(
     snapshots: dict[str, tuple[dict[str, list[float]], dict[str, list[float]], int]] = {}
     for predictor_name in selected_predictors:
         snapshots[predictor_name] = _compute_snapshot(
-            player_id=int(selected_household_id),
+            household_id=int(selected_household_id),
             predictor_name=str(predictor_name),
             timestep=timestep,
             horizon=horizon,
@@ -540,7 +540,7 @@ def render_prediction_explorer(
     run_button_label = "Run MPC With This Predictor"
     if st.button(run_button_label, type="primary", width="stretch"):
         total_scenarios = len(scenario_catalog)
-        household_id_list = [int(player_id) for player_id in available_household_ids]
+        household_id_list = [int(household_id) for household_id in available_household_ids]
         total_households = len(household_id_list)
         total_jobs = total_scenarios * total_households
         if total_scenarios <= 0 or total_households <= 0:

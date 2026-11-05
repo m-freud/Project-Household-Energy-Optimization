@@ -4,7 +4,7 @@ from src.sqlite_connection import load_series
 def plot_base_load(
         ax: plt.Axes,
         scenario_name: str,
-        player_id: int,
+        household_id: int,
         policy_colors: dict[str, str]
         ) -> None:
     ax.set_title("Base Load")
@@ -15,7 +15,7 @@ def plot_base_load(
 
     for policy_name in policy_colors.keys():
         color = policy_colors[policy_name]
-        base_load_df = load_series("base_load", player_id, scenario_name, policy_name)
+        base_load_df = load_series("base_load", household_id, scenario_name, policy_name)
 
         if base_load_df.empty:
             continue

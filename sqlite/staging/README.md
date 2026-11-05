@@ -4,7 +4,7 @@ This folder contains the transformed, clean, and normalized SQLite staging datab
 
 | Database | Tables | Format / Details | Dimensions / Volume |
 | :--- | :--- | :--- | :--- |
-| **`CH_loads.db`** | `load` | Wide format (`timestamp_utc`, `period`, `<player_id>` columns) in kW | ~55 MB (Swiss smart meter data across time) |
+| **`CH_loads.db`** | `load` | Wide format (`timestamp_utc`, `period`, `<household_id>` columns) in kW | ~55 MB (Swiss smart meter data across time) |
 | **`DE_pv_gen.db`** | `pv_gen` | Wide format (`timestamp_utc`, `period`, `residential1..6` columns) in kW | ~5 MB (German OPSD residential PV profiles) |
 | **`VISTA_ev1_status.db`** | `ev1_status`, `ev1_distances` | Wide format (622 commute pairs with `period` 1..96 and person columns) | ~0.2 MB (0 = home, 1 = driving, 2 = work) |
 | **`VISTA_ev2_status.db`** | `ev2_status`, `ev2_distances` | Long format (`persid`, `period`, `status`) and (`persid`, `trip_no`, `distance`) | ~37 MB (7,789 persons, 747k rows) |

@@ -54,7 +54,7 @@ def _initialize_household_worker(run_context: RunContext) -> None:
 
 
 def _run_household_worker(
-    player_id: int,
+    household_id: int,
     run_context: RunContext | None = None,
 ) -> dict:
     # Worker processes create isolated DB connections; only the parent writes results.
@@ -78,10 +78,10 @@ def _run_household_worker(
         if start_time < 1 or start_time > sim.num_timesteps:
             raise ValueError(f"start_time must be between 1 and {sim.num_timesteps}")
 
-        household = sim.create_household(player_id, run_context)
+        household = sim.create_household(household_id, run_context)
         controller = sim.create_controller(household, run_context)
         print(
-            f"running household {player_id} in scenario {scenario.name} "
+            f"running household {household_id} in scenario {scenario.name} "
             f"with controller {controller.name}, run_id={run_context.run_id}",
             flush=True,
         )
@@ -95,7 +95,7 @@ def _run_household_worker(
                 "mpc_multi_model_recursive",
             } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps) and verbose_logging:
                 print(
-                    f"{controller.name}: household {player_id}, timestep {t}/{sim.num_timesteps}",
+                    f"{controller.name}: household {household_id}, timestep {t}/{sim.num_timesteps}",
                     flush=True,
                 )
             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
@@ -104,7 +104,7 @@ def _run_household_worker(
             "run_id": run_context.run_id,
             "policy": controller.name,
             "scenario": scenario.name,
-            "player_id": household.player_id,
+            "household_id": household.household_id,
             "has_pv": household.has_pv,
             "has_bess": household.has_bess,
             "total_cost": household.total_cost,
@@ -177,7 +177,7 @@ class Simulation:
                 run_id TEXT,
                 policy TEXT,
                 scenario TEXT,
-                player_id INTEGER,
+                household_id INTEGER,
                 has_pv BOOLEAN,
                 has_bess BOOLEAN,
                 total_cost REAL,
@@ -198,19 +198,19 @@ class Simulation:
         self.results_conn.commit()
 
 
-    def create_household(self, player_id:int, run_context: RunContext, bess_for_all: bool=False):
+    def create_household(self, household_id:int, run_context: RunContext, bess_for_all: bool=False):
         scenario = run_context.scenario
         start_time = run_context.start_time
-        household = Household(player_id=player_id, start_time=start_time, scenario=scenario)
+        household = Household(household_id=household_id, start_time=start_time, scenario=scenario)
 
         household.base_cost = self.sqlite_cursor.execute(
-            "SELECT fixed_costs FROM fixed_costs WHERE player_id = ?",
-            (player_id,)
+            "SELECT fixed_costs FROM fixed_costs WHERE household_id = ?",
+            (household_id,)
         ).fetchone()[0]
 
         has_pv, has_bess = self.sqlite_cursor.execute(
-            "SELECT has_pv, has_bess FROM player_pv_bess WHERE player_id = ?",
-            (player_id,)
+            "SELECT has_pv, has_bess FROM player_pv_bess WHERE household_id = ?",
+            (household_id,)
         ).fetchone()
 
         # plug in PV
@@ -222,8 +222,8 @@ class Simulation:
             bess_data = self.sqlite_cursor.execute(
                 '''SELECT capacity, charge, discharge, efficiency, initial_soc
                 FROM bess
-                WHERE player_id = ?''',
-                (player_id,)
+                WHERE household_id = ?''',
+                (household_id,)
             ).fetchone()
 
             capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
@@ -247,11 +247,11 @@ class Simulation:
                 selected_columns.append("price_at_public_charge_station_eur")
 
             row = self.sqlite_cursor.execute(
-                f"SELECT {', '.join(selected_columns)} FROM {table_name} WHERE player_id = ?",
-                (player_id,),
+                f"SELECT {', '.join(selected_columns)} FROM {table_name} WHERE household_id = ?",
+                (household_id,),
             ).fetchone()
             if row is None:
-                raise ValueError(f"No row found for player_id {player_id} in {table_name}")
+                raise ValueError(f"No row found for household_id {household_id} in {table_name}")
 
             row_map = dict(zip(selected_columns, row))
             capacity = row_map["capacity"]
@@ -276,8 +276,8 @@ class Simulation:
 
         max_home_charge = None
         max_home_charge_row = self.sqlite_cursor.execute(
-            "SELECT max_home_charge FROM max_home_charge WHERE player_id = ?",
-            (player_id,),
+            "SELECT max_home_charge FROM max_home_charge WHERE household_id = ?",
+            (household_id,),
         ).fetchone()
         if max_home_charge_row is not None and max_home_charge_row[0] is not None:
             max_home_charge = float(max_home_charge_row[0])
@@ -337,7 +337,7 @@ class Simulation:
         # query full day profiles. the simulation now knows the future
         self.household_profiles = fetch_multiple_timeseries(
             self.sqlite_cursor,
-            player_id,
+            household_id,
             measurements=self.env_inputs
         )
 
@@ -430,7 +430,7 @@ class Simulation:
         household.sell_price = profiles["sell_price"][profile_time_index]
 
 
-    def run_household(self, player_id, run_context: RunContext, write_results_to_sqlite: bool = True) -> Household:
+    def run_household(self, household_id, run_context: RunContext, write_results_to_sqlite: bool = True) -> Household:
         scenario = run_context.scenario
         current_run_id = run_context.run_id
 
@@ -438,10 +438,10 @@ class Simulation:
         if start_time < 1 or start_time > self.num_timesteps:
             raise ValueError(f"start_time must be between 1 and {self.num_timesteps}")
 
-        household = self.create_household(player_id, run_context)
+        household = self.create_household(household_id, run_context)
         controller = self.create_controller(household, run_context)
 
-        print(f"running household {player_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
+        print(f"running household {household_id} in scenario {scenario.name} with controller {controller.name}, run_id = {current_run_id}")
 
         for t in range(start_time, self.num_timesteps + 1):
             self.step(household, controller, scenario, duration_hours=self.duration_hours, time=t)
@@ -479,9 +479,9 @@ class Simulation:
             selected_households = list(range(1, self.num_households + 1))
         else:
             selected_households = [
-                player_id
-                for player_id in household_ids
-                if 1 <= player_id <= self.num_households
+                household_id
+                for household_id in household_ids
+                if 1 <= household_id <= self.num_households
             ]
 
         if max_households is not None and max_households >= 0:
@@ -503,8 +503,8 @@ class Simulation:
             "total_consumptions": [],
         }
 
-        for player_id in selected_households:
-            household = self.run_household(player_id, run_context, write_results_to_sqlite=write_results_to_sqlite)
+        for household_id in selected_households:
+            household = self.run_household(household_id, run_context, write_results_to_sqlite=write_results_to_sqlite)
             results["net_costs"].append(household.net_cost)
             results["net_loads"].append(household.net_load)
             results["total_costs"].append(float(household.total_cost))
@@ -537,12 +537,12 @@ class Simulation:
             initargs=(run_context,),
         ) as executor:
             future_to_household = {
-                executor.submit(_run_household_worker, player_id): player_id
-                for player_id in selected_households
+                executor.submit(_run_household_worker, household_id): household_id
+                for household_id in selected_households
             }
 
             for future in as_completed(future_to_household):
-                player_id = future_to_household[future]
+                household_id = future_to_household[future]
                 payload = future.result()
                 if write_results_to_sqlite:
                     load_history_payload_to_sqlite(self.results_conn, payload)
@@ -555,7 +555,7 @@ class Simulation:
                     on_household_complete(run_context)
                 else:
                     print(
-                        f"completed household {player_id} in scenario {payload['scenario']} "
+                        f"completed household {household_id} in scenario {payload['scenario']} "
                         f"with controller {payload['policy']}, run_id={payload['run_id']}",
                         flush=True,
                     )
@@ -583,9 +583,9 @@ class Simulation:
             selected_households = list(range(1, self.num_households + 1))
         else:
             selected_households = [
-                player_id
-                for player_id in household_ids
-                if 1 <= player_id <= self.num_households
+                household_id
+                for household_id in household_ids
+                if 1 <= household_id <= self.num_households
             ]
         if max_households is not None and max_households >= 0:
             selected_households = selected_households[:max_households]

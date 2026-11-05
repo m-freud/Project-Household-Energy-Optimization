@@ -19,10 +19,10 @@ from training.features._shared import _add_trig_time_features, _add_lag_features
 def _fetch_ev_status_profiles(household_ids: list[int])->dict:
     data = {}
     for household_id in household_ids:
-        ev1_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_home", player_id=household_id)
-        ev1_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_charging_station", player_id=household_id)
-        ev2_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_home", player_id=household_id)
-        ev2_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_charging_station", player_id=household_id)
+        ev1_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_home", household_id=household_id)
+        ev1_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev1_at_charging_station", household_id=household_id)
+        ev2_at_home = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_home", household_id=household_id)
+        ev2_at_station = fetch_timeseries(source_sqlite_cursor, table_name="ev2_at_charging_station", household_id=household_id)
 
         # keep raw for this step
         data[household_id] = {

@@ -51,8 +51,8 @@ def build_base_load_metadata(conn):
     df = read_wide(conn, "base_load")
     rows = []
 
-    for player_id in player_columns(df):
-        values = df[player_id].dropna().astype(float)
+    for household_id in player_columns(df):
+        values = df[household_id].dropna().astype(float)
         if len(values) != PERIODS_PER_DAY:
             continue
 
@@ -61,14 +61,14 @@ def build_base_load_metadata(conn):
 
         rows.append(
             {
-                "player_id": int(player_id),
+                "household_id": int(household_id),
                 "total_energy": values.sum() * PERIOD_HOURS,
                 "max_load": max_load,
                 "std_load": values.std(),
                 "load_factor": mean_load / max_load if max_load > 0 else 0.0,
                 "peak_period": int(df.loc[values.idxmax(), "period"]),
-                "morning_mean": df.loc[df["period"].isin(MORNING_PERIODS), player_id].mean(),
-                "evening_mean": df.loc[df["period"].isin(EVENING_PERIODS), player_id].mean(),
+                "morning_mean": df.loc[df["period"].isin(MORNING_PERIODS), household_id].mean(),
+                "evening_mean": df.loc[df["period"].isin(EVENING_PERIODS), household_id].mean(),
                 "ramp_std": values.diff().dropna().std(),
             }
         )
@@ -84,8 +84,8 @@ def build_pv_gen_metadata(conn):
     df = read_wide(conn, "pv_gen")
     rows = []
 
-    for player_id in player_columns(df):
-        values = df[player_id].dropna().astype(float)
+    for household_id in player_columns(df):
+        values = df[household_id].dropna().astype(float)
         if len(values) != PERIODS_PER_DAY:
             continue
 
@@ -101,7 +101,7 @@ def build_pv_gen_metadata(conn):
 
         rows.append(
             {
-                "player_id": int(player_id),
+                "household_id": int(household_id),
                 "total_energy": values.sum() * PERIOD_HOURS,
                 "max_generation": max_generation,
                 "std_generation": values.std(),
@@ -134,13 +134,13 @@ def driving_blocks(periods):
 
 def build_ev_metadata(conn, ev_num, detailed):
     status_df = read_wide(conn, f"ev{ev_num}_status")
-    ev_df = pd.read_sql(f"SELECT player_id, distance_km FROM ev{ev_num}", conn)
-    distances = dict(zip(ev_df["player_id"].astype(int), ev_df["distance_km"]))
+    ev_df = pd.read_sql(f"SELECT household_id, distance_km FROM ev{ev_num}", conn)
+    distances = dict(zip(ev_df["household_id"].astype(int), ev_df["distance_km"]))
 
     rows = []
 
-    for player_id in player_columns(status_df):
-        status = status_df[player_id].astype(int)
+    for household_id in player_columns(status_df):
+        status = status_df[household_id].astype(int)
         if len(status) != PERIODS_PER_DAY:
             continue
 
@@ -148,7 +148,7 @@ def build_ev_metadata(conn, ev_num, detailed):
         trip_count = len(blocks)
 
         # The original data only has one total distance per player
-        total_distance = distances.get(int(player_id))
+        total_distance = distances.get(int(household_id))
         trip_distance = (
             total_distance / trip_count if trip_count and total_distance is not None else None
         )
@@ -156,7 +156,7 @@ def build_ev_metadata(conn, ev_num, detailed):
         away_periods = int((status != 0).sum())
 
         row = {
-            "player_id": int(player_id),
+            "household_id": int(household_id),
             "trip_count": trip_count,
             "total_distance": total_distance,
             "mean_trip_distance": trip_distance,
@@ -213,8 +213,8 @@ def save(conn, df, table, unique_col, index_cols):
 
 if __name__ == "__main__":
     with sqlite3.connect(RuntimeConfig.INIT_SOURCE_SQLITE_PATH) as conn:
-        save(conn, build_base_load_metadata(conn), "base_load_metadata", "player_id", ["max_load", "total_energy"])
-        save(conn, build_pv_gen_metadata(conn), "pv_gen_metadata", "player_id", ["max_generation", "total_energy"])
+        save(conn, build_base_load_metadata(conn), "base_load_metadata", "household_id", ["max_load", "total_energy"])
+        save(conn, build_pv_gen_metadata(conn), "pv_gen_metadata", "household_id", ["max_generation", "total_energy"])
         # EV1 is the commute profile (detailed), EV2 the general mobility profile
-        save(conn, build_ev_metadata(conn, 1, detailed=True), "ev1_metadata", "player_id", ["total_distance"])
-        save(conn, build_ev_metadata(conn, 2, detailed=False), "ev2_metadata", "player_id", ["total_distance", "trip_count"])
+        save(conn, build_ev_metadata(conn, 1, detailed=True), "ev1_metadata", "household_id", ["total_distance"])
+        save(conn, build_ev_metadata(conn, 2, detailed=False), "ev2_metadata", "household_id", ["total_distance", "trip_count"])

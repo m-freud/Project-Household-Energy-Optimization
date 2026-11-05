@@ -14,7 +14,7 @@ Output:
         table: base_load_metadata
 
 Columns:
-    player_id
+    household_id
     date
     total_energy
     max_load
@@ -65,14 +65,14 @@ with sqlite3.connect(load_db_path) as conn:
 load_df["timestamp_utc"] = pd.to_datetime(load_df["timestamp_utc"])
 load_df["date"] = load_df["timestamp_utc"].dt.date
 
-player_ids = [
+household_ids = [
     col
     for col in load_df.columns
     if col not in {"timestamp_utc", "period", "date"}
 ]
 
 print(f"Loaded {len(load_df)} rows")
-print(f"Found {len(player_ids)} players")
+print(f"Found {len(household_ids)} players")
 
 
 # ---------------------------------------------------------------------------
@@ -86,9 +86,9 @@ for date, day_df in load_df.groupby("date"):
     # Ensure correct temporal order
     day_df = day_df.sort_values("period")
 
-    for player_id in player_ids:
+    for household_id in household_ids:
 
-        values = day_df[player_id].dropna()
+        values = day_df[household_id].dropna()
 
         # Skip incomplete player-days
         if len(values) != 96:
@@ -117,12 +117,12 @@ for date, day_df in load_df.groupby("date"):
         # Time-of-day means
         morning_mean = day_df.loc[
             day_df["period"].isin(MORNING_PERIODS),
-            player_id,
+            household_id,
         ].mean()
 
         evening_mean = day_df.loc[
             day_df["period"].isin(EVENING_PERIODS),
-            player_id,
+            household_id,
         ].mean()
 
         # Volatility of period-to-period changes
@@ -130,7 +130,7 @@ for date, day_df in load_df.groupby("date"):
 
         metadata_rows.append(
             {
-                "player_id": str(player_id),
+                "household_id": str(household_id),
                 "date": str(date),
                 "total_energy": total_energy,
                 "max_load": max_load,
@@ -162,7 +162,7 @@ with sqlite3.connect(load_db_path) as conn:
 
     conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_base_load_metadata_player_date
-        ON base_load_metadata (player_id, date)
+        ON base_load_metadata (household_id, date)
     """)
 
     conn.execute("""

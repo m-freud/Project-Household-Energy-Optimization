@@ -10,7 +10,7 @@ Output:
         table: pv_gen_metadata
 
 Columns:
-    player_id
+    household_id
     date
     total_energy
     max_generation
@@ -60,14 +60,14 @@ with sqlite3.connect(pv_db_path) as conn:
 pv_df["timestamp_utc"] = pd.to_datetime(pv_df["timestamp_utc"])
 pv_df["date"] = pv_df["timestamp_utc"].dt.date
 
-player_ids = [
+household_ids = [
     col
     for col in pv_df.columns
     if col not in {"timestamp_utc", "period", "date"}
 ]
 
 print(f"Loaded {len(pv_df)} rows")
-print(f"Found {len(player_ids)} PV systems")
+print(f"Found {len(household_ids)} PV systems")
 
 
 # ---------------------------------------------------------------------------
@@ -80,9 +80,9 @@ for date, day_df in pv_df.groupby("date"):
 
     day_df = day_df.sort_values("period")
 
-    for player_id in player_ids:
+    for household_id in household_ids:
 
-        values = day_df[player_id].dropna()
+        values = day_df[household_id].dropna()
 
         # Only use complete 96-period days
         if len(values) != 96:
@@ -151,7 +151,7 @@ for date, day_df in pv_df.groupby("date"):
 
         metadata_rows.append(
             {
-                "player_id": str(player_id),
+                "household_id": str(household_id),
                 "date": str(date),
                 "total_energy": total_energy,
                 "max_generation": max_generation,
@@ -186,7 +186,7 @@ with sqlite3.connect(pv_db_path) as conn:
     # Each PV system can only have one entry per date
     conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_gen_metadata_player_date
-        ON pv_gen_metadata (player_id, date)
+        ON pv_gen_metadata (household_id, date)
     """)
 
     # Useful for matching/selecting profiles by peak generation

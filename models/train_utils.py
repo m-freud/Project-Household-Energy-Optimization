@@ -10,7 +10,7 @@ IDENTIFIER_COLUMNS = {
     "profile_id",
     "household_id",
     "date",
-    "player_id",
+    "household_id",
     "ev_key",
     "phase",
 }

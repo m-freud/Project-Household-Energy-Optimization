@@ -29,7 +29,7 @@ Aggregate metrics:
 | mpc_history_avg | 120 | 8.5550028067421 | 7.805227806742101 | 58.71462041112573 | 1.0 | 1.0 | 1.0 |
 | mpc_xgb | 120 | 8.23587881209847 | 7.486103812098469 | 54.90590321507042 | 1.0 | 1.0 | 1.0 |
 | mpc_oracle | 120 | 7.912110176109991 | 7.162335176109991 | 55.226935204408015 | 1.0 | 1.0 | 1.0 |
-Pairwise `total_cost` delta (`mpc_xgb - mpc_history_avg`) on matched `(scenario, player_id)` pairs:
+Pairwise `total_cost` delta (`mpc_xgb - mpc_history_avg`) on matched `(scenario, household_id)` pairs:
 
 - pairs: 120
 - mean_delta: -0.31912399464363167

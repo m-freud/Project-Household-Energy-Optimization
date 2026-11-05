@@ -27,7 +27,7 @@ def _get_target_met_value(result_row, device_name: str):
 
 
 def build_debug_table(
-	player_id: int,
+	household_id: int,
 	scenario_name: str,
 	policy_names: list[str],
 	run_id: str | None = None,
@@ -36,21 +36,21 @@ def build_debug_table(
 
 	for policy_name in policy_names:
 		result_df = load_household_result(
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
 		)
 		net_load_df = load_series(
 			"net_load",
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
 		)
 		net_cost_df = load_series(
 			"net_cost",
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
@@ -109,12 +109,12 @@ def build_debug_table(
 
 
 def render_debug_table(
-	player_id: int,
+	household_id: int,
 	scenario_name: str,
 	policy_names: list[str],
 	run_id: str | None = None,
 ) -> None:
-	debug_df = build_debug_table(player_id, scenario_name, policy_names, run_id)
+	debug_df = build_debug_table(household_id, scenario_name, policy_names, run_id)
 
 	st.subheader("Debug Table")
 	if debug_df.empty:

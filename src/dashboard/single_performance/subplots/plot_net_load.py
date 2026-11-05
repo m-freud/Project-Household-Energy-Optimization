@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 def plot_net_load(
         ax: plt.Axes,
         scenario_name: str,
-        player_id: int,
+        household_id: int,
         policy_colors: dict,
         run_id: str | None = None,
         ) -> None:
@@ -18,7 +18,7 @@ def plot_net_load(
         color = policy_colors[policy_name]
         net_load_df = load_series(
             "net_load",
-            player_id,
+            household_id,
             scenario_name,
             policy_name,
             run_id=run_id,

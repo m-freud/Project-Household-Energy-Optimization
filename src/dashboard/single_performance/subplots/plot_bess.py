@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 def plot_bess(
         ax: plt.Axes,
         scenario_name: str,
-        player_id: int,
+        household_id: int,
     policy_colors: dict[str, str],
     run_id: str | None = None,
     missed_deadline: bool = False,
@@ -16,7 +16,7 @@ def plot_bess(
     ax.set_ylabel("SOC (kWh)")
 
     soc_targets_bess = get_scenario_value(scenario_name, "bess", "soc_targets") or {}
-    bess_capacity = load_attribute("bess", player_id, "capacity")
+    bess_capacity = load_attribute("bess", household_id, "capacity")
     bess_deadline = get_scenario_value(scenario_name, "bess", "deadline")
 
     if soc_targets_bess and bess_capacity is not None:
@@ -41,7 +41,7 @@ def plot_bess(
         color = policy_colors[policy_name]
         bess_soc_df = load_series(
             "bess_soc",
-            player_id,
+            household_id,
             scenario_name,
             policy_name,
             run_id=run_id,

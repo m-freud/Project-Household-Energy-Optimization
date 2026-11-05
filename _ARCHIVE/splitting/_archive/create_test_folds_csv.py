@@ -23,7 +23,7 @@ from src.runtime_config import RuntimeConfig
 
 
 def _format_ids(ids: list[int]) -> str:
-    return ", ".join(str(player_id) for player_id in ids)
+    return ", ".join(str(household_id) for household_id in ids)
 
 
 def _build_train_set(fold_complement: list[int], target: str) -> list[int]:
@@ -37,7 +37,7 @@ def _build_train_set(fold_complement: list[int], target: str) -> list[int]:
 
     if target == "pv_gen":
         # filter out any non-pv households
-        complement = [player_id for player_id in complement if player_id in RuntimeConfig.PLAYERS_WITH_PV]
+        complement = [household_id for household_id in complement if household_id in RuntimeConfig.PLAYERS_WITH_PV]
 
     return sorted(complement)
 

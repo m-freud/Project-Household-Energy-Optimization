@@ -11,7 +11,7 @@ timestamp_utc       | period | <player ids> -->
 period runs 1-96 per day (00:00 -> 1, 23:45 -> 96).
 
 Each player id column holds the "kWh_to_installation" values from the
-corresponding <player_id>.csv file. Period 1 corresponds to 00:00, period 96
+corresponding <household_id>.csv file. Period 1 corresponds to 00:00, period 96
 to 23:45 (15 minute resolution, 96 periods per day).
 
 kWh_to_installation values are converted to kW per period by multiplying by 4
@@ -32,7 +32,7 @@ def kWh_to_kW_per_period(kWh):
     return kWh * 4  # 15 minute resolution, 4 periods per hour
 
 for file in smart_meters_dir.glob("*.csv"):
-    player_id = file.stem
+    household_id = file.stem
 
     df = pd.read_csv(file, sep=";", parse_dates=["timestamp_utc"])
     timestamp = df["timestamp_utc"].dt.tz_localize(None)
@@ -44,7 +44,7 @@ for file in smart_meters_dir.glob("*.csv"):
         {
             "timestamp_utc": timestamp,
             "period": period,
-            player_id: kWh_to_kW_per_period(df["kWh_to_installation"]),
+            household_id: kWh_to_kW_per_period(df["kWh_to_installation"]),
         }
     )
     player_frames.append(player_df)

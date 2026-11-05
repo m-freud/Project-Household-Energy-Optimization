@@ -52,8 +52,8 @@ def build_output_dirs() -> tuple[Path, Path]:
     return input_dir, result_dir
 
 
-def load_input_series(conn: sqlite3.Connection, table_name: str, player_id: int) -> pd.DataFrame:
-    query = f'SELECT period, "{player_id}" AS value FROM "{table_name}" ORDER BY period'
+def load_input_series(conn: sqlite3.Connection, table_name: str, household_id: int) -> pd.DataFrame:
+    query = f'SELECT period, "{household_id}" AS value FROM "{table_name}" ORDER BY period'
     df = pd.read_sql_query(query, conn)
     if df.empty:
         return df
@@ -107,7 +107,7 @@ def load_result_metric(conn: sqlite3.Connection, metric: str) -> float | None:
     query = f"""
         SELECT {metric} AS value
         FROM results
-        WHERE run_id = ? AND player_id = ? AND scenario = ?
+        WHERE run_id = ? AND household_id = ? AND scenario = ?
         ORDER BY rowid DESC
         LIMIT 1
     """

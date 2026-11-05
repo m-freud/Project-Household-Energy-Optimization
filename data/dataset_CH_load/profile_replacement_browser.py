@@ -60,7 +60,7 @@ def line_chart(data: pd.DataFrame, height: int = 400) -> alt.Chart:
 
 orig_df = load_base_load(str(ORIG_DB))
 new_df = load_base_load(str(NEW_DB))
-player_ids = list(range(1, N_PLAYERS + 1))
+household_ids = list(range(1, N_PLAYERS + 1))
 
 st.title("Base load: original vs. new profiles")
 
@@ -76,7 +76,7 @@ def _step(delta: int) -> None:
 left, mid, right = st.columns([1, 6, 1], vertical_alignment="center")
 left.button("◀", on_click=_step, args=(-1,), use_container_width=True)
 right.button("▶", on_click=_step, args=(1,), use_container_width=True)
-mid.select_slider("Player", options=player_ids, key="player")
+mid.select_slider("Player", options=household_ids, key="player")
 
 pid = st.session_state.player
 st.altair_chart(line_chart(to_long(orig_df, new_df, [pid], [pid])), use_container_width=True)
@@ -86,8 +86,8 @@ st.divider()
 # Free overlay
 st.subheader("Overlay")
 c1, c2 = st.columns(2)
-orig_sel = c1.multiselect("Original profiles", player_ids, default=[], key="orig_sel")
-new_sel = c2.multiselect("New profiles", player_ids, default=[], key="new_sel")
+orig_sel = c1.multiselect("Original profiles", household_ids, default=[], key="orig_sel")
+new_sel = c2.multiselect("New profiles", household_ids, default=[], key="new_sel")
 
 if orig_sel or new_sel:
     st.altair_chart(line_chart(to_long(orig_df, new_df, orig_sel, new_sel), height=500), use_container_width=True)

@@ -46,7 +46,7 @@ def _is_safe_identifier(value: str) -> bool:
 
 def load_series(
     table_name: str,
-    player_id: int,
+    household_id: int,
     scenario_name: str | None = None,
     policy_name: str | None = None,
     run_id: str | None = None,
@@ -72,9 +72,9 @@ def load_series(
         columns = [row[1] for row in table_info]
 
         try:
-            if "player_id" in columns and "value" in columns:
-                where_clauses = ["player_id = ?"]
-                params: list[object] = [player_id]
+            if "household_id" in columns and "value" in columns:
+                where_clauses = ["household_id = ?"]
+                params: list[object] = [household_id]
 
                 if scenario_name is not None and "scenario" in columns:
                     where_clauses.append("scenario = ?")
@@ -98,7 +98,7 @@ def load_series(
                 """
                 result = pd.read_sql_query(query, conn, params=params)
             else:
-                player_col = str(player_id)
+                player_col = str(household_id)
                 if player_col not in columns:
                     return pd.DataFrame()
 
@@ -128,7 +128,7 @@ def load_series(
     return result
 
 
-def load_attribute(table_name: str, player_id: int, attribute_name: str):
+def load_attribute(table_name: str, household_id: int, attribute_name: str):
     if not _is_safe_identifier(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
 
@@ -138,8 +138,8 @@ def load_attribute(table_name: str, player_id: int, attribute_name: str):
     with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
         try:
             row = conn.execute(
-                f"SELECT {attribute_name} FROM {table_name} WHERE player_id = ? LIMIT 1",
-                (player_id,),
+                f"SELECT {attribute_name} FROM {table_name} WHERE household_id = ? LIMIT 1",
+                (household_id,),
             ).fetchone()
         except sqlite3.OperationalError:
             return None
@@ -247,10 +247,10 @@ def load_household_ids_for_run(run_id: str, scenario_name: str) -> list[int]:
         try:
             rows = conn.execute(
                 """
-                SELECT DISTINCT player_id
+                SELECT DISTINCT household_id
                 FROM results
                 WHERE run_id = ? AND scenario = ?
-                ORDER BY player_id
+                ORDER BY household_id
                 """,
                 (run_id, scenario_name),
             ).fetchall()
@@ -300,10 +300,10 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
             with sqlite3.connect(RuntimeConfig.SOURCE_SQLITE_PATH) as conn:
                 pv_households = pd.read_sql_query(
                     """
-                    SELECT player_id
+                    SELECT household_id
                     FROM player_pv_bess
                     WHERE has_pv = 1
-                    ORDER BY player_id
+                    ORDER BY household_id
                     """,
                     conn,
                 )
@@ -311,7 +311,7 @@ def load_source_avg_profile(table_name: str) -> pd.DataFrame:
             pv_households = pd.DataFrame()
 
         if not pv_households.empty:
-            pv_columns = [str(player_id) for player_id in pv_households["player_id"].tolist()]
+            pv_columns = [str(household_id) for household_id in pv_households["household_id"].tolist()]
             selected_columns = [column for column in value_columns if column in pv_columns]
             if selected_columns:
                 numeric_values = df[selected_columns].apply(pd.to_numeric, errors="coerce")
@@ -359,7 +359,7 @@ def load_household_ids_from_results() -> list[int]:
     with create_results_connection() as conn:
         try:
             rows = conn.execute(
-                "SELECT DISTINCT player_id FROM results ORDER BY player_id"
+                "SELECT DISTINCT household_id FROM results ORDER BY household_id"
             ).fetchall()
         except sqlite3.OperationalError:
             return []
@@ -376,7 +376,7 @@ def load_source_household_ids() -> list[int]:
         # Prefer fixed_costs as it should have one row per player.
         try:
             rows = conn.execute(
-                "SELECT DISTINCT player_id FROM fixed_costs ORDER BY player_id"
+                "SELECT DISTINCT household_id FROM fixed_costs ORDER BY household_id"
             ).fetchall()
             if rows:
                 return [row[0] for row in rows]
@@ -386,7 +386,7 @@ def load_source_household_ids() -> list[int]:
         # Fallback for partially ingested datasets.
         try:
             rows = conn.execute(
-                "SELECT DISTINCT player_id FROM player_pv_bess ORDER BY player_id"
+                "SELECT DISTINCT household_id FROM player_pv_bess ORDER BY household_id"
             ).fetchall()
             return [row[0] for row in rows]
         except sqlite3.OperationalError:
@@ -394,7 +394,7 @@ def load_source_household_ids() -> list[int]:
 
 
 def load_household_result(
-    player_id: int,
+    household_id: int,
     scenario_name: str,
     policy_name: str,
     run_id: str | None = None,
@@ -403,15 +403,15 @@ def load_household_result(
         try:
             run_filter = " AND run_id = ?" if run_id is not None else ""
             params = (
-                (player_id, scenario_name, policy_name, run_id)
+                (household_id, scenario_name, policy_name, run_id)
                 if run_id is not None
-                else (player_id, scenario_name, policy_name)
+                else (household_id, scenario_name, policy_name)
             )
             result = pd.read_sql_query(
                 f"""
                 SELECT *
                 FROM results
-                WHERE player_id = ? AND scenario = ? AND policy = ?{run_filter}
+                WHERE household_id = ? AND scenario = ? AND policy = ?{run_filter}
                 ORDER BY rowid DESC
                 LIMIT 1
                 """,
@@ -424,10 +424,10 @@ def load_household_result(
     return result
 
 
-def fetch_timeseries(sqlite_cursor, player_id, table_name) -> list[float]:
+def fetch_timeseries(sqlite_cursor, household_id, table_name) -> list[float]:
     data = sqlite_cursor.execute(
         f'''
-        SELECT "{player_id}" as value
+        SELECT "{household_id}" as value
         FROM {table_name}
         ''',
     ).fetchall()
@@ -435,10 +435,10 @@ def fetch_timeseries(sqlite_cursor, player_id, table_name) -> list[float]:
     return [row[0] for row in data]
 
 
-def fetch_multiple_timeseries(sqlite_cursor, player_id, measurements) -> dict[str, list[float]]:
+def fetch_multiple_timeseries(sqlite_cursor, household_id, measurements) -> dict[str, list[float]]:
     timeseries_data = {measurement: [] for measurement in measurements}
     for measurement in measurements:
-        data = fetch_timeseries(sqlite_cursor, player_id, measurement)
+        data = fetch_timeseries(sqlite_cursor, household_id, measurement)
         timeseries_data[measurement] = data
 
     return timeseries_data
@@ -446,7 +446,7 @@ def fetch_multiple_timeseries(sqlite_cursor, player_id, measurements) -> dict[st
 
 if __name__ == "__main__":
     # Example usage
-    player_id = 12
+    household_id = 12
     measurement = 'base_load'
-    result = load_household_result(player_id, "default_scenario", "no_control")
+    result = load_household_result(household_id, "default_scenario", "no_control")
     print(result)

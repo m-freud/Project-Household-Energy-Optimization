@@ -78,7 +78,7 @@ def _extract_home_charge_from_limits(wb) -> pd.DataFrame:
         limits_config["df_column_names"],
         limits_config.get("transpose", False),
     )
-    home_charge_df = limits_df[["player_id", "premium_charger_edp_capacity"]].copy()
+    home_charge_df = limits_df[["household_id", "premium_charger_edp_capacity"]].copy()
     home_charge_df = home_charge_df.rename(
         columns={"premium_charger_edp_capacity": "charge_home"}
     )
@@ -88,18 +88,18 @@ def _extract_home_charge_from_limits(wb) -> pd.DataFrame:
 def enrich_ev_charge_rates(wb):
     home_charge_df = _extract_home_charge_from_limits(wb)
     home_charge_rows = []
-    for player_id, charge_home in home_charge_df.itertuples(index=False):
-        if pd.isna(player_id):
+    for household_id, charge_home in home_charge_df.itertuples(index=False):
+        if pd.isna(household_id):
             continue
         parsed_charge_home = None if pd.isna(charge_home) else float(charge_home)
-        home_charge_rows.append((int(player_id), parsed_charge_home))
+        home_charge_rows.append((int(household_id), parsed_charge_home))
 
     init_source_conn.execute("DROP TABLE IF EXISTS temp_home_charge")
     init_source_conn.execute(
-        "CREATE TEMP TABLE temp_home_charge (player_id INTEGER PRIMARY KEY, charge_home REAL)"
+        "CREATE TEMP TABLE temp_home_charge (household_id INTEGER PRIMARY KEY, charge_home REAL)"
     )
     init_source_conn.executemany(
-        "INSERT OR REPLACE INTO temp_home_charge (player_id, charge_home) VALUES (?, ?)",
+        "INSERT OR REPLACE INTO temp_home_charge (household_id, charge_home) VALUES (?, ?)",
         home_charge_rows,
     )
 
@@ -122,7 +122,7 @@ def enrich_ev_charge_rates(wb):
                 charge_home = (
                     SELECT temp.charge_home
                     FROM temp_home_charge AS temp
-                    WHERE temp.player_id = {ev_table}.player_id
+                    WHERE temp.household_id = {ev_table}.household_id
                 ),
                 charge_station = COALESCE(charge, station_max_charge)
             '''

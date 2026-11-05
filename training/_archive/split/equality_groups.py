@@ -27,8 +27,8 @@ def _equivalent_series(s1: list[float], s2: list[float], tolerance: float = 0.00
     return True
 
 
-def _series_profile(player_id: int, table_name: str) -> list[float]:
-    values = fetch_timeseries(source_sqlite_cursor, player_id=player_id, table_name=table_name)
+def _series_profile(household_id: int, table_name: str) -> list[float]:
+    values = fetch_timeseries(source_sqlite_cursor, household_id=household_id, table_name=table_name)
     return _normalize_series(values)
 
 

@@ -45,7 +45,7 @@ with sqlite3.connect(load_db_path) as conn:
         (min_energy, max_energy, min_load, max_load),
     )
     conn.execute(
-        f"CREATE UNIQUE INDEX idx_{POOL_TABLE}_player_date ON {POOL_TABLE} (player_id, date)"
+        f"CREATE UNIQUE INDEX idx_{POOL_TABLE}_player_date ON {POOL_TABLE} (household_id, date)"
     )
 
     pool_size, total_size = conn.execute(

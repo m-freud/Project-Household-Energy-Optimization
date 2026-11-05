@@ -51,7 +51,7 @@ with sqlite3.connect(pv_db_path) as conn:
 
     pool.to_sql(POOL_TABLE, conn, if_exists="replace", index=False)
     conn.execute(
-        f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{POOL_TABLE}_player_date ON {POOL_TABLE} (player_id, date)"
+        f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{POOL_TABLE}_player_date ON {POOL_TABLE} (household_id, date)"
     )
 
 

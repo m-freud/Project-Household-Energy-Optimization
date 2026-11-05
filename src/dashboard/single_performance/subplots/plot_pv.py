@@ -3,12 +3,12 @@ from src.sqlite_connection import load_series
 
 def plot_pv(
         ax: plt.Axes,
-        player_id: int):
+        household_id: int):
     ax.set_title("PV Generation")
     ax.set_ylabel("Power (kW)")
     ax.set_xlabel("Hour")
     
-    pv_gen_df = load_series("pv_gen", player_id)
+    pv_gen_df = load_series("pv_gen", household_id)
 
     if pv_gen_df.empty:
         ax.text(0.5, 0.5, "No PV data", transform=ax.transAxes, ha="center", va="center")

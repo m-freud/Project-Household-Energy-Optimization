@@ -13,7 +13,7 @@ def create_runtime_pool() -> None:
         conn.execute("DROP TABLE IF EXISTS runtime_pool")
         conn.execute(
             "CREATE TABLE runtime_pool AS "
-            "SELECT * FROM pv_gen_pool WHERE player_id = ? AND date LIKE ? ORDER BY date",
+            "SELECT * FROM pv_gen_pool WHERE household_id = ? AND date LIKE ? ORDER BY date",
             (SOURCE_PLAYER, f"{SOURCE_YEAR}-%"),
         )
         conn.commit()

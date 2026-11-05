@@ -24,10 +24,10 @@ def load_pv_gen(db_path: str) -> pd.DataFrame:
 
 
 @st.cache_data
-def load_pv_player_ids(db_path: str) -> list[int]:
+def load_pv_household_ids(db_path: str) -> list[int]:
     conn = sqlite3.connect(db_path)
     try:
-        rows = conn.execute("SELECT player_id FROM pv_gen_metadata ORDER BY player_id").fetchall()
+        rows = conn.execute("SELECT household_id FROM pv_gen_metadata ORDER BY household_id").fetchall()
     finally:
         conn.close()
     return [int(r[0]) for r in rows]
@@ -70,8 +70,8 @@ def line_chart(data: pd.DataFrame, height: int = 400) -> alt.Chart:
 
 orig_df = load_pv_gen(str(ORIG_DB))
 new_df = load_pv_gen(str(NEW_DB))
-player_ids = load_pv_player_ids(str(ORIG_DB))
-n_players = len(player_ids)
+household_ids = load_pv_household_ids(str(ORIG_DB))
+n_players = len(household_ids)
 
 st.title("PV generation: original vs. new profiles")
 
@@ -86,17 +86,17 @@ def _step(delta: int) -> None:
 left, mid, right = st.columns([1, 6, 1], vertical_alignment="center")
 left.button("◀", on_click=_step, args=(-1,), use_container_width=True)
 right.button("▶", on_click=_step, args=(1,), use_container_width=True)
-mid.select_slider("PV player", options=list(range(n_players)), format_func=lambda i: str(player_ids[i]), key="pv_idx")
+mid.select_slider("PV player", options=list(range(n_players)), format_func=lambda i: str(household_ids[i]), key="pv_idx")
 
-pid = player_ids[st.session_state.pv_idx]
+pid = household_ids[st.session_state.pv_idx]
 st.altair_chart(line_chart(to_long(orig_df, new_df, [pid], [pid])), use_container_width=True)
 
 st.divider()
 
 st.subheader("Overlay")
 c1, c2 = st.columns(2)
-orig_sel = c1.multiselect("Original profiles", player_ids, default=[], key="pv_orig_sel")
-new_sel = c2.multiselect("New profiles", player_ids, default=[], key="pv_new_sel")
+orig_sel = c1.multiselect("Original profiles", household_ids, default=[], key="pv_orig_sel")
+new_sel = c2.multiselect("New profiles", household_ids, default=[], key="pv_new_sel")
 
 if orig_sel or new_sel:
     st.altair_chart(line_chart(to_long(orig_df, new_df, orig_sel, new_sel), height=500), use_container_width=True)
@@ -130,7 +130,7 @@ def complete_days(db_path: str, col: str, pool_only: bool) -> list[str]:
     if pool_only:
         conn = sqlite3.connect(db_path)
         try:
-            pool = {r[0] for r in conn.execute("SELECT date FROM pv_gen_pool WHERE player_id = ?", (col,))}
+            pool = {r[0] for r in conn.execute("SELECT date FROM pv_gen_pool WHERE household_id = ?", (col,))}
         finally:
             conn.close()
         days = [d for d in days if d in pool]

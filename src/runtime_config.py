@@ -115,15 +115,15 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
 
 
     def get_fold_id(self, target: str, household_id: int):
-        return self.get_fold_for_player(target=target, player_id=household_id)
+        return self.get_fold_for_player(target=target, household_id=household_id)
 
     @classmethod
-    def get_fold_for_player(cls, target: str, player_id: int) -> str:
+    def get_fold_for_player(cls, target: str, household_id: int) -> str:
         try:
-            return cls.FOLD_PLAYER_TO_FOLD_BY_TARGET[str(target)][int(player_id)]
+            return cls.FOLD_PLAYER_TO_FOLD_BY_TARGET[str(target)][int(household_id)]
         except KeyError as exc:
             raise ValueError(
-                f"Household ID {player_id} not found in any fold for target {target}."
+                f"Household ID {household_id} not found in any fold for target {target}."
             ) from exc
 
     @classmethod
@@ -137,7 +137,7 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     def get_training_ids_for_fold(cls, target: str, fold_id: str) -> list[int]:
         test_ids = set(cls.get_fold_members(target=target, fold_id=fold_id))
         target_population_ids = cls.get_target_population_ids(target)
-        return [player_id for player_id in target_population_ids if player_id not in test_ids]
+        return [household_id for household_id in target_population_ids if household_id not in test_ids]
 
     @classmethod
     def get_target_population_ids(cls, target: str) -> list[int]:
@@ -148,9 +148,9 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
             raise ValueError(f"Unknown target '{target}'.") from exc
 
         population_ids = {
-            int(player_id)
+            int(household_id)
             for fold_members in fold_splits.values()
-            for player_id in fold_members
+            for household_id in fold_members
         }
         return sorted(population_ids)
 
@@ -174,6 +174,6 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
         return family_config.get_model_path_for_fold(target=target, fold_id=fold_id)
 
     @classmethod
-    def get_model_path(cls, family: str, target: str, player_id: int) -> Path:
-        fold_id = cls.get_fold_for_player(target=target, player_id=player_id)
+    def get_model_path(cls, family: str, target: str, household_id: int) -> Path:
+        fold_id = cls.get_fold_for_player(target=target, household_id=household_id)
         return cls.get_model_path_for_fold(family=family, target=target, fold_id=fold_id)

@@ -38,11 +38,11 @@ def _get_profile_ids(connection: sqlite3.Connection) -> list[str]:
 
 def _get_person_metadata(connection: sqlite3.Connection) -> dict[str, dict[str, str]]:
     rows = connection.execute(
-        "SELECT player_id, persid, HHID FROM ev2_persons ORDER BY player_id"
+        "SELECT household_id, persid, HHID FROM ev2_persons ORDER BY household_id"
     ).fetchall()
     metadata = {
-        str(player_id): {"profile_id": str(persid), "household_id": str(hhid)}
-        for player_id, persid, hhid in rows
+        str(household_id): {"profile_id": str(persid), "household_id": str(hhid)}
+        for household_id, persid, hhid in rows
     }
     return metadata
 
@@ -68,17 +68,17 @@ def _read_profiles(
 
 def _make_profile_features(
     profiles: pd.DataFrame,
-    player_id: str,
+    household_id: str,
     metadata: dict[str, str],
 ) -> pd.DataFrame:
     feature_df = pd.DataFrame(
         {
             "profile_id": metadata["profile_id"],
             "household_id": metadata["household_id"],
-            "player_id": int(player_id),
+            "household_id": int(household_id),
             "ev_key": "ev2",
             "timestep": profiles["period"].astype(int),
-            "status": profiles[player_id].astype(int),
+            "status": profiles[household_id].astype(int),
         }
     )
     feature_df = _add_ev_status_features(
@@ -126,10 +126,10 @@ def create_train_features() -> None:
     profile_features = [
         _make_profile_features(
             profiles,
-            player_id,
-            metadata[player_id],
+            household_id,
+            metadata[household_id],
         )
-        for player_id in selected_profiles
+        for household_id in selected_profiles
     ]
 
     for start in range(0, profile_count, PROFILES_PER_CHUNK):

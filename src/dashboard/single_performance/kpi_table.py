@@ -25,7 +25,7 @@ def _get_target_met_value(result_row, device_name: str):
 
 
 def build_kpi_table(
-	player_id: int,
+	household_id: int,
 	scenario_name: str,
 	policy_names: list[str],
 	run_id: str | None = None,
@@ -34,28 +34,28 @@ def build_kpi_table(
 
 	for policy_name in policy_names:
 		result_df = load_household_result(
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
 		)
 		net_load_df = load_series(
 			"net_load",
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
 		)
 		net_cost_df = load_series(
 			"net_cost",
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
 		)
 		total_cost_df = load_series(
 			"total_cost",
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=run_id,
@@ -107,12 +107,12 @@ def build_kpi_table(
 
 
 def render_kpi_strip(
-	player_id: int,
+	household_id: int,
 	scenario_name: str,
 	policy_names: list[str],
 	run_id: str | None = None,
 ) -> None:
-	kpi_df = build_kpi_table(player_id, scenario_name, policy_names, run_id)
+	kpi_df = build_kpi_table(household_id, scenario_name, policy_names, run_id)
 
 	st.subheader("KPI Strip")
 

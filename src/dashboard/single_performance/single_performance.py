@@ -123,7 +123,7 @@ def render_single_performance() -> None:
 		st.info("Select at least one policy.")
 		return
 
-	player_id = selected_household_id
+	household_id = selected_household_id
 	scenario_name = selected_scenario_name
 	policy_names = selected_policy_names
 
@@ -143,7 +143,7 @@ def render_single_performance() -> None:
 
 	for policy_name in policy_names:
 		result_df = load_household_result(
-			player_id,
+			household_id,
 			scenario_name,
 			policy_name,
 			run_id=selected_run_id,
@@ -167,7 +167,7 @@ def render_single_performance() -> None:
 	plot_bess(
 		ax=axes[0, 0],
 		scenario_name=scenario_name,
-		player_id=player_id,
+		household_id=household_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["BESS"],
 		run_id=selected_run_id,
@@ -178,7 +178,7 @@ def render_single_performance() -> None:
 		ax=axes[0, 1],
 		ev_number="1",
 		scenario_name=scenario_name,
-		player_id=player_id,
+		household_id=household_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["EV1"],
 		run_id=selected_run_id,
@@ -189,23 +189,23 @@ def render_single_performance() -> None:
 		ax=axes[0, 2],
 		ev_number="2",
 		scenario_name=scenario_name,
-		player_id=player_id,
+		household_id=household_id,
 		policy_colors=policy_colors,
 		missed_deadline=missed_by_device["EV2"],
 		run_id=selected_run_id,
 	)
 
 	# PV
-	plot_pv(ax=axes[1, 0], player_id=player_id)
+	plot_pv(ax=axes[1, 0], household_id=household_id)
 
 	# Base Load
-	plot_base_load(ax=axes[1, 1], scenario_name=scenario_name, player_id=player_id, policy_colors=policy_colors)
+	plot_base_load(ax=axes[1, 1], scenario_name=scenario_name, household_id=household_id, policy_colors=policy_colors)
 
 	# Net Load
 	plot_net_load(
 		ax=axes[1, 2],
 		scenario_name=scenario_name,
-		player_id=player_id,
+		household_id=household_id,
 		policy_colors=policy_colors,
 		run_id=selected_run_id,
 	)
@@ -237,8 +237,8 @@ def render_single_performance() -> None:
 
 	st.divider()
 
-	render_kpi_strip(player_id, scenario_name, policy_names, selected_run_id)
+	render_kpi_strip(household_id, scenario_name, policy_names, selected_run_id)
 
 	st.divider()
 
-	render_debug_table(player_id, scenario_name, policy_names, selected_run_id)
+	render_debug_table(household_id, scenario_name, policy_names, selected_run_id)

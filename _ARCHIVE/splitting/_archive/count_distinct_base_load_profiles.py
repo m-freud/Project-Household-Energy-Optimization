@@ -51,14 +51,14 @@ def _equivalent_series(s1: list[float], s2: list[float], tolerance: float) -> bo
 
 
 def _count_distinct_tolerance(
-    player_ids: list[int],
+    household_ids: list[int],
     tolerance: float,
 ) -> list[list[int]]:
     representative_profiles: list[list[float]] = []
     groups: list[list[int]] = []
 
-    for player_id in player_ids:
-        profile = _normalize_series(fetch_timeseries(source_sqlite_cursor, player_id, "base_load"))
+    for household_id in household_ids:
+        profile = _normalize_series(fetch_timeseries(source_sqlite_cursor, household_id, "base_load"))
 
         matched_group_idx = None
         for group_idx, representative in enumerate(representative_profiles):
@@ -68,23 +68,23 @@ def _count_distinct_tolerance(
 
         if matched_group_idx is None:
             representative_profiles.append(profile)
-            groups.append([player_id])
+            groups.append([household_id])
         else:
-            groups[matched_group_idx].append(player_id)
+            groups[matched_group_idx].append(household_id)
 
     return groups
 
 
 def _count_distinct_rounded(
-    player_ids: list[int],
+    household_ids: list[int],
     round_digits: int,
 ) -> list[list[int]]:
     grouped: dict[tuple[float, ...], list[int]] = defaultdict(list)
 
-    for player_id in player_ids:
-        normalized = _normalize_series(fetch_timeseries(source_sqlite_cursor, player_id, "base_load"))
+    for household_id in household_ids:
+        normalized = _normalize_series(fetch_timeseries(source_sqlite_cursor, household_id, "base_load"))
         signature = tuple(round(float(value), round_digits) for value in normalized)
-        grouped[signature].append(player_id)
+        grouped[signature].append(household_id)
 
     return [sorted(ids) for ids in grouped.values()]
 
@@ -118,11 +118,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    player_ids = list(range(int(args.start_id), int(args.end_id) + 1))
+    household_ids = list(range(int(args.start_id), int(args.end_id) + 1))
     if args.mode == "tolerance":
-        groups = _count_distinct_tolerance(player_ids, tolerance=float(args.tolerance))
+        groups = _count_distinct_tolerance(household_ids, tolerance=float(args.tolerance))
     else:
-        groups = _count_distinct_rounded(player_ids, round_digits=int(args.round_digits))
+        groups = _count_distinct_rounded(household_ids, round_digits=int(args.round_digits))
 
     groups = [sorted(group) for group in groups]
     groups.sort(key=lambda group: (group[0], len(group)))

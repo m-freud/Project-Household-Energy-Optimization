@@ -1,7 +1,7 @@
 # Table instructions for loading data from Excel sheets into sqlite and influxdb.
 
 EV_COLUMNS = [
-    "player_id",
+    "household_id",
     "model_id",
     "capacity",
     "charge",
@@ -34,12 +34,12 @@ table_config = {
     "player_pv_bess": {
         "sheet_name": "General Information",
         "rectangle": "A5:C254",
-        "df_column_names": ["player_id", "has_pv", "has_bess"],
+        "df_column_names": ["household_id", "has_pv", "has_bess"],
     },
     "bess": {
         "sheet_name": "BESS",
         "rectangle": "B1:IQ8",
-        "df_column_names": ["player_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
+        "df_column_names": ["household_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
         "transpose": True,
     },
     "ev1": {
@@ -57,25 +57,25 @@ table_config = {
     "fixed_costs": {
         "sheet_name": "Limits",
         "rectangle": "B1:IQ10", # we give everything a name in the df and drop them later
-        "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
+        "df_column_names": ["household_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
         "transpose": True,
-        "process": lambda df: df[["player_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
+        "process": lambda df: df[["household_id", "fixed_costs"]] # so far we only need fixed costs, if anything. reexpand if you want to change limits
     },
     "max_home_charge": {
         "sheet_name": "Limits", # same table, different context
         "rectangle": "B1:IQ10",
-        "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
+        "df_column_names": ["household_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
         "transpose": True,
-        "process": lambda df: df[["player_id", "premium_charger_edp_capacity"]].rename(
+        "process": lambda df: df[["household_id", "premium_charger_edp_capacity"]].rename(
             columns={"premium_charger_edp_capacity": "max_home_charge"}
         ),
     },
     "initial_cp": {
         "sheet_name": "Limits", # same table, different context
         "rectangle": "B1:IQ10",
-        "df_column_names": ["player_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
+        "df_column_names": ["household_id", "power_buy", "power_sell", "fixed_costs", "_", "initial_cp", "premium_charger_edp_capacity","sum","new_cp_level","fixed_costs_2_eur"],
         "transpose": True,
-        "process": lambda df: df[["player_id", "initial_cp"]].rename(
+        "process": lambda df: df[["household_id", "initial_cp"]].rename(
             columns={"initial_cp": "initial_cp"}
         ),
     },

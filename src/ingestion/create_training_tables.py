@@ -21,7 +21,7 @@ def create_load_table(conn: sqlite3.Connection) -> None:
     conn.execute("ATTACH DATABASE ? AS ch", (str(CH_LOADS_DB),))
     try:
         columns = [r[1] for r in conn.execute("PRAGMA ch.table_info(load)")][2:]
-        used = {r[0] for r in conn.execute("SELECT DISTINCT player_id FROM ch.runtime_pool_by_cp")}
+        used = {r[0] for r in conn.execute("SELECT DISTINCT household_id FROM ch.runtime_pool_by_cp")}
         training = [c for c in columns if c not in used]
         select_cols = ", ".join(f'"{c}"' for c in ["timestamp_utc", "period", *training])
 
@@ -50,7 +50,7 @@ def create_pv_gen_table(conn: sqlite3.Connection) -> None:
             row[1]
             for row in conn.execute('PRAGMA de.table_info("pv_gen_pool")').fetchall()
         }
-        missing_pool_columns = {"player_id", "date"} - pool_columns
+        missing_pool_columns = {"household_id", "date"} - pool_columns
         if missing_pool_columns:
             raise ValueError(
                 f"pv_gen_pool is missing required columns: {sorted(missing_pool_columns)}"
@@ -60,7 +60,7 @@ def create_pv_gen_table(conn: sqlite3.Connection) -> None:
             (
                 f'CASE WHEN EXISTS ('
                 f'SELECT 1 FROM de.pv_gen_pool AS pool '
-                f'WHERE pool.player_id = ? AND pool.date = source.profile_date'
+                f'WHERE pool.household_id = ? AND pool.date = source.profile_date'
                 f') THEN source."{column}" * ? ELSE NULL END AS "{column}"'
             )
             for column in training
@@ -85,7 +85,7 @@ def create_pv_gen_table(conn: sqlite3.Connection) -> None:
                 SELECT 1
                 FROM de.pv_gen_pool AS pool
                 WHERE pool.date = source.profile_date
-                  AND pool.player_id IN ({included_player_placeholders})
+                  AND pool.household_id IN ({included_player_placeholders})
             )
             ORDER BY source.timestamp_utc
         """
@@ -186,9 +186,9 @@ def create_e2_status_table(conn: sqlite3.Connection) -> None:
         conn.execute('DROP TABLE IF EXISTS main."ev2_persons"')
         conn.execute(
             "CREATE TABLE main.ev2_persons "
-            "(player_id INTEGER PRIMARY KEY, persid TEXT, HHID TEXT UNIQUE)"
+            "(household_id INTEGER PRIMARY KEY, persid TEXT, HHID TEXT UNIQUE)"
         )
-        for player_id, (persid, hhid) in enumerate(selected, start=1):
+        for household_id, (persid, hhid) in enumerate(selected, start=1):
             rows = conn.execute(
                 "SELECT period, status FROM vista.ev2_status WHERE persid = ? ORDER BY period",
                 (persid,),
@@ -196,12 +196,12 @@ def create_e2_status_table(conn: sqlite3.Connection) -> None:
             if len(rows) != 96:
                 raise ValueError(f"EV2 profile {persid}: expected 96 periods, got {len(rows)}")
             conn.executemany(
-                f'UPDATE main."ev2_status" SET "{player_id}" = ? WHERE period = ?',
+                f'UPDATE main."ev2_status" SET "{household_id}" = ? WHERE period = ?',
                 [(status, period) for period, status in rows],
             )
             conn.execute(
-                "INSERT INTO main.ev2_persons (player_id, persid, HHID) VALUES (?, ?, ?)",
-                (player_id, persid, hhid),
+                "INSERT INTO main.ev2_persons (household_id, persid, HHID) VALUES (?, ?, ?)",
+                (household_id, persid, hhid),
             )
 
         conn.commit()

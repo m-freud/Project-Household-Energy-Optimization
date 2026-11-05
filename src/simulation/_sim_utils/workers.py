@@ -26,7 +26,7 @@
 
 
 # def _run_household_worker(
-#     player_id: int,
+#     household_id: int,
 #     run_context: RunContext | None = None,
 # ) -> dict:
 #     # Worker processes create isolated DB connections; only the parent writes results.
@@ -50,10 +50,10 @@
 #         if start_time < 1 or start_time > sim.num_timesteps:
 #             raise ValueError(f"start_time must be between 1 and {sim.num_timesteps}")
 
-#         household = sim.create_household(player_id, run_context)
+#         household = sim.create_household(household_id, run_context)
 #         controller = sim.create_controller(household, run_context)
 #         print(
-#             f"running household {player_id} in scenario {scenario.name} "
+#             f"running household {household_id} in scenario {scenario.name} "
 #             f"with controller {controller.name}, run_id={run_context.run_id}",
 #             flush=True,
 #         )
@@ -66,7 +66,7 @@
 #                 "mpc_multi_model_recursive",
 #             } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps):
 #                 print(
-#                     f"{controller.name}: household {player_id}, timestep {t}/{sim.num_timesteps}",
+#                     f"{controller.name}: household {household_id}, timestep {t}/{sim.num_timesteps}",
 #                     flush=True,
 #                 )
 #             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
@@ -75,7 +75,7 @@
 #             "run_id": run_context.run_id,
 #             "policy": controller.name,
 #             "scenario": scenario.name,
-#             "player_id": household.player_id,
+#             "household_id": household.household_id,
 #             "has_pv": household.has_pv,
 #             "has_bess": household.has_bess,
 #             "total_cost": household.total_cost,

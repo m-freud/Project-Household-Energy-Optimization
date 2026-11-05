@@ -12,7 +12,7 @@ class Household:
     '''
     def __init__(
             self,
-            player_id: int|None = 1,
+            household_id: int|None = 1,
             start_time=1,
             scenario: Scenario|None = default_scenario,
             pv:PV|None=None,
@@ -24,7 +24,7 @@ class Household:
         
         # timing info
         self.current_timestep = start_time  # start time of the simulation for this household
-        self.player_id = player_id
+        self.household_id = household_id
 
         # you can create empty or full
         self.scenario = scenario

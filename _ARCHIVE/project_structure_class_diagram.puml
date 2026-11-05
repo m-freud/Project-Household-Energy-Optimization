@@ -24,16 +24,16 @@ package "Simulation" {
     -env_inputs: list[str]
     -household_profiles: dict
     -current_timestep: int
-    +create_household(player_id, scenario, start_time)
+    +create_household(household_id, scenario, start_time)
     +step(household, policy, scenario, duration_hours, time)
-    +run_household(player_id, policy, scenario, start_time)
+    +run_household(household_id, policy, scenario, start_time)
     +run_all_households(policy, scenario, start_time)
     +load_history_to_sqlite(...)
     +load_results_to_sqlite(...)
   }
 
   class Household {
-    +player_id: int
+    +household_id: int
     +current_timestep: int
     +pv: PV
     +bess: BESS
@@ -124,13 +124,13 @@ package "Simulation" {
 
 package "Persistence" {
   class SQLiteConnection <<module>> {
-    +fetch_timeseries(cursor, player_id, measurement)
-    +fetch_multiple_timeseries(cursor, player_id, measurements)
-    +load_series(measurement, player_id, scenario_name, policy_name)
+    +fetch_timeseries(cursor, household_id, measurement)
+    +fetch_multiple_timeseries(cursor, household_id, measurements)
+    +load_series(measurement, household_id, scenario_name, policy_name)
     +load_policies()
     +load_scenarios()
     +load_household_ids()
-    +load_household_result(player_id, scenario_name, policy_name)
+    +load_household_result(household_id, scenario_name, policy_name)
   }
 }
 
@@ -147,13 +147,13 @@ package "Dashboard" {
   }
 
   class KpiTable <<module>> {
-    +build_kpi_table(player_id, scenario_name, policy_names)
-    +render_kpi_strip(player_id, scenario_name, policy_names)
+    +build_kpi_table(household_id, scenario_name, policy_names)
+    +render_kpi_strip(household_id, scenario_name, policy_names)
   }
 
   class DebugTable <<module>> {
-    +build_debug_table(player_id, scenario_name, policy_names)
-    +render_debug_table(player_id, scenario_name, policy_names)
+    +build_debug_table(household_id, scenario_name, policy_names)
+    +render_debug_table(household_id, scenario_name, policy_names)
   }
 }
 

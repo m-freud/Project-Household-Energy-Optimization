@@ -54,19 +54,19 @@ def _equivalent_series(s1: list[float], s2: list[float], tolerance: float = 1e-5
     return True
 
 
-def _metric_profile(player_id: int, metric: MetricName) -> list[float]:
+def _metric_profile(household_id: int, metric: MetricName) -> list[float]:
     if metric == "ev_status":
-        ev1 = fetch_timeseries(source_sqlite_cursor, player_id, "ev1_status")
-        ev2 = fetch_timeseries(source_sqlite_cursor, player_id, "ev2_status")
+        ev1 = fetch_timeseries(source_sqlite_cursor, household_id, "ev1_status")
+        ev2 = fetch_timeseries(source_sqlite_cursor, household_id, "ev2_status")
         p1 = _normalize_series(ev1)
         p2 = _normalize_series(ev2)
         return p1 + p2
 
-    profile = fetch_timeseries(source_sqlite_cursor, player_id, metric)
+    profile = fetch_timeseries(source_sqlite_cursor, household_id, metric)
     return _normalize_series(profile)
 
 
-def _collect_player_ids(start_id: int, end_id: int) -> list[int]:
+def _collect_household_ids(start_id: int, end_id: int) -> list[int]:
     return list(range(start_id, end_id + 1))
 
 
@@ -78,8 +78,8 @@ def build_extra_ids_for_metric(
 ) -> tuple[list[int], int, list[list[int]]]:
     clean_representative_profiles: list[list[float]] = []
 
-    for player_id in sorted(clean_set):
-        profile = _metric_profile(player_id, metric)
+    for household_id in sorted(clean_set):
+        profile = _metric_profile(household_id, metric)
         if any(
             _equivalent_series(profile, existing_profile, tolerance=tolerance)
             for existing_profile in clean_representative_profiles
@@ -87,14 +87,14 @@ def build_extra_ids_for_metric(
             continue
         clean_representative_profiles.append(profile)
 
-    outside_ids = sorted(player_id for player_id in all_ids if player_id not in set(clean_set))
+    outside_ids = sorted(household_id for household_id in all_ids if household_id not in set(clean_set))
 
     extras: list[int] = []
     uncovered_groups: list[list[int]] = []
     selected_extra_profiles: list[list[float]] = []
 
-    for player_id in outside_ids:
-        profile = _metric_profile(player_id, metric)
+    for household_id in outside_ids:
+        profile = _metric_profile(household_id, metric)
 
         if any(
             _equivalent_series(profile, clean_profile, tolerance=tolerance)
@@ -108,13 +108,13 @@ def build_extra_ids_for_metric(
         ):
             for group_idx, existing_profile in enumerate(selected_extra_profiles):
                 if _equivalent_series(profile, existing_profile, tolerance=tolerance):
-                    uncovered_groups[group_idx].append(player_id)
+                    uncovered_groups[group_idx].append(household_id)
                     break
             continue
 
         selected_extra_profiles.append(profile)
-        extras.append(player_id)
-        uncovered_groups.append([player_id])
+        extras.append(household_id)
+        uncovered_groups.append([household_id])
 
     return extras, len(clean_representative_profiles), uncovered_groups
 
@@ -155,7 +155,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    all_ids = _collect_player_ids(args.start_id, args.end_id)
+    all_ids = _collect_household_ids(args.start_id, args.end_id)
     clean_set = sorted(CLEAN_SET)
 
     extra_ids, clean_signature_count, uncovered_groups = build_extra_ids_for_metric(

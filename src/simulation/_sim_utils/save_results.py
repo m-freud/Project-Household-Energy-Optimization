@@ -29,7 +29,7 @@ def load_household_results_to_sqlite(
         "run_id": run_id,
         "policy": policy_name,
         "scenario": scenario_name,
-        "player_id": household.player_id,
+        "household_id": household.household_id,
         "has_pv": household.has_pv,
         "has_bess": household.has_bess,
         "total_cost": household.total_cost,
@@ -65,7 +65,7 @@ def load_household_history_to_sqlite(
         "run_id": run_id,
         "policy": policy_name,
         "scenario": scenario_name,
-        "player_id": household.player_id,
+        "household_id": household.household_id,
         "history": {
             measurement: list(household.history[measurement].items())
             for measurement in measurements
@@ -83,7 +83,7 @@ def load_results_payload_to_sqlite(
     cursor.execute(
         """
         INSERT INTO results (
-            run_id, policy, scenario, player_id, has_pv, has_bess, total_cost,
+            run_id, policy, scenario, household_id, has_pv, has_bess, total_cost,
             total_consumption, net_cost, net_load, target_met_bess,
             target_met_ev1, target_met_ev2, target_met_all_bess,
             target_met_all_ev1, target_met_all_ev2, soc_at_deadline_bess,
@@ -94,7 +94,7 @@ def load_results_payload_to_sqlite(
             payload["run_id"],
             payload["policy"],
             payload["scenario"],
-            payload["player_id"],
+            payload["household_id"],
             payload["has_pv"],
             payload["has_bess"],
             payload["total_cost"],
@@ -122,14 +122,14 @@ def load_history_payload_to_sqlite(
     cursor = results_conn.cursor()
     policy_name = payload["policy"]
     scenario_name = payload["scenario"]
-    player_id = payload["player_id"]
+    household_id = payload["household_id"]
     history = payload["history"]
 
     for measurement in DEFAULT_HISTORY_MEASUREMENTS:
         cursor.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {measurement} (
-                player_id INTEGER,
+                household_id INTEGER,
                 scenario TEXT,
                 policy TEXT,
                 period INTEGER,
@@ -156,12 +156,12 @@ def load_history_payload_to_sqlite(
         cursor.executemany(
             f"""
             INSERT INTO {measurement} (
-                player_id, scenario, policy, period, value, run_id
+                household_id, scenario, policy, period, value, run_id
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             [
                 (
-                    player_id,
+                    household_id,
                     scenario_name,
                     policy_name,
                     int(period),

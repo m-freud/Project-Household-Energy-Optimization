@@ -53,9 +53,9 @@ def _get_dates(connection: sqlite3.Connection) -> list[str]:
 def _read_day(
     connection: sqlite3.Connection,
     date: str,
-    player_ids: list[str],
+    household_ids: list[str],
 ) -> pd.DataFrame | None:
-    selected_players = ", ".join(f'"{player_id}"' for player_id in player_ids)
+    selected_players = ", ".join(f'"{household_id}"' for household_id in household_ids)
     day = pd.read_sql_query(
         f"""
         SELECT period, {selected_players}
@@ -82,9 +82,9 @@ def _get_available_profiles(
         if day is None:
             continue
         available_profiles.extend(
-            (player_id, date)
-            for player_id in player_columns
-            if not day[player_id].isna().any()
+            (household_id, date)
+            for household_id in player_columns
+            if not day[household_id].isna().any()
         )
     return available_profiles
 
@@ -92,22 +92,22 @@ def _get_available_profiles(
 def _make_daily_features(
     day: pd.DataFrame,
     date: str,
-    player_ids: list[str],
+    household_ids: list[str],
 ) -> pd.DataFrame:
-    feature_df = day[["period", *player_ids]].melt(
+    feature_df = day[["period", *household_ids]].melt(
         id_vars=["period"],
-        var_name="player_id",
+        var_name="household_id",
         value_name="pv_gen",
     )
     feature_df = feature_df.rename(columns={"period": "timestep"})
     feature_df["date"] = date
-    feature_df["profile_id"] = feature_df["player_id"] + "-" + date
+    feature_df["profile_id"] = feature_df["household_id"] + "-" + date
     feature_df["pv_gen"] = feature_df["pv_gen"].astype(float)
     feature_df = feature_df.sort_values(
-        ["player_id", "timestep"]
+        ["household_id", "timestep"]
     ).reset_index(drop=True)
 
-    group_cols = ("player_id", "date")
+    group_cols = ("household_id", "date")
     feature_df = _add_pv_gen_features(
         feature_df,
         group_cols=group_cols,
@@ -117,7 +117,7 @@ def _make_daily_features(
     for offset in TARGET_OFFSETS:
         feature_df[f"y{offset}"] = grouped_values.shift(-offset).fillna(-1.0).astype(float)
 
-    leading_columns = ["profile_id", "player_id", "date", "timestep", "pv_gen"]
+    leading_columns = ["profile_id", "household_id", "date", "timestep", "pv_gen"]
     feature_df = feature_df[leading_columns + [
         column for column in feature_df.columns if column not in leading_columns
     ]]
@@ -154,8 +154,8 @@ def create_train_features() -> None:
             profile_count,
         )
         selected_by_date: dict[str, list[str]] = {}
-        for player_id, date in selected_profiles:
-            selected_by_date.setdefault(date, []).append(player_id)
+        for household_id, date in selected_profiles:
+            selected_by_date.setdefault(date, []).append(household_id)
 
         feature_by_profile: dict[tuple[str, str], pd.DataFrame] = {}
         for date, selected_players in selected_by_date.items():
@@ -163,8 +163,8 @@ def create_train_features() -> None:
             if day is None or day[selected_players].isna().any().any():
                 raise ValueError(f"Selected PV profiles are incomplete for {date}")
             daily_features = _make_daily_features(day, date, selected_players)
-            for player_id, profile in daily_features.groupby("player_id", sort=False):
-                feature_by_profile[(player_id, date)] = profile.reset_index(drop=True)
+            for household_id, profile in daily_features.groupby("household_id", sort=False):
+                feature_by_profile[(household_id, date)] = profile.reset_index(drop=True)
 
     ordered_profiles = [feature_by_profile[profile] for profile in selected_profiles]
     for start in range(0, profile_count, PROFILES_PER_CHUNK):

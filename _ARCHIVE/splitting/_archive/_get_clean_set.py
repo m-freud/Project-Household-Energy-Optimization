@@ -83,9 +83,9 @@ def _find_equal_groups(key: str, normalized_profiles: dict, tolerance: float = 1
                 union_find.union(left_id, right_id)
 
     components = {}
-    for player_id in ids:
-        root = union_find.find(player_id)
-        components.setdefault(root, []).append(player_id)
+    for household_id in ids:
+        root = union_find.find(household_id)
+        components.setdefault(root, []).append(household_id)
 
     equal_groups = {}
     for grouped_ids in components.values():
@@ -111,7 +111,7 @@ def _solve_max_clean_set(all_ids: list[int], conflict_pairs: set[tuple[int, int]
 
     ordered_ids = sorted(all_ids)
     n = len(ordered_ids)
-    id_to_index = {player_id: idx for idx, player_id in enumerate(ordered_ids)}
+    id_to_index = {household_id: idx for idx, household_id in enumerate(ordered_ids)}
 
     c = -np.ones(n, dtype=float)
     integrality = np.ones(n, dtype=int)

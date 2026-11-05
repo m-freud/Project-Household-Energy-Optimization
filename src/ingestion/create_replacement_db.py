@@ -61,35 +61,35 @@ def copy_source_original_db() -> None:
 
 
 def load_pool_by_cp() -> dict[float, list[tuple[str, str]]]:
-    """cp -> [(player_id, date)] sorted by player_id."""
+    """cp -> [(household_id, date)] sorted by household_id."""
     conn = sqlite3.connect(CH_LOADS_DB)
     try:
-        rows = conn.execute("SELECT init_cp, player_id, date FROM runtime_pool_by_cp").fetchall()
+        rows = conn.execute("SELECT init_cp, household_id, date FROM runtime_pool_by_cp").fetchall()
     finally:
         conn.close()
     pool: dict[float, list[tuple[str, str]]] = defaultdict(list)
-    for cp, player_id, date in rows:
-        pool[float(cp)].append((player_id, date))
+    for cp, household_id, date in rows:
+        pool[float(cp)].append((household_id, date))
     for entries in pool.values():
         entries.sort(key=lambda e: (int(e[0]), e[1]))
     return dict(pool)
 
 
 def read_initial_cps(conn: sqlite3.Connection) -> dict[int, float]:
-    rows = conn.execute("SELECT player_id, initial_cp FROM initial_cp").fetchall()
+    rows = conn.execute("SELECT household_id, initial_cp FROM initial_cp").fetchall()
     return {int(pid): float(cp) for pid, cp in rows}
 
 
-def read_ch_day(ch_conn: sqlite3.Connection, ch_player_id: str, date: str) -> list[float]:
+def read_ch_day(ch_conn: sqlite3.Connection, ch_household_id: str, date: str) -> list[float]:
     # CH player ids are numeric strings used as column names
-    if not ch_player_id.isdigit():
-        raise ValueError(f"Invalid CH player id: {ch_player_id}")
+    if not ch_household_id.isdigit():
+        raise ValueError(f"Invalid CH player id: {ch_household_id}")
     rows = ch_conn.execute(
-        f'SELECT "{ch_player_id}" FROM load WHERE substr(timestamp_utc, 1, 10) = ? ORDER BY period',
+        f'SELECT "{ch_household_id}" FROM load WHERE substr(timestamp_utc, 1, 10) = ? ORDER BY period',
         (date,),
     ).fetchall()
     if len(rows) != N_PERIODS:
-        raise ValueError(f"{ch_player_id} {date}: expected {N_PERIODS} rows, got {len(rows)}")
+        raise ValueError(f"{ch_household_id} {date}: expected {N_PERIODS} rows, got {len(rows)}")
     return [r[0] for r in rows]
 
 
@@ -113,20 +113,20 @@ def replace_base_load() -> None:
         initial_cps = read_initial_cps(conn)
         ensure_base_load_table(conn)
 
-        for player_id in range(1, N_PLAYERS + 1):
-            cp = initial_cps[player_id]
+        for household_id in range(1, N_PLAYERS + 1):
+            cp = initial_cps[household_id]
             idx = next_idx[cp]
             if idx >= len(pool.get(cp, [])):
-                raise RuntimeError(f"CP pool {cp} exhausted at player {player_id}")
+                raise RuntimeError(f"CP pool {cp} exhausted at player {household_id}")
             next_idx[cp] += 1
-            ch_player_id, date = pool[cp][idx]
+            ch_household_id, date = pool[cp][idx]
 
-            values = read_ch_day(ch_conn, ch_player_id, date)
+            values = read_ch_day(ch_conn, ch_household_id, date)
             conn.executemany(
-                f'UPDATE "base_load" SET "{player_id}" = ? WHERE period = ?',
+                f'UPDATE "base_load" SET "{household_id}" = ? WHERE period = ?',
                 [(v, p) for p, v in enumerate(values, start=1)],
             )
-            print(f"player {player_id:3d} (cp {cp}) <- CH {ch_player_id} {date}")
+            print(f"player {household_id:3d} (cp {cp}) <- CH {ch_household_id} {date}")
         conn.commit()
     finally:
         conn.close()
@@ -140,30 +140,30 @@ def replace_pv_gen() -> None:
     orig_conn = sqlite3.connect(SOURCE_ORIGINAL_DB)
     try:
         targets = orig_conn.execute(
-            "SELECT player_id, total_energy FROM pv_gen_metadata ORDER BY player_id"
+            "SELECT household_id, total_energy FROM pv_gen_metadata ORDER BY household_id"
         ).fetchall()
         pool = de_conn.execute(
-            "SELECT player_id, date, total_energy FROM runtime_pool ORDER BY date"
+            "SELECT household_id, date, total_energy FROM runtime_pool ORDER BY date"
         ).fetchall()
         if not targets:
             raise RuntimeError("pv_gen_metadata is empty")
         if not pool:
             raise RuntimeError("runtime_pool is empty")
 
-        target_ids = {int(player_id) for player_id, _ in targets}
+        target_ids = {int(household_id) for household_id, _ in targets}
         invalid_target_ids = target_ids - set(range(1, N_PLAYERS + 1))
         if invalid_target_ids:
             raise ValueError(f"Invalid PV player IDs: {sorted(invalid_target_ids)}")
 
         columns = ",\n  ".join(
-            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}" REAL' for household_id in range(1, N_PLAYERS + 1)
         )
         conn.execute('DROP TABLE IF EXISTS "pv_gen"')
         conn.execute(
             f'CREATE TABLE "pv_gen" ("period" INTEGER PRIMARY KEY,\n  {columns})'
         )
         player_columns = ", ".join(
-            f'"{player_id}"' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}"' for household_id in range(1, N_PLAYERS + 1)
         )
         placeholders = ", ".join("?" for _ in range(N_PLAYERS + 1))
         conn.executemany(
@@ -175,7 +175,7 @@ def replace_pv_gen() -> None:
         )
 
         # cycle through the pool again once all days are used
-        for i, (player_id, total_orig) in enumerate(targets):
+        for i, (household_id, total_orig) in enumerate(targets):
             src_id, date, total_new = pool[i % len(pool)]
             if not src_id.replace("_", "").isalnum():
                 raise ValueError(f"Invalid DE player id: {src_id}")
@@ -188,10 +188,10 @@ def replace_pv_gen() -> None:
 
             factor = 0.8
             conn.executemany(
-                f'UPDATE "pv_gen" SET "{int(player_id)}" = ? WHERE period = ?',
+                f'UPDATE "pv_gen" SET "{int(household_id)}" = ? WHERE period = ?',
                 [(r[0] * factor, p) for p, r in enumerate(rows, start=1)],
             )
-            print(f"pv player {player_id:3d} <- DE {src_id} {date} (x{factor:.3f})")
+            print(f"pv player {household_id:3d} <- DE {src_id} {date} (x{factor:.3f})")
         conn.commit()
     finally:
         conn.close()
@@ -206,17 +206,17 @@ def replace_ev1_status() -> None:
     try:
         selected = _select_ev1_runtime_profiles(ev1_conn)
 
-        for player_id, (source_id, hhid) in enumerate(selected, start=1):
+        for household_id, (source_id, hhid) in enumerate(selected, start=1):
             rows = ev1_conn.execute(
                 f'SELECT "{source_id}" FROM ev1_status ORDER BY period'
             ).fetchall()
             if len(rows) != N_PERIODS:
                 raise ValueError(f"EV1 profile {source_id}: expected {N_PERIODS} rows, got {len(rows)}")
             conn.executemany(
-                f'UPDATE "ev1_status" SET "{player_id}" = ? WHERE period = ?',
+                f'UPDATE "ev1_status" SET "{household_id}" = ? WHERE period = ?',
                 [(row[0], period) for period, row in enumerate(rows, start=1)],
             )
-            print(f"EV1 player {player_id:3d} <- {source_id} (HHID {hhid})")
+            print(f"EV1 player {household_id:3d} <- {source_id} (HHID {hhid})")
         conn.commit()
     finally:
         conn.close()
@@ -275,9 +275,9 @@ def replace_ev2_status() -> None:
 
         conn.execute("DROP TABLE IF EXISTS ev2_persons")
         conn.execute(
-            "CREATE TABLE ev2_persons (player_id INTEGER PRIMARY KEY, persid TEXT, HHID TEXT UNIQUE)"
+            "CREATE TABLE ev2_persons (household_id INTEGER PRIMARY KEY, persid TEXT, HHID TEXT UNIQUE)"
         )
-        for player_id, (persid, hhid) in enumerate(selected, start=1):
+        for household_id, (persid, hhid) in enumerate(selected, start=1):
             rows = ev2_conn.execute(
                 "SELECT period, status FROM ev2_status WHERE persid = ? ORDER BY period",
                 (persid,),
@@ -285,14 +285,14 @@ def replace_ev2_status() -> None:
             if len(rows) != N_PERIODS:
                 raise ValueError(f"EV2 profile {persid}: expected {N_PERIODS} periods, got {len(rows)}")
             conn.executemany(
-                f'UPDATE "ev2_status" SET "{player_id}" = ? WHERE period = ?',
+                f'UPDATE "ev2_status" SET "{household_id}" = ? WHERE period = ?',
                 [(status, period) for period, status in rows],
             )
             conn.execute(
-                "INSERT INTO ev2_persons (player_id, persid, HHID) VALUES (?, ?, ?)",
-                (player_id, persid, hhid),
+                "INSERT INTO ev2_persons (household_id, persid, HHID) VALUES (?, ?, ?)",
+                (household_id, persid, hhid),
             )
-            print(f"EV2 player {player_id:3d} <- {persid} (HHID {hhid})")
+            print(f"EV2 player {household_id:3d} <- {persid} (HHID {hhid})")
         conn.commit()
     finally:
         conn.close()
@@ -315,7 +315,7 @@ def _replace_ev_availability(
             raise ValueError(f"{status_table} must have period as its first column")
 
         profile_columns = columns[1:]
-        expected_profile_columns = [str(player_id) for player_id in range(1, N_PLAYERS + 1)]
+        expected_profile_columns = [str(household_id) for household_id in range(1, N_PLAYERS + 1)]
         if profile_columns != expected_profile_columns:
             raise ValueError(
                 f"{status_table}: expected household columns 1..{N_PLAYERS}"
@@ -423,30 +423,30 @@ def _replace_ev_load(
             row[1] for row in conn.execute(f'PRAGMA table_info("{status_table}")')
         ]
         expected_columns = ["period"] + [
-            str(player_id) for player_id in range(1, N_PLAYERS + 1)
+            str(household_id) for household_id in range(1, N_PLAYERS + 1)
         ]
         if status_columns != expected_columns:
             raise ValueError(
                 f"{status_table}: expected household columns 1..{N_PLAYERS}"
             )
         if len(assignments) != N_PLAYERS or [
-            player_id for player_id, _ in assignments
+            household_id for household_id, _ in assignments
         ] != list(range(1, N_PLAYERS + 1)):
             raise ValueError(f"EV{ev_num} profile mapping must contain players 1..{N_PLAYERS}")
 
         rate_rows = conn.execute(
-            f'SELECT player_id, consumption_per_km FROM "{ev_table}" ORDER BY player_id'
+            f'SELECT household_id, consumption_per_km FROM "{ev_table}" ORDER BY household_id'
         ).fetchall()
         consumption_by_player = {
-            int(player_id): float(consumption_per_km)
-            for player_id, consumption_per_km in rate_rows
+            int(household_id): float(consumption_per_km)
+            for household_id, consumption_per_km in rate_rows
         }
         if set(consumption_by_player) != set(range(1, N_PLAYERS + 1)):
             raise ValueError(f"{ev_table} must contain players 1..{N_PLAYERS}")
 
         profile_loads: dict[int, list[float]] = {}
         status_player_columns = ", ".join(
-            f'"{player_id}"' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}"' for household_id in range(1, N_PLAYERS + 1)
         )
         runtime_status_rows = conn.execute(
             f'SELECT "period", {status_player_columns} '
@@ -457,11 +457,11 @@ def _replace_ev_load(
         ] != list(range(1, N_PERIODS + 1)):
             raise ValueError(f"{status_table}: expected periods 1..{N_PERIODS}")
         runtime_status_by_player = {
-            player_id: [row[player_id] for row in runtime_status_rows]
-            for player_id in range(1, N_PLAYERS + 1)
+            household_id: [row[household_id] for row in runtime_status_rows]
+            for household_id in range(1, N_PLAYERS + 1)
         }
 
-        for player_id, persid in assignments:
+        for household_id, persid in assignments:
             if wide_status:
                 if not persid.replace("_", "").isalnum():
                     raise ValueError(f"Invalid EV1 profile id: {persid}")
@@ -481,9 +481,9 @@ def _replace_ev_load(
                     f"EV{ev_num} profile {persid}: expected {N_PERIODS} status rows, "
                     f"got {len(source_status)}"
                 )
-            if source_status != runtime_status_by_player[player_id]:
+            if source_status != runtime_status_by_player[household_id]:
                 raise ValueError(
-                    f"EV{ev_num} status profile for player {player_id} does not match "
+                    f"EV{ev_num} status profile for player {household_id} does not match "
                     f"VISTA profile {persid}"
                 )
             if any(status not in (0, 1, 2) for status in source_status):
@@ -504,10 +504,10 @@ def _replace_ev_load(
 
             driving_periods = sum(status == 1 for status in source_status)
             total_distance_km = sum(float(row[0]) for row in distance_rows)
-            consumption_per_km = consumption_by_player[player_id]
+            consumption_per_km = consumption_by_player[household_id]
             if not math.isfinite(consumption_per_km) or consumption_per_km < 0:
                 raise ValueError(
-                    f"EV{ev_num} player {player_id} has invalid consumption_per_km"
+                    f"EV{ev_num} player {household_id} has invalid consumption_per_km"
                 )
             power_kw = (
                 total_distance_km * consumption_per_km / 1000
@@ -515,12 +515,12 @@ def _replace_ev_load(
                 if driving_periods
                 else 0.0
             )
-            profile_loads[player_id] = [
+            profile_loads[household_id] = [
                 power_kw if status == 1 else 0.0 for status in source_status
             ]
 
         profile_definitions = ", ".join(
-            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}" REAL' for household_id in range(1, N_PLAYERS + 1)
         )
         conn.execute("BEGIN")
         conn.execute(f'DROP TABLE IF EXISTS "ev{ev_num}_load"')
@@ -534,8 +534,8 @@ def _replace_ev_load(
             [
                 (
                     period,
-                    *(profile_loads[player_id][period - 1]
-                      for player_id in range(1, N_PLAYERS + 1)),
+                    *(profile_loads[household_id][period - 1]
+                      for household_id in range(1, N_PLAYERS + 1)),
                 )
                 for period in range(1, N_PERIODS + 1)
             ],
@@ -558,8 +558,8 @@ def replace_ev1_load() -> None:
     finally:
         ev1_conn.close()
     assignments = [
-        (player_id, persid)
-        for player_id, (persid, _) in enumerate(selected, start=1)
+        (household_id, persid)
+        for household_id, (persid, _) in enumerate(selected, start=1)
     ]
     _replace_ev_load(1, EV1_DB, assignments, wide_status=True)
 
@@ -568,9 +568,9 @@ def replace_ev2_load() -> None:
     """Create EV2 driving load evenly across each selected profile's driving periods."""
     with sqlite3.connect(SOURCE_RUNTIME_DB) as conn:
         assignments = [
-            (int(player_id), str(persid))
-            for player_id, persid in conn.execute(
-                'SELECT "player_id", "persid" FROM "ev2_persons" ORDER BY "player_id"'
+            (int(household_id), str(persid))
+            for household_id, persid in conn.execute(
+                'SELECT "household_id", "persid" FROM "ev2_persons" ORDER BY "household_id"'
             )
         ]
     _replace_ev_load(2, EV2_DB, assignments, wide_status=False)
@@ -580,7 +580,7 @@ def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
     conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         expected_profile_columns = [
-            str(player_id) for player_id in range(1, N_PLAYERS + 1)
+            str(household_id) for household_id in range(1, N_PLAYERS + 1)
         ]
         home_columns = [
             row[1] for row in conn.execute('PRAGMA table_info("ev{}_at_home")'.format(ev_num))
@@ -615,12 +615,12 @@ def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
             )
 
         home_rate_rows = conn.execute(
-            'SELECT "player_id", "max_home_charge" '
-            'FROM "max_home_charge" ORDER BY "player_id"'
+            'SELECT "household_id", "max_home_charge" '
+            'FROM "max_home_charge" ORDER BY "household_id"'
         ).fetchall()
         home_rates = {
-            int(player_id): float(rate)
-            for player_id, rate in home_rate_rows
+            int(household_id): float(rate)
+            for household_id, rate in home_rate_rows
             if rate is not None
         }
         if set(home_rates) != set(range(1, N_PLAYERS + 1)):
@@ -628,15 +628,15 @@ def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
                 f"max_home_charge must contain non-null values for players 1..{N_PLAYERS}"
             )
 
-        station_rates = {player_id: 0.0 for player_id in range(1, N_PLAYERS + 1)}
+        station_rates = {household_id: 0.0 for household_id in range(1, N_PLAYERS + 1)}
         if has_station:
             station_rows_by_player = conn.execute(
-                f'SELECT "player_id", "station_max_charge" '
-                f'FROM "ev{ev_num}" ORDER BY "player_id"'
+                f'SELECT "household_id", "station_max_charge" '
+                f'FROM "ev{ev_num}" ORDER BY "household_id"'
             ).fetchall()
             station_rates = {
-                int(player_id): float(rate)
-                for player_id, rate in station_rows_by_player
+                int(household_id): float(rate)
+                for household_id, rate in station_rows_by_player
                 if rate is not None
             }
             if set(station_rates) != set(range(1, N_PLAYERS + 1)):
@@ -645,21 +645,21 @@ def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
                     f"for players 1..{N_PLAYERS}"
                 )
 
-        for player_id in range(1, N_PLAYERS + 1):
+        for household_id in range(1, N_PLAYERS + 1):
             for field, rates in (
                 ("home", home_rates),
                 ("station", station_rates),
             ):
-                rate = rates[player_id]
+                rate = rates[household_id]
                 if not math.isfinite(rate) or rate < 0:
                     raise ValueError(
-                        f"EV{ev_num} player {player_id} has invalid {field} charge rate"
+                        f"EV{ev_num} player {household_id} has invalid {field} charge rate"
                     )
 
         result_rows = []
         for home_row, station_row in zip(home_rows, station_rows):
             values = []
-            for index, player_id in enumerate(range(1, N_PLAYERS + 1), start=1):
+            for index, household_id in enumerate(range(1, N_PLAYERS + 1), start=1):
                 at_home = home_row[index]
                 at_station = station_row[index]
                 if at_home not in (0, 1) or at_station not in (0, 1):
@@ -668,18 +668,18 @@ def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
                     )
                 if at_home and at_station:
                     raise ValueError(
-                        f"EV{ev_num} player {player_id} cannot be home and at a station "
+                        f"EV{ev_num} player {household_id} cannot be home and at a station "
                         f"in period {home_row[0]}"
                     )
                 values.append(
-                    home_rates[player_id] if at_home
-                    else station_rates[player_id] if at_station
+                    home_rates[household_id] if at_home
+                    else station_rates[household_id] if at_station
                     else 0.0
                 )
             result_rows.append((home_row[0], *values))
 
         profile_definitions = ", ".join(
-            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}" REAL' for household_id in range(1, N_PLAYERS + 1)
         )
         table_name = f"ev{ev_num}_max_charge"
         placeholders = ", ".join("?" for _ in range(N_PLAYERS + 1))
@@ -716,7 +716,7 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
     conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         expected_profile_columns = [
-            str(player_id) for player_id in range(1, N_PLAYERS + 1)
+            str(household_id) for household_id in range(1, N_PLAYERS + 1)
         ]
         buy_price_columns = [
             row[1] for row in conn.execute('PRAGMA table_info("buy_price")')
@@ -738,7 +738,7 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
                     f"{table_name} must contain periods and players 1..{N_PLAYERS}"
                 )
 
-        selected_columns = ", ".join(f'"{player_id}"' for player_id in range(1, N_PLAYERS + 1))
+        selected_columns = ", ".join(f'"{household_id}"' for household_id in range(1, N_PLAYERS + 1))
         buy_price_rows = conn.execute(
             f'SELECT "period", {selected_columns} FROM "buy_price" ORDER BY "period"'
         ).fetchall()
@@ -757,15 +757,15 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
             if len(rows) != N_PERIODS or [row[0] for row in rows] != expected_periods:
                 raise ValueError(f"{table_name}: expected periods 1..{N_PERIODS}")
 
-        station_prices = {player_id: 0.0 for player_id in range(1, N_PLAYERS + 1)}
+        station_prices = {household_id: 0.0 for household_id in range(1, N_PLAYERS + 1)}
         if has_station:
             price_rows = conn.execute(
-                f'SELECT "player_id", "station_price" '
-                f'FROM "ev{ev_num}" ORDER BY "player_id"'
+                f'SELECT "household_id", "station_price" '
+                f'FROM "ev{ev_num}" ORDER BY "household_id"'
             ).fetchall()
             station_prices = {
-                int(player_id): float(price)
-                for player_id, price in price_rows
+                int(household_id): float(price)
+                for household_id, price in price_rows
                 if price is not None
             }
             if set(station_prices) != set(range(1, N_PLAYERS + 1)):
@@ -774,10 +774,10 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
                     f"for players 1..{N_PLAYERS}"
                 )
 
-        for player_id, price in station_prices.items():
+        for household_id, price in station_prices.items():
             if not math.isfinite(price) or price < 0:
                 raise ValueError(
-                    f"EV{ev_num} player {player_id} has invalid station price"
+                    f"EV{ev_num} player {household_id} has invalid station price"
                 )
 
         result_rows = []
@@ -785,14 +785,14 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
             buy_price_rows, home_rows, station_rows
         ):
             values = []
-            for index, player_id in enumerate(range(1, N_PLAYERS + 1), start=1):
+            for index, household_id in enumerate(range(1, N_PLAYERS + 1), start=1):
                 home_price = buy_row[index]
                 at_home = home_row[index]
                 at_station = station_row[index]
                 if home_price is None or not math.isfinite(float(home_price)):
                     raise ValueError(
                         f"buy_price contains an invalid value in period {buy_row[0]}, "
-                        f"player {player_id}"
+                        f"player {household_id}"
                     )
                 if at_home not in (0, 1) or at_station not in (0, 1):
                     raise ValueError(
@@ -800,19 +800,19 @@ def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
                     )
                 if at_home and at_station:
                     raise ValueError(
-                        f"EV{ev_num} player {player_id} cannot be home and at a station "
+                        f"EV{ev_num} player {household_id} cannot be home and at a station "
                         f"in period {buy_row[0]}"
                     )
                 values.append(
                     float(home_price) if at_home
-                    else station_prices[player_id] if at_station
+                    else station_prices[household_id] if at_station
                     else 0.0
                 )
             result_rows.append((buy_row[0], *values))
 
         table_name = f"ev{ev_num}_buy_price"
         profile_definitions = ", ".join(
-            f'"{player_id}" REAL' for player_id in range(1, N_PLAYERS + 1)
+            f'"{household_id}" REAL' for household_id in range(1, N_PLAYERS + 1)
         )
         placeholders = ", ".join("?" for _ in range(N_PLAYERS + 1))
         conn.execute("BEGIN")

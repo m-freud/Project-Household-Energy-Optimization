@@ -60,7 +60,7 @@ The PV source pool must be built first by running `data/dataset_DE_PV/select_ext
 - 70,176 rows, equivalent to 731 days x 96 periods.
 - Current timestamps span `2022-12-31 23:00:00` through `2024-12-31 22:45:00`.
 
-The same database contains `runtime_pool_by_cp` with 250 `(init_cp, player_id, date)` rows, drawn from 40 distinct CH household IDs. The rows by CP are:
+The same database contains `runtime_pool_by_cp` with 250 `(init_cp, household_id, date)` rows, drawn from 40 distinct CH household IDs. The rows by CP are:
 
 | Initial CP | Runtime days | Distinct source households |
 |---:|---:|---:|
@@ -76,7 +76,7 @@ Households can occur under multiple CP groups, so the distinct counts by group d
 For each target player ID 1-250, the insertion script:
 
 1. Reads that player's `initial_cp` from `source_original.db`.
-2. Selects the next unused `(player_id, date)` row from the corresponding `runtime_pool_by_cp` group. Within each CP group the rows are sorted by numeric source household ID and then date.
+2. Selects the next unused `(household_id, date)` row from the corresponding `runtime_pool_by_cp` group. Within each CP group the rows are sorted by numeric source household ID and then date.
 3. Extracts the source household's 96 values for that date, ordered by `period`.
 4. Writes those values into the target player's column in `source_runtime.db.base_load`.
 
@@ -191,7 +191,7 @@ As for EV1, status values are 0 (home), 1 (driving), and 2 (parked away / at des
 - **250 runtime profiles**
 - **250 distinct runtime HHIDs**
 - Runtime `ev2_status`: wide, 96 rows x 251 columns (period plus players 1-250)
-- Runtime `ev2_persons`: 250 mapping rows (`player_id`, `persid`, `HHID`), with a unique-HHID constraint
+- Runtime `ev2_persons`: 250 mapping rows (`household_id`, `persid`, `HHID`), with a unique-HHID constraint
 
 ### Training selection
 
@@ -201,7 +201,7 @@ As for EV1, status values are 0 (home), 1 (driving), and 2 (parked away / at des
 - **1,000 distinct training HHIDs**, disjoint from runtime
 - 6,804 distinct source HHIDs remain eligible after excluding the 250 runtime households; 1,000 are sampled for training
 - Training `ev2_status`: wide, 96 rows x 1,001 columns (period plus players 1-1000)
-- Training `ev2_persons`: 1,000 mapping rows (`player_id`, `persid`, `HHID`), with a unique-HHID constraint
+- Training `ev2_persons`: 1,000 mapping rows (`household_id`, `persid`, `HHID`), with a unique-HHID constraint
 
 Training EV2 is a sample of eligible households, not the full remainder of the EV2 source pool.
 
@@ -233,7 +233,7 @@ Training EV2 is a sample of eligible households, not the full remainder of the E
 | Runtime EV2 `ev2_status` | Wide | 96 rows; `period` + 250 player columns |
 | Training EV2 `ev2_status` | Wide | 96 rows; `period` + 1,000 player columns |
 | EV1/EV2 distances | Long | Person/household ID plus trip number and distance |
-| EV2 runtime/training `ev2_persons` | Long mapping | One row per assigned player: `player_id`, `persid`, `HHID` |
+| EV2 runtime/training `ev2_persons` | Long mapping | One row per assigned player: `household_id`, `persid`, `HHID` |
 
 ## Reproduction Commands
 

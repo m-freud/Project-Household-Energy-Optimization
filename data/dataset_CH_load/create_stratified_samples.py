@@ -34,7 +34,7 @@ N_QUANTILE_BINS = 10
 def load_original_metadata() -> pd.DataFrame:
     with sqlite3.connect(ENERGY_DB_PATH) as conn:
         return pd.read_sql(
-            "SELECT player_id, total_energy, max_load FROM base_load_metadata",
+            "SELECT household_id, total_energy, max_load FROM base_load_metadata",
             conn,
         )
 
@@ -42,23 +42,23 @@ def load_original_metadata() -> pd.DataFrame:
 def load_ch_pool_metadata() -> pd.DataFrame:
     with sqlite3.connect(CH_DB_PATH) as conn:
         return pd.read_sql(
-            "SELECT player_id, date, total_energy, max_load FROM base_load_pool",
+            "SELECT household_id, date, total_energy, max_load FROM base_load_pool",
             conn,
         )
 
 
-def load_preferred_player_ids() -> set[str]:
+def load_preferred_household_ids() -> set[str]:
     preferred = set()
     with sqlite3.connect(CH_DB_PATH) as conn:
         for table in ["base_load_runtime_profiles", "base_load_training_profiles", "base_load_stratified_sample"]:
             try:
                 rows = pd.read_sql(
-                    f"SELECT DISTINCT player_id FROM {table}",
+                    f"SELECT DISTINCT household_id FROM {table}",
                     conn,
                 )
             except Exception:
                 continue
-            preferred.update(rows["player_id"].astype(str).tolist())
+            preferred.update(rows["household_id"].astype(str).tolist())
     return preferred
 
 
@@ -149,8 +149,8 @@ def sample_runtime_profiles(ch_pool: pd.DataFrame, original_bins: pd.DataFrame, 
             print(f"Warning: no CH profiles left in bin {bin_key}; continuing with remaining pool.")
             continue
 
-        preferred_df = bin_df[bin_df["player_id"].astype(str).isin(preferred_ids)].copy()
-        fallback_df = bin_df[~bin_df["player_id"].astype(str).isin(preferred_ids)].copy()
+        preferred_df = bin_df[bin_df["household_id"].astype(str).isin(preferred_ids)].copy()
+        fallback_df = bin_df[~bin_df["household_id"].astype(str).isin(preferred_ids)].copy()
         ordered = pd.concat([preferred_df, fallback_df], axis=0, ignore_index=False)
 
         take_n = min(requested, len(ordered))
@@ -167,7 +167,7 @@ def sample_runtime_profiles(ch_pool: pd.DataFrame, original_bins: pd.DataFrame, 
 
     sample_df = pd.concat(selected_frames, ignore_index=True)
     sample_df = sample_df.head(TARGET_RUNTIME_SIZE).reset_index(drop=True)
-    sample_df = sample_df[["player_id", "date", "total_energy", "max_load", "sample_bin"]].copy()
+    sample_df = sample_df[["household_id", "date", "total_energy", "max_load", "sample_bin"]].copy()
     return sample_df
 
 
@@ -176,7 +176,7 @@ def save_runtime_sample(sample_df: pd.DataFrame) -> None:
         sample_df.to_sql("base_load_runtime_profiles", conn, if_exists="replace", index=False)
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_base_load_runtime_profiles_player_date "
-            "ON base_load_runtime_profiles (player_id, date)"
+            "ON base_load_runtime_profiles (household_id, date)"
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_base_load_runtime_profiles_max_load "
@@ -193,7 +193,7 @@ def save_training_sample(training_df: pd.DataFrame) -> None:
         training_df.to_sql("base_load_training_profiles", conn, if_exists="replace", index=False)
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_base_load_training_profiles_player_date "
-            "ON base_load_training_profiles (player_id, date)"
+            "ON base_load_training_profiles (household_id, date)"
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_base_load_training_profiles_max_load "
@@ -258,7 +258,7 @@ def plot_training_vs_original(original_df: pd.DataFrame, training_df: pd.DataFra
 def main() -> None:
     original_df = load_original_metadata()
     ch_pool_df = load_ch_pool_metadata()
-    preferred_ids = load_preferred_player_ids()
+    preferred_ids = load_preferred_household_ids()
 
     original_bin_edges = compute_bin_edges(original_df)
     original_binned = add_bin_columns(original_df, original_bin_edges)
@@ -268,10 +268,10 @@ def main() -> None:
     runtime_sample = sample_runtime_profiles(ch_binned, original_dist, preferred_ids)
     save_runtime_sample(runtime_sample)
 
-    all_player_ids = set(ch_pool_df["player_id"].astype(str).unique())
-    runtime_player_ids = set(runtime_sample["player_id"].astype(str).unique())
-    remaining_ids = all_player_ids - runtime_player_ids
-    training_df = ch_pool_df[ch_pool_df["player_id"].astype(str).isin(remaining_ids)].copy()
+    all_household_ids = set(ch_pool_df["household_id"].astype(str).unique())
+    runtime_household_ids = set(runtime_sample["household_id"].astype(str).unique())
+    remaining_ids = all_household_ids - runtime_household_ids
+    training_df = ch_pool_df[ch_pool_df["household_id"].astype(str).isin(remaining_ids)].copy()
     save_training_sample(training_df)
 
     summary = summarize(runtime_sample)
@@ -279,7 +279,7 @@ def main() -> None:
     summary.to_csv(summary_path)
 
     print(f"Runtime sample rows: {len(runtime_sample)}")
-    print(f"Unique runtime player IDs: {len(runtime_player_ids)}")
+    print(f"Unique runtime player IDs: {len(runtime_household_ids)}")
     print(f"Unique IDs left in CH pool: {len(remaining_ids)}")
     print(f"Training rows from remaining IDs: {len(training_df)}")
     print(f"Sample saved to: {CH_DB_PATH}")

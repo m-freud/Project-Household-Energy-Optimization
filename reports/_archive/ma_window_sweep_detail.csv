@@ -1,4 +1,4 @@
-window_size,run_id,scenario,player_id,total_cost_ma,total_cost_waterfall,total_cost_oracle,delta_total_vs_waterfall,delta_total_vs_oracle
+window_size,run_id,scenario,household_id,total_cost_ma,total_cost_waterfall,total_cost_oracle,delta_total_vs_waterfall,delta_total_vs_oracle
 2,3,default_scenario,1,17.984126860619423,13.673265821200669,13.551090220812139,4.310861039418754,4.433036639807284
 2,3,default_scenario,2,17.847096670384097,14.0806759009769,13.740618176008823,3.7664207694071976,4.106478494375274
 2,3,default_scenario,3,17.40338084694405,13.869976876740067,13.642562454792332,3.533403970203983,3.7608183921517178

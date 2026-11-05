@@ -76,13 +76,13 @@ def make_feature_df(
         month = date.month
         year = date.year
 
-        for player_id in day_df.columns[2:(2 + n_players)]:
-            print(f"processing player {player_id} for date {date}")
+        for household_id in day_df.columns[2:(2 + n_players)]:
+            print(f"processing player {household_id} for date {date}")
 
             player_day_df = pd.DataFrame({
                 "timestep": day_df["period"].to_numpy(),
-                "household_id": int(player_id),
-                "load": day_df[player_id].to_numpy(),
+                "household_id": int(household_id),
+                "load": day_df[household_id].to_numpy(),
             })
 
             player_day_df = _add_trig_time_features(player_day_df)

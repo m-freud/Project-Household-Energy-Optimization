@@ -9,20 +9,20 @@ from src.dashboard.single_performance.subplots.helpers import shade_ev_location_
 def plot_ev(ax: plt.Axes,
             ev_number: str,
             scenario_name: str,
-            player_id: int,
+            household_id: int,
             policy_colors: dict[str, str],
             run_id: str | None = None,
             missed_deadline: bool = False,
             ) -> None:
     ax.set_title(f"EV{ev_number}")
     ax.set_ylabel("SOC (kWh)")
-    ev_at_home_df = load_series(f"ev{ev_number}_at_home", player_id)
-    ev_at_station_df = load_series(f"ev{ev_number}_at_charging_station", player_id)
+    ev_at_home_df = load_series(f"ev{ev_number}_at_home", household_id)
+    ev_at_station_df = load_series(f"ev{ev_number}_at_charging_station", household_id)
     shade_ev_location_background(ax, ev_at_home_df, ev_at_station_df)
 
     target_soc_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "target_soc")
     soc_targets_ev = get_scenario_value(scenario_name, f"ev{ev_number}", "soc_targets") or {}
-    ev_capacity = load_attribute(f"ev{ev_number}", player_id, "capacity")
+    ev_capacity = load_attribute(f"ev{ev_number}", household_id, "capacity")
     ev_deadline = get_scenario_value(scenario_name, f"ev{ev_number}", "deadline")
 
     target_soc_ev_kwh = None
@@ -52,7 +52,7 @@ def plot_ev(ax: plt.Axes,
         color = policy_colors[policy_name]
         ev_soc_df = load_series(
             f"ev{ev_number}_soc",
-            player_id,
+            household_id,
             scenario_name,
             policy_name,
             run_id=run_id,
