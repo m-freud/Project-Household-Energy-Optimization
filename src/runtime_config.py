@@ -26,7 +26,7 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     RIDGE_METRIC_MODEL_DIRS = MODEL_FAMILY_CONFIGS["ridge"].target_model_dirs
 
     # data source
-    EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "energy_community_data.xlsx")))
+    EXCEL_FILE_PATH = Path(os.getenv("EXCEL_FILE_PATH", str(ROOT_DIR / "data" / "dataset_original" / "energy_community_data.xlsx")))
 
     # sqlite
     
