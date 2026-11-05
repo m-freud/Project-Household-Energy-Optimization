@@ -38,8 +38,8 @@ table_config = {
     },
     "bess": {
         "sheet_name": "BESS",
-        "rectangle": "B1:IQ8",
-        "df_column_names": ["household_id", "model_id", "capacity", "charge", "discharge", "efficiency", "initial_soc", "final_soc"],
+        "rectangle": "B1:IQ6",
+        "df_column_names": ["household_id", "model_id", "capacity", "charge", "discharge", "efficiency"],
         "transpose": True,
     },
     "ev1": {

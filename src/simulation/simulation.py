@@ -220,14 +220,14 @@ class Simulation:
         # plug in BESS
         if has_bess or bess_for_all:
             bess_data = self.sqlite_cursor.execute(
-                '''SELECT capacity, charge, discharge, efficiency, initial_soc
+                '''SELECT capacity, charge, discharge, efficiency
                 FROM bess
                 WHERE household_id = ?''',
                 (household_id,)
             ).fetchone()
 
-            capacity, max_charge, max_discharge, efficiency, initial_soc = bess_data
-            household.bess = BESS(capacity, max_charge, max_discharge, efficiency, soc=initial_soc, name="bess")
+            capacity, max_charge, max_discharge, efficiency = bess_data
+            household.bess = BESS(capacity, max_charge, max_discharge, efficiency, name="bess")
 
         def _load_ev_data(table_name: str) -> tuple[float, float, float, float, float, float | None, float | None, float | None]:
             columns = {
