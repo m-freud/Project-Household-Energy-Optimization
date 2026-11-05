@@ -17,9 +17,9 @@ df_ch = pd.read_sql_query("SELECT * FROM load", conn_ch)
 ch_series = df_ch[player_cols_ch].stack().dropna().astype(float)
 conn_ch.close()
 
-# 2. energy.db
-print("\n=== Analyzing energy.db 'base_load' table ===")
-conn_en = sqlite3.connect('sqlite/energy.db')
+# 2. source_original.db
+print("\n=== Analyzing source_original.db 'base_load' table ===")
+conn_en = sqlite3.connect('sqlite/source_original.db')
 cursor_en = conn_en.cursor()
 cursor_en.execute("PRAGMA table_info(base_load)")
 cols_en = [row[1] for row in cursor_en.fetchall()]

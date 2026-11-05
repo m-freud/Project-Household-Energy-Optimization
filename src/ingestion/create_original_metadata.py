@@ -1,10 +1,10 @@
 """
-Calculate metadata tables for the original data in energy.db.
+Calculate metadata tables for the original data in source_original.db.
 
 Same metrics as the data/*/create_*metadata*.py scripts, but the original
 data covers a single day per player, so there is no `date` column.
 
-Output tables (in energy.db):
+Output tables (in source_original.db):
     base_load_metadata   from base_load
     pv_gen_metadata      from pv_gen
     ev1_metadata         from ev1, ev1_status

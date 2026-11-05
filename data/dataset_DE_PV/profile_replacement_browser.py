@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-ORIG_DB = ROOT_DIR / "sqlite" / "energy.db"
-NEW_DB = ROOT_DIR / "sqlite" / "energy_v2.db"
+ORIG_DB = ROOT_DIR / "sqlite" / "source_original.db"
+NEW_DB = ROOT_DIR / "sqlite" / "source_runtime.db"
 EXT_DB = ROOT_DIR / "sqlite" / "staging" / "DE_pv_gen.db"
 
 st.set_page_config(page_title="PV replacement browser", layout="wide")

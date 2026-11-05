@@ -1,5 +1,5 @@
 '''
-we want to replace the exisitng load profiles in energy.db
+we want to replace the exisitng load profiles in source_original.db
 with new load profiles from the base_load_pool table of CH_loads.db
 
 2 constraints:

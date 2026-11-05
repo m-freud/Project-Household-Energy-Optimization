@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
-ORIG_DB = ROOT_DIR / "sqlite" / "energy.db"
-NEW_DB = ROOT_DIR / "sqlite" / "energy_v2.db"
+ORIG_DB = ROOT_DIR / "sqlite" / "source_original.db"
+NEW_DB = ROOT_DIR / "sqlite" / "source_runtime.db"
 N_PLAYERS = 250
 
 st.set_page_config(page_title="Profile replacement browser", layout="wide")

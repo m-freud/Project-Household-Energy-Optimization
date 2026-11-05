@@ -31,7 +31,7 @@ foreach ($arg in $args) {
 $scriptDir = $PSScriptRoot
 Set-Location $scriptDir
 
-$dbPath = Join-Path $scriptDir 'sqlite\energy.db'
+$dbPath = Join-Path $scriptDir 'sqlite\results.db'
 
 if (-not (Test-Path -LiteralPath $dbPath)) {
     [Console]::Error.WriteLine("Database not found at: $dbPath")
@@ -88,7 +88,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-db_path = Path("sqlite/energy.db")
+db_path = Path("sqlite/results.db")
 full_reset = os.environ.get("FULL_RESET", "false") == "true"
 
 tables = [

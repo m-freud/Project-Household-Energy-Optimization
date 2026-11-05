@@ -2,7 +2,7 @@
 Create a runtime stratified sample from CH base_load_pool.
 
 Workflow:
-1. Load the original energy.db distribution for max_load vs total_energy.
+1. Load the original source_original.db distribution for max_load vs total_energy.
 2. Create 2D quantile bins from the original metadata.
 3. Compute the relative frequency of each 2D bin in the original data.
 4. Sample 250 profiles from CH_loads.db.base_load_pool with the same bin shares.
@@ -25,7 +25,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 CH_DB_PATH = ROOT / "sqlite" / "staging" / "CH_loads.db"
-ENERGY_DB_PATH = ROOT / "sqlite" / "energy.db"
+ENERGY_DB_PATH = ROOT / "sqlite" / "source_original.db"
 OUTPUT_DIR = Path(__file__).resolve().parent
 TARGET_RUNTIME_SIZE = 250
 N_QUANTILE_BINS = 10
@@ -217,7 +217,7 @@ def plot_runtime_vs_original(original_df: pd.DataFrame, sample_df: pd.DataFrame)
         ax.set_ylabel("max_load")
 
     hist_original = axes[0].hist2d(original_df["total_energy"], original_df["max_load"], bins=[x_edges, y_edges], cmap="Blues")
-    axes[0].set_title("Original energy.db distribution")
+    axes[0].set_title("Original source_original.db distribution")
     fig.colorbar(hist_original[3], ax=axes[0], label="count")
 
     hist_sample = axes[1].hist2d(sample_df["total_energy"], sample_df["max_load"], bins=[x_edges, y_edges], cmap="Oranges")
@@ -242,7 +242,7 @@ def plot_training_vs_original(original_df: pd.DataFrame, training_df: pd.DataFra
         ax.set_ylabel("max_load")
 
     hist_original = axes[0].hist2d(original_df["total_energy"], original_df["max_load"], bins=[x_edges, y_edges], cmap="Blues")
-    axes[0].set_title("Original energy.db distribution")
+    axes[0].set_title("Original source_original.db distribution")
     fig.colorbar(hist_original[3], ax=axes[0], label="count")
 
     hist_training = axes[1].hist2d(training_df["total_energy"], training_df["max_load"], bins=[x_edges, y_edges], cmap="Greens")

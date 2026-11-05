@@ -30,8 +30,12 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
 
     # sqlite
     
-    INIT_SOURCE_SQLITE_PATH = Path(os.getenv("INIT_SOURCE_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy.db")))
-    SOURCE_SQLITE_PATH = Path(os.getenv("SOURCE_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "energy_v2.db")))
+    INIT_SOURCE_SQLITE_PATH = Path(
+        os.getenv("INIT_SOURCE_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "source_original.db"))
+    )
+    SOURCE_SQLITE_PATH = Path(
+        os.getenv("SOURCE_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "source_runtime.db"))
+    )
     RESULTS_SQLITE_PATH = Path(
         os.getenv("RESULTS_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "results.db"))
     )
@@ -62,7 +66,7 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
         ],
     }
 
-    # Observed status-1 episodes in energy_v2.db; periods are 1-based.
+    # Observed status-1 episodes in source_runtime.db; periods are 1-based.
     EV_COMMUTE_WINDOWS_OBSERVED = {
         "ev1": [
             {"window": 1, "earliest_start": 33, "latest_end": 50, "max_unavailable_steps": 5},

@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DEFAULT_DB = ROOT_DIR / "sqlite" / "energy_v2.db"
+DEFAULT_DB = ROOT_DIR / "sqlite" / "source_runtime.db"
 PERIODS_PER_DAY = 96
 MINUTES_PER_PERIOD = 15
 EV_TABLES = ("ev1_status", "ev2_status")

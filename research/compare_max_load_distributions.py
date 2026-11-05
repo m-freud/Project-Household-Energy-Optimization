@@ -10,7 +10,7 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENERGY_DB = ROOT / "sqlite" / "energy.db"
+ENERGY_DB = ROOT / "sqlite" / "source_original.db"
 CH_DB = ROOT / "sqlite" / "ch_smart_meters.db"
 OUTPUT_DIR = Path(__file__).resolve().parent
 BUCKET_WIDTH = 0.1
@@ -76,7 +76,7 @@ def _overlay_histogram(energy_values: pd.Series, ch_values: pd.Series, output_pa
     ch_counts = ch_buckets.value_counts().reindex(all_buckets, fill_value=0)
 
     fig, ax = plt.subplots(figsize=(11, 6))
-    ax.bar(all_buckets, energy_counts, width=BUCKET_WIDTH * 0.42, label="energy.db base_load", alpha=0.75)
+    ax.bar(all_buckets, energy_counts, width=BUCKET_WIDTH * 0.42, label="source_original.db base_load", alpha=0.75)
     ax.bar(
         [bucket + BUCKET_WIDTH * 0.42 for bucket in all_buckets],
         ch_counts,
@@ -107,7 +107,7 @@ def main() -> None:
 
     _histogram(
         energy_maxima,
-        "Maximum base load per player: energy.db",
+        "Maximum base load per player: source_original.db",
         OUTPUT_DIR / "max_load_histogram_energy_db.png",
         "#1f77b4",
     )
@@ -123,7 +123,7 @@ def main() -> None:
         OUTPUT_DIR / "max_load_histogram_overlay.png",
     )
 
-    print(f"energy.db maxima: {len(energy_maxima):,} players")
+    print(f"source_original.db maxima: {len(energy_maxima):,} players")
     print(f"CH daily maxima: {len(ch_daily_maxima):,} player-days")
     print(f"Saved plots to {OUTPUT_DIR}")
 

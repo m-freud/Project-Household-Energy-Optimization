@@ -9,7 +9,7 @@ import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[4]
 OUTPUT_DIR = Path(__file__).resolve().parent
-TRAINING_DATABASE_PATH = ROOT_DIR / "sqlite" / "energy_v2_training.db"
+TRAINING_DATABASE_PATH = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 SOURCE_DATABASE_PATH = ROOT_DIR / "sqlite" / "staging" / "VISTA_ev1_status.db"
 PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100

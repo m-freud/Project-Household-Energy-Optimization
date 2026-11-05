@@ -9,7 +9,7 @@ import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[4]
 OUTPUT_DIR = Path(__file__).resolve().parent
-DATABASE_PATH = ROOT_DIR / "sqlite" / "energy_v2_training.db"
+DATABASE_PATH = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
 MAX_PROFILES = 1_000

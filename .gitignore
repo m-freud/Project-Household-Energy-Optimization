@@ -1,5 +1,7 @@
 data/EC_EV_dataset (fixed error).xlsx
-energy.db
+source_original.db
+source_runtime.db
+results.db
 *.db
 backups/
 *.pyc

@@ -4,7 +4,9 @@ import pandas as pd
 from src.runtime_config import RuntimeConfig
 
 def create_init_source_connection():
-    return sqlite3.connect(RuntimeConfig.INIT_SOURCE_SQLITE_PATH)
+    database_path = RuntimeConfig.INIT_SOURCE_SQLITE_PATH
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(database_path)
 
 
 def create_source_connection():

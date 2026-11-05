@@ -11,7 +11,7 @@ The project prepares four profile targets for runtime and training:
 3. EV1 work-commute status (`ev1_status`)
 4. EV2 casual-commute status (`ev2_status`)
 
-Runtime data is written to `sqlite/energy_v2.db`. Training data is written to `sqlite/energy_v2_training.db`. The scripts preserve each target's established simulation-facing representation: the four runtime targets are wide, with one column per player and 96 period rows. Training load and PV remain timestamped wide time series; EV1 and EV2 training statuses are also stored wide.
+Runtime data is written to `sqlite/source_runtime.db`. Training data is written to `sqlite/source_runtime_training.db`. The scripts preserve each target's established simulation-facing representation: the four runtime targets are wide, with one column per player and 96 period rows. Training load and PV remain timestamped wide time series; EV1 and EV2 training statuses are also stored wide.
 
 A profile count needs interpretation by target. Load runtime has 250 target players but draws from 40 distinct source households. PV runtime has 200 active PV targets but cycles through a 92-day source pool. EV1 is selected by person, with shared households intentionally prioritized. EV2 requires one person per household.
 
@@ -19,9 +19,28 @@ A profile count needs interpretation by target. Load runtime has 250 target play
 
 ### Runtime
 
-`src/ingestion/insert_external_profiles.py` runs these steps in order:
+Build the original database from the workbook and calculate its metadata:
 
-1. `copy_energy_db()` replaces `energy_v2.db` with a SQLite backup of `energy.db`.
+```shell
+python src/ingestion/table_loading_original.py
+python src/ingestion/create_original_metadata.py
+```
+
+Build the CH and PV runtime pools before assembling the runtime database:
+
+```shell
+python data/dataset_CH_load/create_valid_pool_table.py
+python data/dataset_CH_load/select_ext_runtime_profiles.py
+python data/dataset_DE_PV/select_ext_runtime_profiles.py
+```
+
+Then build the runtime database with the staged CH, PV, and VISTA inputs:
+
+```shell
+python src/ingestion/create_replacement_db.py
+```
+
+1. `copy_source_original_db()` replaces `source_runtime.db` with a SQLite backup of `source_original.db`.
 2. It drops every table whose name ends in `_metadata`. In the current source DB these are `base_load_metadata`, `pv_gen_metadata`, `ev1_metadata`, and `ev2_metadata`.
 3. It replaces the selected source data for `base_load`, `pv_gen`, `ev1_status`, and `ev2_status`.
 
@@ -29,7 +48,7 @@ The PV source pool must be built first by running `data/dataset_DE_PV/select_ext
 
 ### Training
 
-`src/ingestion/create_training_tables.py` deletes and recreates `energy_v2_training.db`, then builds `load`, `pv_gen`, `ev1_status`, `ev2_status`, and the EV2 `ev2_persons` mapping. It does not copy the full runtime energy database or its metadata/configuration tables.
+`src/ingestion/create_training_tables.py` deletes and recreates `source_runtime_training.db`, then builds `load`, `pv_gen`, `ev1_status`, `ev2_status`, and the EV2 `ev2_persons` mapping. It does not copy the full runtime energy database or its metadata/configuration tables.
 
 ## 1. Household Base Load
 
@@ -56,10 +75,10 @@ Households can occur under multiple CP groups, so the distinct counts by group d
 
 For each target player ID 1-250, the insertion script:
 
-1. Reads that player's `initial_cp` from `energy.db`.
+1. Reads that player's `initial_cp` from `source_original.db`.
 2. Selects the next unused `(player_id, date)` row from the corresponding `runtime_pool_by_cp` group. Within each CP group the rows are sorted by numeric source household ID and then date.
 3. Extracts the source household's 96 values for that date, ordered by `period`.
-4. Writes those values into the target player's column in `energy_v2.db.base_load`.
+4. Writes those values into the target player's column in `source_runtime.db.base_load`.
 
 The source day is used once. Multiple days from one CH household can supply different runtime players. Runtime has **250 target profiles** and **40 distinct source households represented**. Each profile is one 96-period day.
 
@@ -69,7 +88,7 @@ Training keeps all CH household columns whose IDs do not appear in `runtime_pool
 
 - **41 training household profiles**
 - 70,176 timestamps per column, spanning 731 x 96 periods
-- Result table: `energy_v2_training.db.load`
+- Result table: `source_runtime_training.db.load`
 
 ## 2. PV Generation
 
@@ -88,7 +107,7 @@ First run `data/dataset_DE_PV/select_ext_runtime_profiles.py`. Its `create_runti
 
 - **92 daily profiles**, from 2018-03-16 through 2018-09-19.
 
-`replace_pv_gen()` reads the 200 player IDs in `energy.db.pv_gen_metadata`, sorted by player ID. It assigns the runtime pool sequentially and cycles to the beginning after exhausting the 92 days, so 200 targets are filled from 92 distinct source days. For each target, it reads the selected `residential3` day from `pv_gen` and multiplies every value by **0.8**. The target's original PV metadata is not used for scaling in the current code.
+`replace_pv_gen()` reads the 200 player IDs in `source_original.db.pv_gen_metadata`, sorted by player ID. It assigns the runtime pool sequentially and cycles to the beginning after exhausting the 92 days, so 200 targets are filled from 92 distinct source days. For each target, it reads the selected `residential3` day from `pv_gen` and multiplies every value by **0.8**. The target's original PV metadata is not used for scaling in the current code.
 
 - **200 active PV target profiles**
 - **92 distinct source day profiles**, reused cyclically
@@ -137,7 +156,7 @@ Current split:
 - **231 runtime HHIDs**; the 19 shared HHIDs are deliberately represented by both people
 - The runtime EV1 `ev1_status` table is 96 rows x 251 columns (period plus players 1-250).
 
-The runtime EV1 `HHID` assignment is not currently persisted in `energy_v2.db`; it is reconstructed from the source mapping and the fixed selection rule when creating the training table.
+The runtime EV1 `HHID` assignment is not currently persisted in `source_runtime.db`; it is reconstructed from the source mapping and the fixed selection rule when creating the training table.
 
 ### Training selection
 
@@ -167,7 +186,7 @@ As for EV1, status values are 0 (home), 1 (driving), and 2 (parked away / at des
 
 ### Runtime selection
 
-`replace_ev2_status()` sorts candidates by PERSID, shuffles them with `random.Random(42)`, and then takes the first profile from each previously unused HHID until 250 profiles are selected. It copies the 96 statuses into player columns 1-250 in `energy_v2.ev2_status`.
+`replace_ev2_status()` sorts candidates by PERSID, shuffles them with `random.Random(42)`, and then takes the first profile from each previously unused HHID until 250 profiles are selected. It copies the 96 statuses into player columns 1-250 in `source_runtime.ev2_status`.
 
 - **250 runtime profiles**
 - **250 distinct runtime HHIDs**
@@ -228,7 +247,7 @@ Run from the repository root in the project's virtual environment:
 # Rebuild the 92-day PV runtime pool before runtime insertion
 .\.venv\Scripts\python.exe data\dataset_DE_PV\select_ext_runtime_profiles.py
 
-# Build runtime database (copies energy.db, drops metadata, replaces all four targets)
+# Build runtime database (copies source_original.db, drops metadata, replaces all four targets)
 .\.venv\Scripts\python.exe src\ingestion\insert_external_profiles.py
 
 # Build training database
@@ -239,7 +258,7 @@ Run from the repository root in the project's virtual environment:
 
 - Rebuild the VISTA staging databases before runtime/training if their source CSVs change; these scripts generate the HHID mapping tables used for EV selection.
 - Rebuild the PV runtime pool before running runtime insertion. The runtime insertion script consumes the existing `runtime_pool` and does not create it.
-- EV1 training reconstructs runtime household membership from the source plus the same fixed seed-42 selection code. Unlike EV2, EV1 runtime currently does not persist a player-to-PERSID/HHID mapping in `energy_v2.db`.
+- EV1 training reconstructs runtime household membership from the source plus the same fixed seed-42 selection code. Unlike EV2, EV1 runtime currently does not persist a player-to-PERSID/HHID mapping in `source_runtime.db`.
 - Runtime EV1 intentionally prioritizes shared-HHID people, so it is not one-person-per-household. Runtime and training HHID sets remain disjoint.
 - PV uses a fixed factor of 0.8 in both runtime and training. Runtime does not currently scale PV profiles to original `total_energy`; the earlier total-energy scaling expression is inactive.
-- `energy_v2_training.db` is rebuilt from scratch. Its current targets are load, PV, EV1, and EV2; it is not a full copy of `energy_v2.db`.
+- `source_runtime_training.db` is rebuilt from scratch. Its current targets are load, PV, EV1, and EV2; it is not a full copy of `source_runtime.db`.

@@ -7,8 +7,8 @@ import random
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 SQLITE_DIR = ROOT_DIR / "sqlite"
-ENERGY_DB = SQLITE_DIR / "energy.db"
-ENERGY_V2_DB = SQLITE_DIR / "energy_v2.db"
+SOURCE_ORIGINAL_DB = SQLITE_DIR / "source_original.db"
+SOURCE_RUNTIME_DB = SQLITE_DIR / "source_runtime.db"
 CH_LOADS_DB = SQLITE_DIR / "staging" / "CH_loads.db"
 DE_PV_DB = SQLITE_DIR / "staging" / "DE_pv_gen.db"
 EV1_DB = SQLITE_DIR / "staging" / "VISTA_ev1_status.db"
@@ -34,11 +34,16 @@ N_PERIODS = 96
 PERIOD_HOURS = 0.25
 
 
-def copy_energy_db() -> None:
-    """Copy energy.db without metadata or time series that will be replaced."""
-    ENERGY_V2_DB.unlink(missing_ok=True)
-    src = sqlite3.connect(ENERGY_DB)
-    dst = sqlite3.connect(ENERGY_V2_DB)
+def copy_source_original_db() -> None:
+    """Rebuild source_runtime.db from source_original.db before replacing runtime data."""
+    if not SOURCE_ORIGINAL_DB.is_file():
+        raise FileNotFoundError(
+            f"Original source database not found: {SOURCE_ORIGINAL_DB}"
+        )
+    SOURCE_RUNTIME_DB.parent.mkdir(parents=True, exist_ok=True)
+    SOURCE_RUNTIME_DB.unlink(missing_ok=True)
+    src = sqlite3.connect(SOURCE_ORIGINAL_DB)
+    dst = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         src.backup(dst)
         tables = dst.execute(
@@ -102,7 +107,7 @@ def replace_base_load() -> None:
     pool = load_pool_by_cp()
     next_idx: dict[float, int] = defaultdict(int)
 
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     ch_conn = sqlite3.connect(CH_LOADS_DB)
     try:
         initial_cps = read_initial_cps(conn)
@@ -130,9 +135,9 @@ def replace_base_load() -> None:
 
 def replace_pv_gen() -> None:
     """Create pv_gen and populate PV players from the external runtime pool."""
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     de_conn = sqlite3.connect(DE_PV_DB)
-    orig_conn = sqlite3.connect(ENERGY_DB)
+    orig_conn = sqlite3.connect(SOURCE_ORIGINAL_DB)
     try:
         targets = orig_conn.execute(
             "SELECT player_id, total_energy FROM pv_gen_metadata ORDER BY player_id"
@@ -195,8 +200,8 @@ def replace_pv_gen() -> None:
 
 
 def replace_ev1_status() -> None:
-    """Fill energy_v2 EV1 players, prioritizing people from shared households."""
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    """Fill source_runtime EV1 players, prioritizing people from shared households."""
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     ev1_conn = sqlite3.connect(EV1_DB)
     try:
         selected = _select_ev1_runtime_profiles(ev1_conn)
@@ -250,7 +255,7 @@ def _select_ev1_runtime_profiles(
 
 def replace_ev2_status() -> None:
     """Fill runtime EV2 players with random profiles from distinct households."""
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     ev2_conn = sqlite3.connect(EV2_DB)
     try:
         candidates = ev2_conn.execute(
@@ -300,7 +305,7 @@ def _replace_ev_availability(
     at_station_table: str,
     station_status: int | None,
 ) -> None:
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         columns = [
             row[1]
@@ -408,7 +413,7 @@ def _replace_ev_load(
     assignments: list[tuple[int, str]],
     wide_status: bool,
 ) -> None:
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     source_conn = sqlite3.connect(source_db_path)
     try:
         status_table = f"ev{ev_num}_status"
@@ -561,7 +566,7 @@ def replace_ev1_load() -> None:
 
 def replace_ev2_load() -> None:
     """Create EV2 driving load evenly across each selected profile's driving periods."""
-    with sqlite3.connect(ENERGY_V2_DB) as conn:
+    with sqlite3.connect(SOURCE_RUNTIME_DB) as conn:
         assignments = [
             (int(player_id), str(persid))
             for player_id, persid in conn.execute(
@@ -572,7 +577,7 @@ def replace_ev2_load() -> None:
 
 
 def _replace_ev_max_charge(ev_num: int, has_station: bool) -> None:
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         expected_profile_columns = [
             str(player_id) for player_id in range(1, N_PLAYERS + 1)
@@ -708,7 +713,7 @@ def replace_ev2_max_charge() -> None:
 
 
 def _replace_ev_buy_price(ev_num: int, has_station: bool) -> None:
-    conn = sqlite3.connect(ENERGY_V2_DB)
+    conn = sqlite3.connect(SOURCE_RUNTIME_DB)
     try:
         expected_profile_columns = [
             str(player_id) for player_id in range(1, N_PLAYERS + 1)
@@ -842,7 +847,7 @@ def replace_ev2_buy_price() -> None:
 
 def main():
     print("Ingesting load profiles")
-    copy_energy_db()
+    copy_source_original_db()
     replace_base_load()
     replace_pv_gen()
     replace_ev1_status()

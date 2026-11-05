@@ -8,8 +8,8 @@ CH_LOADS_DB = STAGING_DIR / "CH_loads.db"
 DE_PV_DB = STAGING_DIR / "DE_pv_gen.db"
 EV1_DB = STAGING_DIR / "VISTA_ev1_status.db"
 EV2_DB = STAGING_DIR / "VISTA_ev2_status.db"
-ENERGY_V2_DB = ROOT_DIR / "sqlite" / "energy_v2.db"
-TRAINING_DB = ROOT_DIR / "sqlite" / "energy_v2_training.db"
+SOURCE_RUNTIME_DB = ROOT_DIR / "sqlite" / "source_runtime.db"
+TRAINING_DB = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 
 PV_EXCLUDED_PLAYER = "residential3"
 PV_BEFORE_YEAR = 2018
@@ -152,7 +152,7 @@ def create_e1_status_table(conn: sqlite3.Connection) -> None:
 def create_e2_status_table(conn: sqlite3.Connection) -> None:
     """ev2_status: 1,000 random profiles from HHIDs not used by runtime."""
     conn.execute("ATTACH DATABASE ? AS vista", (str(EV2_DB),))
-    conn.execute("ATTACH DATABASE ? AS runtime", (str(ENERGY_V2_DB),))
+    conn.execute("ATTACH DATABASE ? AS runtime", (str(SOURCE_RUNTIME_DB),))
     try:
         candidates = conn.execute(
             "SELECT persid, HHID FROM vista.ev2_persons ORDER BY persid"

@@ -3,7 +3,7 @@ Select the candidate pool of CH load profiles for sampling.
 
 A player-day from CH_loads.db.base_load_metadata is a candidate if its
 total_energy and max_load lie within the [min, max] range of the original
-profiles in energy.db.base_load_metadata.
+profiles in source_original.db.base_load_metadata.
 
 Output:
     CH_loads.db
@@ -17,7 +17,7 @@ from pathlib import Path
 sqlite_dir = Path(__file__).parents[2] / "sqlite"
 
 load_db_path = sqlite_dir / "staging" / "CH_loads.db"
-energy_db_path = sqlite_dir / "energy.db"
+energy_db_path = sqlite_dir / "source_original.db"
 
 SOURCE_TABLE = "base_load_metadata"
 POOL_TABLE = "base_load_pool"
