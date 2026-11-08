@@ -1,0 +1,75 @@
+# 5. Model Training
+
+Targets:
+- base load
+- pv gen
+- ev1 status
+- ev2 status
+
+Secondary Targets:
+- ev stuff (buy price etc)
+
+
+Per step, models are used to predict the entire remaining day.
+Forecasts are passed to the MPC Controller
+
+This already beats hist avg. persist, but it has the main drawback of cumulative rollout errors.
+
+So we compare 3 different architecture variants:
+
+- single step recursive forecasting
+- multi step forecasting with interpolation (single model for multiple horizons, where the horizon is included in the features)
+- multi model forecasting with interpolation (1 model per horizon)
+
+
+# 5.1. Model Features
+
+The models rely entirely on the current profile history.
+
+Load Features:
+- . . .
+
+PV Features:
+- . . .
+
+EV1 status features:
+- . . .
+
+EV2 status features:
+- . . .
+
+
+Where do they come from?
+I suppose we tried all the statistical features available (std, avg, ramp, ...)
+And checked what works best
+XGBoost gives you a ranking of feature importance. You just keep those with meaningful impact
+
+
+# 5.2. Data Split
+
+We start with the training data in training.db 
+
+Then I guess its Train / Test / Validate e.g. 60 - 20 - 20
+
+
+# 5.3. Tuning
+
+So we run a grid of hypams and settle when quality stagnates.
+
+Tuning a single model is only one part ofc!
+Single model is th easiest part. So we use the bes hypams from here as a starting point.
+
+With the multi horizon approaches we need to figure out:
+
+- what are the best combinations of horizons?
+- how do we train them per horizon? (-> tuning)
+
+
+
+### Note
+
+Datensplit, Feature Auswahl, tuning sind geplant
+
+aktuelle modelle sind untuned baselines.
+
+können auch als solche berichtet werden

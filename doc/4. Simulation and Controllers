@@ -1,0 +1,130 @@
+# 4. Simulation and Controllers
+
+The setup consists of a Simulation class that handles the environment. It creates virtual households of the Household class,
+supplies them with household-specific devices and handles all physical interactions
+for each run of 96 timesteps.
+A range of Controller classes handles the decision-making inside each household, resulting
+in charge actions for Bess (if present) and EVs.
+
+## 4.1. Simulation
+
+### 4.1.1. Simulation class
+
+Created and used within the main() function of simulation.py.
+
+Main CLI args:
+- households (IDs of households to simulate)
+- scenarios (start SOCs and SOC targets)
+- controllers 
+
+Scenarios and Controllers are stored in a RunContext class.
+
+For each run context, per household ID:
+The sim creates the household with specific devices and fetches their day profiles from the sqlite db.
+It then runs 95 steps like this:
+
+```
+# perform a single simulation step for 1 house
+    def step(
+            self,
+            household: Household,
+            controller: BaseController,
+            scenario: Scenario,
+            duration_hours: float = 0.25,
+            time=1,
+        ):
+        self.current_timestep = time
+        self.update_household_inputs(household)
+        controls = controller.set_controls(household, scenario)
+        household.apply_controls(controls, duration_hours=duration_hours)
+        household.update_history()
+```
+- inputs updaten (zeit, andere inputs) und an household übergeben
+- den controller die control actions berechnen lassen
+- und dann die controls auf den household anwenden,
+sodass am ende die äußeren und inneren states einen schritt weiter sind
+- und dann die history updaten
+
+Der wriklich iteressante Teil ist hier set_controls, was bei jedem controller anders läuft.
+
+
+Simulation stores these states:
+- time
+- .....
+
+
+Am ende jedes household-days werden histories und run metadaten in results.db gespeichert.
+
+
+### 4.1.2. Household class
+
+die haushalte sind dann container in denen die devices leben, aber auch die controller (glaub ich)
+
+### 4.1.3. Devices
+
+What do they store?
+How do they interact?
+
+## 4.2 Controllers
+
+jeder controller hat eine set_controls function mit parametern:
+- household (contains all states of household and devices)
+- scenario (contains SOC targets for target constraints)
+
+haushalt wir ausgelesen, samt history und aktuellen values für alles
+
+und dann werden ausgehend davon control action bestimmt, die nur darin bestehen:
+
+bess charge / discharge
+ev1 charge
+ev2 charge
+
+(e2g/e2h müsste man noch einbauen aber muss auch nicht)
+
+### 4.2.1. Waterfall
+
+Waterfall: rule based, keine prognosen.
+
+Dient als Referenz / Vorstufe zu den MPC Controllers
+
+
+### 4.2.2. Model Predictive Control (MPC)
+
+Wir definieren jetzt einfach ein Constraint Satisfaction Problem,
+also ein GLS, berechnen die optimalen control actions ausgehend von past, present, and predicted future
+dann machen wir den ersten schritt davon, apply_controls, und von vorne
+
+(hier beschreiben wir die ganze MPC logic und designentscheidungen, zB dass der horizon immer gleich bleiben muss damit das system die gleiche shape hat und wir warm starten können)
+
+Zielfunktion: Cost.
+
+Wir minimieren Kosten, mit constraints:
+Device constraints (max charge o.ä.)
+Scenario targets (SOC targets)
+etc
+
+### 4.2.3 Predictors / Forecasting
+
+und dann gehören da die predictors dazu
+
+Predictors:
+
+#### Oracle
+
+Has perfect knowledge of the future.
+Oracle + MPC => Best possbile controls.
+
+#### Hist avg:
+
+Heuristic naive baseline.
+This is what we want to beat.
+In other words: any other, more complex predictor needs to beat this one to justify its existence
+erstmal als referenz, aber auch damit niemand sagt: wäre das nicht einfacher gegangen? - Ja, wäre es, aer mit ergebnis xy
+
+Baseline + Justification for better predictors
+
+#### Machine Learning
+
+- XGBoost single step,
+- XGBoost multi step,
+- XGBoost multi model

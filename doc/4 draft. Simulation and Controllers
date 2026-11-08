@@ -1,0 +1,120 @@
+
+
+
+Also wir wollen diese Haushalte und ihre Controller simulieren.
+
+es gibt eine class Simulation die ganz oben steht
+
+der main entrypoint quasi
+
+Simulation persistet auch so sachen wie die sqlite conn die sich nicht ändern
+
+und househld bezügliche sachen die der Household nicht selber speichert.
+
+Simulation ist quasi das universum in dem die haushalte leben.
+
+die haushalte sind dann universen in denen die devices leben, aber auch die controller (glaub ich)
+
+entrypoint ist diese eine main() function in simulation.py
+
+das ist die ichtigste function in dem ganzen afbau
+
+die macht:
+
+(args parsen)
+
+Simulation instantiaten
+
+und alle gewählten run contexts erzeugen
+
+die enthalten alles was pro run sich ändert
+
+also controller, scenario, run id
+
+die simulation lässt dann pro haushalt einen tag ablaufen
+
+w sieht ein tag aus?
+
+96 steps.
+
+pro step:
+
+code:
+
+    # perform a single simulation step for 1 house
+    def step(
+            self,
+            household: Household,
+            controller: BaseController,
+            scenario: Scenario,
+            duration_hours: float = 0.25,
+            time=1,
+        ):
+        self.current_timestep = time
+        self.update_household_inputs(household)
+        controls = controller.set_controls(household, scenario)
+        household.apply_controls(controls, duration_hours=duration_hours)
+        household.update_history()
+
+also:
+
+inputs updaten (zeit, andere inputs) und an household übergeben
+
+den controller die control actions berechnen lassen
+
+und dann die controls auf den household anwenden
+
+sodass am ende die äußeren und inneren states einen schritt weiter sind
+
+und dann die history updaten
+
+das ist quasi der main loop
+
+wobei der spannende teil in set_controls() passiert
+
+
+verdient also eigenen paragraphen
+
+Controllers
+
+jeder controller hat eine set_controls function mit dem household object als parameter.
+
+haushalt wir ausgelesen, samt history und aktuellen values für alles
+
+und dann werden ausgehend davon control action bestimmt, die nur darin bestehen:
+
+bess charge / discharge
+
+ev1 charge
+
+ev2 charge
+
+(e2g/e2h müsste man noch einbauen aber muss auch nicht)
+
+und dann geh ich halt auf jeden wichtigen controller einzeln ein
+
+also 
+
+Waterfall: rule based, keine prognosen
+MPC
+
+(hier beschreiben wir die ganze MPC logic und designentscheidungen, zB dass der horizon immer gleich bleiben muss damit das system die gleiche shape hat und wir warm starten können)
+
+und dann gehören da die predictors dazu
+
+Predictors
+
+Hist avg:
+
+das ist die naive baseline die es zu schlagen gilt.
+
+einfach erstmal als referenz, aber auch damit niemand sagt: wäre das nicht einfacher gegangen? - Ja, wäre es, aer mit ergebnis xy
+
+XGBoost sinle step,
+
+XGBoost multi step
+
+tralala
+
+
+Das wäre das inhaltliche gerüst
