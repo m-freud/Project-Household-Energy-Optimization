@@ -45,6 +45,11 @@ def write_filtered_dataset(filtered_metadata: pd.DataFrame) -> None:
     filtered_metadata.to_csv(FILTERED_METADATA_PATH, sep=';')
 
     FILTERED_SMART_METER_DATA_DIR.mkdir(exist_ok=True)
+    expected_files = {f"{meter_id}.csv" for meter_id in filtered_metadata.index}
+    for existing_file in FILTERED_SMART_METER_DATA_DIR.glob("*.csv"):
+        if existing_file.name not in expected_files:
+            existing_file.unlink()
+
     missing_files = []
     for meter_id in filtered_metadata.index:
         src = SMART_METER_DATA_DIR / f"{meter_id}.csv"
