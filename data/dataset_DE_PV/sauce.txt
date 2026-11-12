@@ -1,7 +1,5 @@
 https://data.open-power-system-data.org/household_data
 
-
-
 2014-12-11 to 2019-05-01
 
 Type: residential
