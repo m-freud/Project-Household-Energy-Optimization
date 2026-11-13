@@ -87,10 +87,10 @@ STEPS: tuple[tuple[str, Path | None], ...] = (
         "Build VISTA EV2 staging database",
         Path("data/dataset_VISTA_EV/create_ev2_database.py"),
     ),
-    (
-        "Calculate VISTA EV2 metadata",
-        Path("data/dataset_VISTA_EV/create_ev2_metadata_table.py"),
-    ),
+    # (
+    #     "Calculate VISTA EV2 metadata",
+    #     Path("data/dataset_VISTA_EV/create_ev2_metadata_table.py"),
+    # ),
     ("Build runtime database", Path("src/ingestion/create_replacement_db.py")),
     ("Build training database", Path("src/ingestion/create_training_tables.py")),
 )

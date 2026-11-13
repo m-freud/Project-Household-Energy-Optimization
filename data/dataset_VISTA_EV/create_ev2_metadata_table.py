@@ -78,13 +78,56 @@ print(f"Found {len(persids)} EV2 persons")
 
 
 # ---------------------------------------------------------------------------
+# Prepare the output table for incremental writes
+# ---------------------------------------------------------------------------
+
+with sqlite3.connect(ev2_db_path) as conn:
+    conn.execute("DROP TABLE IF EXISTS ev2_metadata")
+    conn.execute("""
+        CREATE TABLE ev2_metadata (
+            persid TEXT PRIMARY KEY,
+            trip_count INTEGER,
+            total_distance REAL,
+            mean_trip_distance REAL,
+            max_trip_distance REAL,
+            first_departure INTEGER,
+            last_arrival INTEGER,
+            driving_periods INTEGER,
+            away_periods INTEGER,
+            home_periods INTEGER,
+            away_fraction REAL
+        )
+    """)
+
+
+# ---------------------------------------------------------------------------
 # Calculate metadata
 # ---------------------------------------------------------------------------
 
+batch_size = 500
 metadata_rows = []
+metadata_count = 0
 
 
-for persid in persids:
+def save_metadata_batch(rows: list[dict]) -> int:
+    if not rows:
+        return 0
+
+    metadata_df = pd.DataFrame(rows)
+    with sqlite3.connect(ev2_db_path) as conn:
+        metadata_df.to_sql(
+            "ev2_metadata",
+            conn,
+            if_exists="append",
+            index=False,
+        )
+        conn.commit()
+    return len(metadata_df)
+
+
+for i, persid in enumerate(persids):
+    if (i)**0.5 == int((i)**0.5):
+        print(f"Processing {i+1}/{len(persids)}: persid={persid}")
 
     # -----------------------------------------------------------------------
     # Status
@@ -96,6 +139,10 @@ for persid in persids:
 
     # Only use complete profiles
     if len(person_status) != 96:
+        if (i + 1) % batch_size == 0 or i + 1 == len(persids):
+            metadata_count += save_metadata_batch(metadata_rows)
+            metadata_rows.clear()
+            print(f"Saved metadata through {i + 1}/{len(persids)} persons")
         continue
 
     status = person_status["status"].astype(int)
@@ -185,23 +232,17 @@ for persid in persids:
         }
     )
 
-
-metadata_df = pd.DataFrame(metadata_rows)
+    if (i + 1) % batch_size == 0 or i + 1 == len(persids):
+        metadata_count += save_metadata_batch(metadata_rows)
+        metadata_rows.clear()
+        print(f"Saved metadata through {i + 1}/{len(persids)} persons")
 
 
 # ---------------------------------------------------------------------------
-# Save
+# Create indexes after all batches are committed
 # ---------------------------------------------------------------------------
 
 with sqlite3.connect(ev2_db_path) as conn:
-
-    metadata_df.to_sql(
-        "ev2_metadata",
-        conn,
-        if_exists="replace",
-        index=False,
-    )
-
     # One metadata row per person
     conn.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_ev2_metadata_persid
@@ -223,8 +264,14 @@ with sqlite3.connect(ev2_db_path) as conn:
 # Summary
 # ---------------------------------------------------------------------------
 
+with sqlite3.connect(ev2_db_path) as conn:
+    metadata_preview = pd.read_sql(
+        "SELECT * FROM ev2_metadata LIMIT 5",
+        conn,
+    )
+
 print()
-print(f"Calculated metadata for {len(metadata_df)} EV2 persons")
+print(f"Calculated metadata for {metadata_count} EV2 persons")
 print(f"Output: table ev2_metadata in {ev2_db_path}")
 print()
-print(metadata_df.head())
+print(metadata_preview)
