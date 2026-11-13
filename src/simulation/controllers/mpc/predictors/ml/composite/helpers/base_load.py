@@ -28,6 +28,7 @@ def predict_base_load(
             current_timestep=timestep,
             current_base_load=value,
             base_load_history=feature_history,
+            required_features=model_features,
         )
 
     def try_bypass(

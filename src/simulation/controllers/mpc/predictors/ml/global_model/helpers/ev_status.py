@@ -60,7 +60,7 @@ def _predict_single_ev_status(
             "end2_latest": windows[1]["latest_end"],
             "max_commute_steps_1": windows[0]["max_unavailable_steps"],
             "max_commute_steps_2": windows[1]["max_unavailable_steps"],
-        })
+        }, required_features=model_features)
 
     def try_bypass(
         timestep: int,

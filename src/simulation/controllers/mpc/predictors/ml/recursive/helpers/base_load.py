@@ -20,6 +20,11 @@ def _predict_base_load(
     # init sim history
     # we use a list here for convenience
     sim_base_load_history = list(household.history["base_load"].values())
+    model_family_name = ModelConfig.get_model_family_name(model)
+    model_features = get_model_feature_names(
+        model,
+        ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["base_load"],
+    )
 
     # init pred
     base_load_pred: list[float] = [current_base_load]
@@ -36,12 +41,7 @@ def _predict_base_load(
             current_timestep=current_timestep,
             current_base_load=current_base_load,
             base_load_history=sim_base_load_history,
-        )
-
-        model_family_name = ModelConfig.get_model_family_name(model)
-        model_features = get_model_feature_names(
-            model,
-            ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["base_load"],
+            required_features=model_features,
         )
 
         # ensure completness of features for the model

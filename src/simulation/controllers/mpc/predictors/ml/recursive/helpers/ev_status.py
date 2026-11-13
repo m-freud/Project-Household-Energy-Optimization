@@ -22,6 +22,11 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
     """
     if model is None:
         return [0] * horizon, [0] * horizon
+    model_family_name = ModelConfig.get_model_family_name(model)
+    model_features = get_model_feature_names(
+        model,
+        ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["ev_status"],
+    )
 
     def _status_to_home_station(status: int) -> tuple[int, int]:
         # prediction has shape of at_home, at_station, so we convert back for pred
@@ -88,11 +93,9 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
             current_timestep += 1
             continue
 
-        all_features = _build_ev_status_features(ev_status_data)
-        model_family_name = ModelConfig.get_model_family_name(model)
-        model_features = get_model_feature_names(
-            model,
-            ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["ev_status"],
+        all_features = _build_ev_status_features(
+            ev_status_data,
+            required_features=model_features,
         )
 
         # ensure completeness of features for the model

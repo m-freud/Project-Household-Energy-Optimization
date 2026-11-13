@@ -36,6 +36,7 @@ def predict_pv_gen(
                 pv_history=feature_history,
                 daylight_start=daylight["earliest_start"],
                 daylight_end=daylight["latest_end"],
+                required_features=model_features,
             )
 
         def try_bypass(

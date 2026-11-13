@@ -33,6 +33,7 @@ def predict_pv_gen(
             return _build_pv_gen_features(
                 timestep, value, feature_history,
                 daylight["earliest_start"], daylight["latest_end"],
+                required_features=model_features,
             )
 
         def try_bypass(

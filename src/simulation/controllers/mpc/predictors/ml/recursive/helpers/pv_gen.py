@@ -28,6 +28,11 @@ def _predict_pv_gen(
 
     # init sim history
     sim_pv_history = list(household.history["pv_gen"].values())
+    model_family_name = ModelConfig.get_model_family_name(model)
+    model_features = get_model_feature_names(
+        model,
+        ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["pv_gen"],
+    )
 
     # init prediciton
     pv_pred: list[float] = [current_pv_gen]
@@ -47,12 +52,7 @@ def _predict_pv_gen(
             pv_history=sim_pv_history,
             daylight_start=daylight_start,
             daylight_end=daylight_end,
-        )
-
-        model_family_name = ModelConfig.get_model_family_name(model)
-        model_features = get_model_feature_names(
-            model,
-            ModelConfig.MODEL_FEATURES_BY_FAMILY[model_family_name]["pv_gen"],
+            required_features=model_features,
         )
 
         # ensure completness of features for the model

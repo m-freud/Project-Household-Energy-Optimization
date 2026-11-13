@@ -25,7 +25,12 @@ def predict_base_load(
     )
 
     def build_features(timestep: int, value: float, feature_history: list[float]) -> dict:
-        return _build_base_load_features(timestep, value, feature_history)
+        return _build_base_load_features(
+            timestep,
+            value,
+            feature_history,
+            required_features=model_features,
+        )
 
     def try_bypass(
         timestep: int,
