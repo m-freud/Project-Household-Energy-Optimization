@@ -79,6 +79,32 @@ def load_results_payload_to_sqlite(
     results_conn: sqlite3.Connection,
     payload: dict[str, Any],
 ) -> None:
+    results_conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS results (
+            run_id TEXT,
+            policy TEXT,
+            scenario TEXT,
+            household_id INTEGER,
+            has_pv BOOLEAN,
+            has_bess BOOLEAN,
+            total_cost REAL,
+            total_consumption REAL,
+            net_cost REAL,
+            net_load REAL,
+            target_met_bess BOOLEAN,
+            target_met_ev1 BOOLEAN,
+            target_met_ev2 BOOLEAN,
+            target_met_all_bess BOOLEAN,
+            target_met_all_ev1 BOOLEAN,
+            target_met_all_ev2 BOOLEAN,
+            soc_at_deadline_bess REAL,
+            soc_at_deadline_ev1 REAL,
+            soc_at_deadline_ev2 REAL
+        )
+        """
+    )
+    _ensure_household_id_column(results_conn, "results")
     cursor = results_conn.cursor()
     cursor.execute(
         """
@@ -138,12 +164,8 @@ def load_history_payload_to_sqlite(
             )
             """
         )
-        table_columns = {
-            row[1]
-            for row in cursor.execute(
-                f"PRAGMA table_info({measurement})"
-            ).fetchall()
-        }
+        _ensure_household_id_column(results_conn, measurement)
+        table_columns = _table_columns(results_conn, measurement)
         if "run_id" not in table_columns:
             cursor.execute(
                 f"ALTER TABLE {measurement} ADD COLUMN run_id TEXT"
@@ -173,3 +195,38 @@ def load_history_payload_to_sqlite(
         )
 
     results_conn.commit()
+
+
+def _table_columns(results_conn: sqlite3.Connection, table_name: str) -> set[str]:
+    return {
+        row[1]
+        for row in results_conn.execute(
+            f'PRAGMA table_info("{table_name}")'
+        ).fetchall()
+    }
+
+
+def _ensure_household_id_column( #TODO remove
+    results_conn: sqlite3.Connection,
+    table_name: str,
+) -> None:
+    columns = _table_columns(results_conn, table_name)
+    if "household_id" in columns:
+        if "player_id" in columns:
+            results_conn.execute(
+                f'UPDATE "{table_name}" SET household_id = player_id '
+                "WHERE household_id IS NULL"
+            )
+        return
+    if "player_id" not in columns:
+        raise sqlite3.OperationalError(
+            f"Table '{table_name}' has neither household_id nor player_id column"
+        )
+
+    results_conn.execute(
+        f'ALTER TABLE "{table_name}" ADD COLUMN household_id INTEGER'
+    )
+    results_conn.execute(
+        f'UPDATE "{table_name}" SET household_id = player_id '
+        "WHERE household_id IS NULL"
+    )
