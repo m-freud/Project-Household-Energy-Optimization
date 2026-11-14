@@ -18,8 +18,8 @@ TARGET_COLUMNS = {"next_value", *HIGH_RES_TARGET_COLUMNS}
 IDENTIFIER_COLUMNS = {"profile_id", "household_id", "date"}
 MODEL_PARAMS = {
     "learning_rate": 0.02,
-    "max_depth": 4,
-    "n_estimators": 200,
+    "max_depth": 3,
+    "n_estimators": 100,
     "objective": "reg:squarederror",
     "random_state": 42,
 }
@@ -240,4 +240,5 @@ def train_high_resolution_models() -> None:
 
 
 if __name__ == "__main__":
-    train_high_resolution_models()
+    # train_high_resolution_models()
+    train_single_step_model()
