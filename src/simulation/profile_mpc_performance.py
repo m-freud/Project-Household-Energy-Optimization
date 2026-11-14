@@ -300,8 +300,16 @@ def _summarize(rows: list[dict[str, Any]]) -> dict[str, float]:
     return summary
 
 
-def run_profile(household_ids: list[int], output_path: Path) -> None:
-    factories = build_controller_factories(list(CONTROLLERS))
+def run_profile(
+    household_ids: list[int],
+    output_path: Path,
+    controller_names: tuple[str, ...] = CONTROLLERS,
+) -> None:
+    unknown_controllers = set(controller_names) - set(CONTROLLERS)
+    if unknown_controllers:
+        raise ValueError(f"Unknown profiled controllers: {sorted(unknown_controllers)}")
+
+    factories = build_controller_factories(list(controller_names))
     detailed_rows: list[dict[str, Any]] = []
     restore_solver: Callable[[], None] | None = None
 
@@ -313,7 +321,7 @@ def run_profile(household_ids: list[int], output_path: Path) -> None:
         results_conn=results_conn,
     )
     try:
-        for controller_name in CONTROLLERS:
+        for controller_name in controller_names:
             for household_id in household_ids:
                 scenario = default_scenario
                 context = RunContext(
@@ -366,6 +374,12 @@ def run_profile(household_ids: list[int], output_path: Path) -> None:
                     f"solver_mean={summary['solver_seconds_mean']:.4f}s "
                     f"model_calls={summary['model_inference_calls_total']:.0f}"
                 )
+                target_timings = ", ".join(
+                    f"{label}={summary[f'predict_{label}_seconds_total']:.2f}s "
+                    f"({summary[f'predict_{label}_seconds_mean'] * 1000:.2f}ms/step)"
+                    for label in ("ev_status", "base_load", "pv_gen")
+                )
+                print(f"  predictor targets: {target_timings}")
                 model_labels = sorted(
                     {
                         field.removeprefix("model_").removesuffix("_seconds")
@@ -410,13 +424,20 @@ def main() -> None:
         help="Household IDs to profile (default: 1 2)",
     )
     parser.add_argument(
+        "--controllers",
+        nargs="+",
+        choices=CONTROLLERS,
+        default=list(CONTROLLERS),
+        help="MPC controllers to profile (default: all configured MPC controllers)",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=RuntimeConfig.ROOT_DIR / "mpc_performance_profile.csv",
         help="Output CSV path (default: mpc_performance_profile.csv in repository root)",
     )
     args = parser.parse_args()
-    run_profile(args.households, args.output)
+    run_profile(args.households, args.output, tuple(args.controllers))
 
 
 if __name__ == "__main__":
