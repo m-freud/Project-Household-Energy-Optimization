@@ -1,7 +1,9 @@
 # paste this to enable src. imports# paste this to enable src. imports
+import os
 from pathlib import Path
 import sys
 
+os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
@@ -98,6 +100,7 @@ def _run_household_worker(
                     f"{controller.name}: household {household_id}, timestep {t}/{sim.num_timesteps}",
                     flush=True,
                 )
+
             sim.step(household, controller, scenario, duration_hours=sim.duration_hours, time=t)
 
         return {
