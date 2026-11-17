@@ -1,0 +1,18 @@
+{
+  "params": {
+    "n_estimators": 100,
+    "max_depth": 2,
+    "learning_rate": 0.05
+  },
+  "horizon": 16,
+  "validation_direct_rmse": 0.5065785252561039,
+  "validation_pooled_rmse": 0.6754583806055388,
+  "evaluation_start_timesteps": [
+    12,
+    24,
+    36,
+    48,
+    60,
+    72
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "horizon": 64,
+  "target_column": "y64",
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 2,
+    "learning_rate": 0.05
+  },
+  "validation_direct_rmse": 0.4533719035013962,
+  "validation_pooled_rmse": 0.6421274991335617,
+  "test_direct_rmse": 0.4167220959706357,
+  "test_pooled_rmse": 0.6126464023360481,
+  "evaluation_start_timesteps": [
+    12,
+    24
+  ],
+  "train_validation_rows": 28800,
+  "test_rows": 200
+}

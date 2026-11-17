@@ -16,8 +16,10 @@ from src.simulation.controllers.mpc.predictors.ml.shared_helpers._base_load impo
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FEATURE_DIR = ROOT_DIR / "training" / "features" / "feature_parquets" / "load"
-OUTPUT_DIR = Path(__file__).resolve().parent / "load_single_step"
+LOAD_OUTPUT_DIR = Path(__file__).resolve().parent / "load"
+SINGLE_STEP_OUTPUT_DIR = LOAD_OUTPUT_DIR / "single_step"
 TARGET_COLUMN = "next_value"
+DIRECT_HORIZONS = (8, 16, 32, 64)
 IDENTIFIER_COLUMNS = {"profile_id", "household_id", "date"}
 TARGET_PATTERN = re.compile(r"y\d+")
 BASE_MODEL_PARAMS: dict[str, Any] = {
@@ -245,6 +247,108 @@ def _score_recursive_full_day(
     return recursive_rmse, next_step_rmse, pd.DataFrame(error_rows)
 
 
+def _get_direct_data(
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    target_column: str,
+    split: str,
+    forecast_starts_only: bool = False,
+) -> tuple[pd.DataFrame, pd.Series]:
+    missing_columns = [
+        column
+        for column in [*feature_columns, target_column, "timestep"]
+        if column not in frame.columns
+    ]
+    if missing_columns:
+        raise ValueError(f"{split} data is missing columns: {missing_columns}")
+
+    valid_rows = frame[target_column].ne(-1)
+    if forecast_starts_only:
+        valid_rows &= frame["timestep"].isin(FORECAST_START_TIMESTEPS)
+    valid_frame = frame.loc[valid_rows]
+    if valid_frame.empty:
+        start_detail = (
+            " at configured forecast starts"
+            if forecast_starts_only
+            else ""
+        )
+        raise ValueError(
+            f"No valid '{target_column}' rows{start_detail} in {split} data"
+        )
+    checked_columns = [*feature_columns, target_column]
+    if valid_frame[checked_columns].isna().any().any():
+        raise ValueError(f"Load {split} data contains missing features or targets")
+    non_numeric_columns = [
+        column
+        for column in checked_columns
+        if not pd.api.types.is_numeric_dtype(valid_frame[column])
+    ]
+    if non_numeric_columns:
+        raise ValueError(f"Load {split} data columns must be numeric: {non_numeric_columns}")
+    return valid_frame[feature_columns], valid_frame[target_column]
+
+
+def _score_direct_horizon(
+    model: XGBRegressor,
+    frame: pd.DataFrame,
+    feature_columns: list[str],
+    horizon: int,
+    split: str,
+) -> tuple[float, float, tuple[int, ...], pd.DataFrame]:
+    target_column = f"y{horizon}"
+    required_columns = {"profile_id", "household_id", "date", "timestep", "base_load"}
+    missing_columns = sorted(required_columns - set(frame.columns))
+    if missing_columns:
+        raise ValueError(f"{split} data is missing profile columns: {missing_columns}")
+
+    if target_column not in frame.columns:
+        raise ValueError(f"{split} data is missing target column '{target_column}'")
+    start_mask = frame["timestep"].isin(FORECAST_START_TIMESTEPS)
+    target_valid_mask = frame[target_column].ne(-1)
+    evaluation_frame = frame.loc[start_mask & target_valid_mask].copy()
+    if evaluation_frame.empty:
+        raise ValueError(
+            f"No valid '{target_column}' targets at configured forecast starts "
+            f"in {split} data"
+        )
+    if evaluation_frame[[*feature_columns, target_column]].isna().any().any():
+        raise ValueError(f"Load {split} data contains missing features or targets")
+
+    predicted = model.predict(evaluation_frame[feature_columns])
+    evaluation_frame["predicted"] = predicted
+    evaluation_frame["actual"] = evaluation_frame[target_column]
+    evaluation_frame["error"] = evaluation_frame["predicted"] - evaluation_frame["actual"]
+    evaluation_frame["target_timestep"] = evaluation_frame["timestep"] + horizon
+
+    profile_rmse = evaluation_frame.groupby("profile_id")["error"].apply(
+        lambda errors: float((errors.pow(2).mean()) ** 0.5)
+    )
+    equally_weighted_daily_rmse = float(profile_rmse.mean())
+    pooled_rmse = float((evaluation_frame["error"].pow(2).mean()) ** 0.5)
+    evaluation_starts = tuple(
+        sorted(int(timestep) for timestep in evaluation_frame["timestep"].unique())
+    )
+    error_columns = [
+        "profile_id",
+        "household_id",
+        "date",
+        "start_timestep",
+        "target_timestep",
+        "actual",
+        "predicted",
+        "error",
+    ]
+    evaluation_frame = evaluation_frame.rename(
+        columns={"timestep": "start_timestep"}
+    )
+    return (
+        equally_weighted_daily_rmse,
+        pooled_rmse,
+        evaluation_starts,
+        evaluation_frame[error_columns].reset_index(drop=True),
+    )
+
+
 def _make_model(params: dict[str, Any]) -> XGBRegressor:
     return XGBRegressor(**BASE_MODEL_PARAMS, **params)
 
@@ -297,9 +401,9 @@ def hypam_sweep(
         "validation_recursive_rmse",
         ignore_index=True,
     )
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    results.to_csv(OUTPUT_DIR / "grid_results.csv", index=False)
-    with (OUTPUT_DIR / "grid.json").open("w", encoding="utf-8") as file:
+    SINGLE_STEP_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    results.to_csv(SINGLE_STEP_OUTPUT_DIR / "grid_results.csv", index=False)
+    with (SINGLE_STEP_OUTPUT_DIR / "grid.json").open("w", encoding="utf-8") as file:
         json.dump(selected_grid, file, indent=2)
 
     best_result = results.iloc[0]
@@ -309,7 +413,10 @@ def hypam_sweep(
         else best_result[key]
         for key in selected_grid
     }
-    with (OUTPUT_DIR / "best_params.json").open("w", encoding="utf-8") as file:
+    with (SINGLE_STEP_OUTPUT_DIR / "best_params.json").open(
+        "w",
+        encoding="utf-8",
+    ) as file:
         json.dump(
             {
                 "params": best_params,
@@ -327,7 +434,7 @@ def hypam_sweep(
     if best_validation_errors is None:
         raise RuntimeError("The hyperparameter sweep produced no validation results")
     best_validation_errors.to_csv(
-        OUTPUT_DIR / "best_validation_profile_errors.csv",
+        SINGLE_STEP_OUTPUT_DIR / "best_validation_profile_errors.csv",
         index=False,
     )
 
@@ -337,13 +444,13 @@ def hypam_sweep(
         f"{best_result['validation_recursive_rmse']:.6f}"
     )
     print(f"Best validation next-step RMSE: {best_result['validation_next_step_rmse']:.6f}")
-    print(f"Saved sweep results to {OUTPUT_DIR}")
+    print(f"Saved sweep results to {SINGLE_STEP_OUTPUT_DIR}")
     return results
 
 
 def evaluate_best_on_test() -> dict[str, Any]:
     """Refit the selected model on train+validation and evaluate it on test."""
-    best_params_path = OUTPUT_DIR / "best_params.json"
+    best_params_path = SINGLE_STEP_OUTPUT_DIR / "best_params.json"
     if not best_params_path.is_file():
         raise FileNotFoundError(
             f"No selected hyperparameters found at {best_params_path}; run the sweep first"
@@ -385,27 +492,238 @@ def evaluate_best_on_test() -> dict[str, Any]:
         "train_validation_rows": len(y_train_validation),
         "test_rows": len(y_test),
     }
-    with (OUTPUT_DIR / "test_evaluation.json").open("w", encoding="utf-8") as file:
+    with (SINGLE_STEP_OUTPUT_DIR / "test_evaluation.json").open(
+        "w",
+        encoding="utf-8",
+    ) as file:
         json.dump(result, file, indent=2)
-    test_errors.to_csv(OUTPUT_DIR / "test_profile_errors.csv", index=False)
+    test_errors.to_csv(
+        SINGLE_STEP_OUTPUT_DIR / "test_profile_errors.csv",
+        index=False,
+    )
 
     print(f"Final test recursive full-day RMSE: {test_recursive_rmse:.6f}")
     print(f"Final test next-step RMSE: {test_next_step_rmse:.6f}")
-    print(f"Saved final test evaluation to {OUTPUT_DIR / 'test_evaluation.json'}")
+    print(
+        "Saved final test evaluation to "
+        f"{SINGLE_STEP_OUTPUT_DIR / 'test_evaluation.json'}"
+    )
+    return result
+
+
+def direct_horizon_sweep(
+    horizon: int,
+    grid: dict[str, list[Any]] | None = None,
+) -> pd.DataFrame:
+    """Tune a direct load model that predicts one fixed offset ahead."""
+    if horizon not in DIRECT_HORIZONS:
+        raise ValueError(
+            f"Unsupported direct horizon {horizon}; expected one of {DIRECT_HORIZONS}"
+        )
+
+    selected_grid = LOAD_GRID_1 if grid is None else grid
+    param_configs = build_param_grid(selected_grid)
+    target_column = f"y{horizon}"
+
+    training_frame = _read_split("train")
+    feature_columns = _get_feature_columns(training_frame)
+    x_train, y_train = _get_direct_data(
+        training_frame,
+        feature_columns,
+        target_column,
+        "train",
+    )
+    validation_frame = _read_split("validation")
+    _get_direct_data(
+        validation_frame,
+        feature_columns,
+        target_column,
+        "validation",
+        forecast_starts_only=True,
+    )
+
+    rows = []
+    best_score = float("inf")
+    best_validation_errors = None
+    for index, params in enumerate(param_configs, 1):
+        model = _make_model(params)
+        model.fit(x_train, y_train)
+        daily_rmse, pooled_rmse, evaluation_starts, validation_errors = (
+            _score_direct_horizon(
+                model,
+                validation_frame,
+                feature_columns,
+                horizon,
+                "validation",
+            )
+        )
+        rows.append(
+            {
+                **params,
+                "validation_direct_rmse": daily_rmse,
+                "validation_pooled_rmse": pooled_rmse,
+                "evaluation_start_timesteps": ",".join(
+                    map(str, evaluation_starts)
+                ),
+            }
+        )
+        if daily_rmse < best_score:
+            best_score = daily_rmse
+            best_validation_errors = validation_errors
+        print(
+            f"[{index}/{len(param_configs)}] horizon={horizon} params={params} "
+            f"direct_rmse={daily_rmse:.6f} pooled_rmse={pooled_rmse:.6f}"
+        )
+
+    results = pd.DataFrame(rows).sort_values(
+        "validation_direct_rmse",
+        ignore_index=True,
+    )
+    output_dir = LOAD_OUTPUT_DIR / f"step_{horizon}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    results.to_csv(output_dir / "grid_results.csv", index=False)
+    with (output_dir / "grid.json").open("w", encoding="utf-8") as file:
+        json.dump(selected_grid, file, indent=2)
+
+    best_result = results.iloc[0]
+    best_params = {
+        key: best_result[key].item()
+        if hasattr(best_result[key], "item")
+        else best_result[key]
+        for key in selected_grid
+    }
+    if best_validation_errors is None:
+        raise RuntimeError("The direct-horizon sweep produced no validation results")
+    with (output_dir / "best_params.json").open("w", encoding="utf-8") as file:
+        json.dump(
+            {
+                "params": best_params,
+                "horizon": horizon,
+                "validation_direct_rmse": float(
+                    best_result["validation_direct_rmse"]
+                ),
+                "validation_pooled_rmse": float(
+                    best_result["validation_pooled_rmse"]
+                ),
+                "evaluation_start_timesteps": list(evaluation_starts),
+            },
+            file,
+            indent=2,
+        )
+    best_validation_errors.to_csv(
+        output_dir / "best_validation_profile_errors.csv",
+        index=False,
+    )
+    print(
+        f"Best direct validation RMSE for t+{horizon}: "
+        f"{best_result['validation_direct_rmse']:.6f}"
+    )
+    print(f"Saved sweep results to {output_dir}")
+    return results
+
+
+def evaluate_direct_horizon_on_test(horizon: int) -> dict[str, Any]:
+    """Refit a selected direct-horizon model on train+validation and test it."""
+    if horizon not in DIRECT_HORIZONS:
+        raise ValueError(
+            f"Unsupported direct horizon {horizon}; expected one of {DIRECT_HORIZONS}"
+        )
+    output_dir = LOAD_OUTPUT_DIR / f"step_{horizon}"
+    best_params_path = output_dir / "best_params.json"
+    if not best_params_path.is_file():
+        raise FileNotFoundError(
+            f"No selected hyperparameters found at {best_params_path}; "
+            "run the direct-horizon sweep first"
+        )
+    with best_params_path.open(encoding="utf-8") as file:
+        best_result = json.load(file)
+    if best_result.get("horizon") != horizon:
+        raise ValueError(
+            f"Saved parameters are for horizon {best_result.get('horizon')}, "
+            f"not requested horizon {horizon}"
+        )
+    best_params = best_result["params"]
+    target_column = f"y{horizon}"
+
+    training_frame = _read_split("train")
+    feature_columns = _get_feature_columns(training_frame)
+    x_train, y_train = _get_direct_data(
+        training_frame,
+        feature_columns,
+        target_column,
+        "train",
+    )
+    validation_frame = _read_split("validation")
+    x_validation, y_validation = _get_direct_data(
+        validation_frame,
+        feature_columns,
+        target_column,
+        "validation",
+        forecast_starts_only=False,
+    )
+    x_train_validation = pd.concat([x_train, x_validation], ignore_index=True)
+    y_train_validation = pd.concat([y_train, y_validation], ignore_index=True)
+
+    test_frame = _read_split("test")
+    _get_direct_data(
+        test_frame,
+        feature_columns,
+        target_column,
+        "test",
+        forecast_starts_only=True,
+    )
+    model = _make_model(best_params)
+    model.fit(x_train_validation, y_train_validation)
+    daily_rmse, pooled_rmse, evaluation_starts, test_errors = _score_direct_horizon(
+        model,
+        test_frame,
+        feature_columns,
+        horizon,
+        "test",
+    )
+    result = {
+        "horizon": horizon,
+        "target_column": target_column,
+        "params": best_params,
+        "validation_direct_rmse": best_result["validation_direct_rmse"],
+        "validation_pooled_rmse": best_result["validation_pooled_rmse"],
+        "test_direct_rmse": daily_rmse,
+        "test_pooled_rmse": pooled_rmse,
+        "evaluation_start_timesteps": list(evaluation_starts),
+        "train_validation_rows": len(y_train_validation),
+        "test_rows": len(test_errors),
+    }
+    with (output_dir / "test_evaluation.json").open("w", encoding="utf-8") as file:
+        json.dump(result, file, indent=2)
+    test_errors.to_csv(output_dir / "test_profile_errors.csv", index=False)
+    print(f"Final direct test RMSE for t+{horizon}: {daily_rmse:.6f}")
+    print(f"Saved final test evaluation to {output_dir / 'test_evaluation.json'}")
     return result
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Tune the load single-step XGBoost model."
+        description="Tune load single-step or direct-horizon XGBoost models."
+    )
+    parser.add_argument(
+        "--horizon",
+        type=int,
+        choices=DIRECT_HORIZONS,
+        help="Tune a direct model for this fixed forecast offset instead of single-step.",
     )
     parser.add_argument(
         "--evaluate-test",
         action="store_true",
-        help="Evaluate the selected hyperparameters once on the held-out test split.",
+        help="Evaluate selected hyperparameters once on the held-out test split.",
     )
     arguments = parser.parse_args()
-    if arguments.evaluate_test:
-        evaluate_best_on_test()
+    if arguments.horizon is None:
+        if arguments.evaluate_test:
+            evaluate_best_on_test()
+        else:
+            hypam_sweep()
     else:
-        hypam_sweep()
+        if arguments.evaluate_test:
+            evaluate_direct_horizon_on_test(arguments.horizon)
+        else:
+            direct_horizon_sweep(arguments.horizon)
