@@ -7,6 +7,7 @@ from xgboost import XGBRegressor
 MODEL_DIR = Path(__file__).resolve().parent
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FEATURE_DIR = ROOT_DIR / "training" / "features" / "feature_parquets" / "load"
+TRAIN_FEATURE_DIR = FEATURE_DIR / "train"
 MODEL_PATH = MODEL_DIR / "single_step" / "single_step.json"
 MULTI_STEP_MODEL_PATH = MODEL_DIR / "multi_step" / "multi_step.json"
 HIGH_RES_MULTI_STEP_MODEL_PATH = MODEL_DIR / "multi_step" / "multi_step_(1-95).json"
@@ -26,9 +27,9 @@ MODEL_PARAMS = {
 
 
 def load_training_data() -> tuple[pd.DataFrame, pd.Series, list[str]]:
-    parquet_paths = sorted(FEATURE_DIR.glob("ch_load_features_*.parquet"))
+    parquet_paths = sorted(TRAIN_FEATURE_DIR.glob("ch_load_features_*.parquet"))
     if not parquet_paths:
-        raise FileNotFoundError(f"No load feature Parquets found in {FEATURE_DIR}")
+        raise FileNotFoundError(f"No load training Parquets found in {TRAIN_FEATURE_DIR}")
 
     feature_frames = [pd.read_parquet(path) for path in parquet_paths]
     training_df = pd.concat(feature_frames, ignore_index=True)
@@ -41,7 +42,7 @@ def load_training_data() -> tuple[pd.DataFrame, pd.Series, list[str]]:
         if column not in IDENTIFIER_COLUMNS | TARGET_COLUMNS
     ]
     if not feature_columns:
-        raise ValueError("No model feature columns found in the load Parquets")
+        raise ValueError("No model feature columns found in the load training Parquets")
 
     valid_targets = training_df[TARGET_COLUMN].ne(-1)
     training_df = training_df.loc[valid_targets]
@@ -73,9 +74,9 @@ def train_single_step_model() -> None:
 
 
 def train_multi_step_model():
-    parquet_paths = sorted(FEATURE_DIR.glob("ch_load_features_*.parquet"))
+    parquet_paths = sorted(TRAIN_FEATURE_DIR.glob("ch_load_features_*.parquet"))
     if not parquet_paths:
-        raise FileNotFoundError(f"No load feature Parquets found in {FEATURE_DIR}")
+        raise FileNotFoundError(f"No load training Parquets found in {TRAIN_FEATURE_DIR}")
 
     training_df = pd.concat(
         [pd.read_parquet(path) for path in parquet_paths],
@@ -91,7 +92,7 @@ def train_multi_step_model():
         if column not in IDENTIFIER_COLUMNS | TARGET_COLUMNS
     ]
     if not feature_columns:
-        raise ValueError("No model feature columns found in the load Parquets")
+        raise ValueError("No model feature columns found in the load training Parquets")
 
     feature_frames = []
     target_series = []
@@ -123,9 +124,9 @@ def train_multi_step_model():
 
 
 def train_per_horizon_models() -> None:
-    parquet_paths = sorted(FEATURE_DIR.glob("ch_load_features_*.parquet"))
+    parquet_paths = sorted(TRAIN_FEATURE_DIR.glob("ch_load_features_*.parquet"))
     if not parquet_paths:
-        raise FileNotFoundError(f"No load feature Parquets found in {FEATURE_DIR}")
+        raise FileNotFoundError(f"No load training Parquets found in {TRAIN_FEATURE_DIR}")
 
     training_df = pd.concat(
         [pd.read_parquet(path) for path in parquet_paths],
@@ -141,7 +142,7 @@ def train_per_horizon_models() -> None:
         if column not in IDENTIFIER_COLUMNS | TARGET_COLUMNS
     ]
     if not feature_columns:
-        raise ValueError("No model feature columns found in the load Parquets")
+        raise ValueError("No model feature columns found in the load training Parquets")
 
     PER_HORIZON_MODEL_DIR.mkdir(parents=True, exist_ok=True)
     for target_column in MULTI_STEP_TARGET_COLUMNS:
@@ -170,9 +171,9 @@ def train_per_horizon_models() -> None:
 
 
 def train_high_resolution_models() -> None:
-    parquet_paths = sorted(FEATURE_DIR.glob("ch_load_features_*.parquet"))
+    parquet_paths = sorted(TRAIN_FEATURE_DIR.glob("ch_load_features_*.parquet"))
     if not parquet_paths:
-        raise FileNotFoundError(f"No load feature Parquets found in {FEATURE_DIR}")
+        raise FileNotFoundError(f"No load training Parquets found in {TRAIN_FEATURE_DIR}")
 
     training_df = pd.concat(
         [pd.read_parquet(path) for path in parquet_paths],
@@ -188,7 +189,7 @@ def train_high_resolution_models() -> None:
         if column not in IDENTIFIER_COLUMNS | TARGET_COLUMNS
     ]
     if not feature_columns:
-        raise ValueError("No model feature columns found in the load Parquets")
+        raise ValueError("No model feature columns found in the load training Parquets")
 
     feature_frames = []
     target_series = []

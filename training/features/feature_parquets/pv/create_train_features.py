@@ -12,8 +12,8 @@ OUTPUT_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
-MAX_PROFILES = 1_000
 RANDOM_SEED = 42
+RUNTIME_RESERVED_PLAYER = "residential3"
 TARGET_OFFSETS = tuple(range(1, PERIODS_PER_DAY))
 CHUNK_NAME_PATTERN = re.compile(r"de_pv_features_\d+-\d+\.parquet")
 
@@ -89,6 +89,50 @@ def _get_available_profiles(
     return available_profiles
 
 
+def _split_profiles_by_player(
+    available_profiles: list[tuple[str, str]],
+    player_columns: list[str],
+) -> dict[str, list[tuple[str, str]]]:
+    training_players = sorted(
+        player for player in player_columns if player != RUNTIME_RESERVED_PLAYER
+    )
+    if len(training_players) != 3:
+        raise ValueError(
+            "Expected exactly three non-runtime PV systems for a 2-train/1-holdout "
+            f"split; found {len(training_players)}: {training_players}"
+        )
+
+    shuffled_players = random.Random(RANDOM_SEED).sample(training_players, 3)
+    train_players = set(shuffled_players[:2])
+    holdout_player = shuffled_players[2]
+    train_profiles = [
+        profile for profile in available_profiles if profile[0] in train_players
+    ]
+    holdout_profiles = [
+        profile for profile in available_profiles if profile[0] == holdout_player
+    ]
+    if not train_profiles:
+        raise ValueError("No complete profile-days are available for the PV training systems")
+    if len(holdout_profiles) < 2:
+        raise ValueError(
+            f"PV holdout system {holdout_player} needs at least two complete "
+            "profile-days to create test and validation splits"
+        )
+
+    shuffled_holdout_profiles = random.Random(RANDOM_SEED + 1).sample(
+        holdout_profiles,
+        len(holdout_profiles),
+    )
+    test_count = len(shuffled_holdout_profiles) // 2
+    test_profiles = shuffled_holdout_profiles[:test_count]
+    validation_profiles = shuffled_holdout_profiles[test_count:]
+    return {
+        "train": train_profiles,
+        "test": test_profiles,
+        "validation": validation_profiles,
+    }
+
+
 def _make_daily_features(
     day: pd.DataFrame,
     date: str,
@@ -145,40 +189,58 @@ def create_train_features() -> None:
         player_columns = _get_player_columns(connection)
         dates = _get_dates(connection)
         available_profiles = _get_available_profiles(connection, dates, player_columns)
-        profile_count = min(MAX_PROFILES, len(available_profiles))
-        if profile_count == 0:
+        selected_by_split = _split_profiles_by_player(
+            available_profiles,
+            player_columns,
+        )
+        if not any(selected_by_split.values()):
             raise ValueError("No complete pool-filtered PV profile-days are available")
 
-        selected_profiles = random.Random(RANDOM_SEED).sample(
-            available_profiles,
-            profile_count,
-        )
-        selected_by_date: dict[str, list[str]] = {}
-        for household_id, date in selected_profiles:
-            selected_by_date.setdefault(date, []).append(household_id)
+        for split, selected_profiles in selected_by_split.items():
+            selected_by_date: dict[str, list[str]] = {}
+            for household_id, date in selected_profiles:
+                selected_by_date.setdefault(date, []).append(household_id)
 
-        feature_by_profile: dict[tuple[str, str], pd.DataFrame] = {}
-        for date, selected_players in selected_by_date.items():
-            day = _read_day(connection, date, selected_players)
-            if day is None or day[selected_players].isna().any().any():
-                raise ValueError(f"Selected PV profiles are incomplete for {date}")
-            daily_features = _make_daily_features(day, date, selected_players)
-            for household_id, profile in daily_features.groupby("household_id", sort=False):
-                feature_by_profile[(household_id, date)] = profile.reset_index(drop=True)
+            feature_by_profile: dict[tuple[str, str], pd.DataFrame] = {}
+            for date, selected_players in selected_by_date.items():
+                day = _read_day(connection, date, selected_players)
+                if day is None or day[selected_players].isna().any().any():
+                    raise ValueError(
+                        f"Selected {split} PV profiles are incomplete for {date}"
+                    )
+                daily_features = _make_daily_features(day, date, selected_players)
+                for household_id, profile in daily_features.groupby(
+                    "household_id",
+                    sort=False,
+                ):
+                    feature_by_profile[(household_id, date)] = profile.reset_index(
+                        drop=True
+                    )
 
-    ordered_profiles = [feature_by_profile[profile] for profile in selected_profiles]
-    for start in range(0, profile_count, PROFILES_PER_CHUNK):
-        _write_chunk(
-            ordered_profiles[start : start + PROFILES_PER_CHUNK],
-            start + 1,
-            OUTPUT_DIR,
-        )
+            split_output_dir = OUTPUT_DIR / split
+            split_output_dir.mkdir(parents=True, exist_ok=True)
+            ordered_profiles = [
+                feature_by_profile[profile] for profile in selected_profiles
+            ]
+            for start in range(0, len(ordered_profiles), PROFILES_PER_CHUNK):
+                _write_chunk(
+                    ordered_profiles[start : start + PROFILES_PER_CHUNK],
+                    start + 1,
+                    split_output_dir,
+                )
 
-    for output_path in OUTPUT_DIR.iterdir():
-        if output_path.is_file() and CHUNK_NAME_PATTERN.fullmatch(output_path.name):
-            match = re.fullmatch(r"de_pv_features_(\d+)-(\d+)\.parquet", output_path.name)
-            if match and int(match.group(2)) > profile_count:
-                output_path.unlink()
+            for output_path in split_output_dir.iterdir():
+                if (
+                    output_path.is_file()
+                    and CHUNK_NAME_PATTERN.fullmatch(output_path.name)
+                ):
+                    match = re.fullmatch(
+                        r"de_pv_features_(\d+)-(\d+)\.parquet",
+                        output_path.name,
+                    )
+                    if match and int(match.group(2)) > len(ordered_profiles):
+                        output_path.unlink()
+            print(f"{split}: {len(ordered_profiles)} profile-days")
 
 
 if __name__ == "__main__":

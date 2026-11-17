@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT_DIR))
 from models.train_utils import train_dataset_models  # noqa: E402
 
 
-FEATURE_DIR = ROOT_DIR / "training" / "features" / "feature_parquets" / "ev2"
+FEATURE_DIR = ROOT_DIR / "training" / "features" / "feature_parquets" / "ev2" / "train"
 MODEL_DIR = ROOT_DIR / "models" / "ev2"
 
 

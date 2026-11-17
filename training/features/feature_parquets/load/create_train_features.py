@@ -13,7 +13,8 @@ DATABASE_PATH = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 FIRST_DATE = "2023-01-01"
 PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
-TOTAL_PROFILES = 1_000
+HOUSEHOLDS_PER_HOLDOUT_SPLIT = 5
+PROFILES_PER_SPLIT = {"train": 800, "test": 100, "validation": 100}
 RANDOM_SEED = 42
 TARGET_OFFSETS = tuple(range(1, PERIODS_PER_DAY))
 CHUNK_NAME_PATTERN = re.compile(r"ch_load_features_\d+-\d+\.parquet")
@@ -93,6 +94,58 @@ def _get_available_profiles(
     return available_profiles
 
 
+def _split_households(household_columns: list[str]) -> dict[str, list[str]]:
+    holdout_household_count = 2 * HOUSEHOLDS_PER_HOLDOUT_SPLIT
+    if len(household_columns) <= holdout_household_count:
+        raise ValueError(
+            f"Need at least {holdout_household_count + 1} households to create "
+            "disjoint train, test, and validation splits"
+        )
+
+    selected_holdout_households = random.Random(RANDOM_SEED).sample(
+        household_columns,
+        holdout_household_count,
+    )
+    test_households = selected_holdout_households[:HOUSEHOLDS_PER_HOLDOUT_SPLIT]
+    validation_households = selected_holdout_households[HOUSEHOLDS_PER_HOLDOUT_SPLIT:]
+    holdout_households = set(selected_holdout_households)
+    train_households = [
+        household_id
+        for household_id in household_columns
+        if household_id not in holdout_households
+    ]
+    return {
+        "train": train_households,
+        "test": test_households,
+        "validation": validation_households,
+    }
+
+
+def _sample_profiles_by_split(
+    available_profiles: list[tuple[str, str]],
+    split_households: dict[str, list[str]],
+) -> dict[str, list[tuple[str, str]]]:
+    profiles_by_split: dict[str, list[tuple[str, str]]] = {}
+    for seed_offset, (split, household_ids) in enumerate(split_households.items()):
+        allowed_households = set(household_ids)
+        split_profiles = [
+            profile
+            for profile in available_profiles
+            if profile[0] in allowed_households
+        ]
+        profile_count = PROFILES_PER_SPLIT[split]
+        if len(split_profiles) < profile_count:
+            raise ValueError(
+                f"Found only {len(split_profiles)} complete household-day profiles "
+                f"for {split}; need {profile_count}"
+            )
+        profiles_by_split[split] = random.Random(RANDOM_SEED + seed_offset).sample(
+            split_profiles,
+            profile_count,
+        )
+    return profiles_by_split
+
+
 def _make_daily_features(
     day: pd.DataFrame,
     date: str,
@@ -150,42 +203,63 @@ def create_train_features() -> None:
         household_columns = _get_household_columns(connection)
         dates = _get_complete_dates(connection)
         available_profiles = _get_available_profiles(connection, dates, household_columns)
-        if len(available_profiles) < TOTAL_PROFILES:
-            raise ValueError(
-                f"Found only {len(available_profiles)} complete household-day profiles; "
-                f"need {TOTAL_PROFILES}"
-            )
-
-        selected_profiles = random.Random(RANDOM_SEED).sample(
+        split_households = _split_households(household_columns)
+        selected_by_split = _sample_profiles_by_split(
             available_profiles,
-            TOTAL_PROFILES,
-        )
-        selected_by_date: dict[str, list[str]] = {}
-        for household_id, date in selected_profiles:
-            selected_by_date.setdefault(date, []).append(household_id)
-
-        feature_by_profile: dict[tuple[str, str], pd.DataFrame] = {}
-        for date, selected_households in selected_by_date.items():
-            day = _read_complete_day(connection, date, selected_households)
-            if day is None or day[selected_households].isna().any().any():
-                raise ValueError(f"Selected household-day profiles are incomplete for {date}")
-            daily_features = _make_daily_features(day, date, selected_households)
-            for household_id, profile in daily_features.groupby("household_id", sort=False):
-                feature_by_profile[(str(household_id), date)] = profile.reset_index(drop=True)
-
-    ordered_profiles = [feature_by_profile[profile] for profile in selected_profiles]
-    for start in range(0, TOTAL_PROFILES, PROFILES_PER_CHUNK):
-        _write_chunk(
-            ordered_profiles[start : start + PROFILES_PER_CHUNK],
-            start + 1,
-            OUTPUT_DIR,
+            split_households,
         )
 
-    for output_path in OUTPUT_DIR.iterdir():
-        if output_path.is_file() and CHUNK_NAME_PATTERN.fullmatch(output_path.name):
-            match = re.fullmatch(r"ch_load_features_(\d+)-(\d+)\.parquet", output_path.name)
-            if match and int(match.group(2)) > TOTAL_PROFILES:
-                output_path.unlink()
+        for split, selected_profiles in selected_by_split.items():
+            selected_by_date: dict[str, list[str]] = {}
+            for household_id, date in selected_profiles:
+                selected_by_date.setdefault(date, []).append(household_id)
+
+            feature_by_profile: dict[tuple[str, str], pd.DataFrame] = {}
+            for date, selected_households in selected_by_date.items():
+                day = _read_complete_day(connection, date, selected_households)
+                if day is None or day[selected_households].isna().any().any():
+                    raise ValueError(
+                        f"Selected {split} household-day profiles are incomplete "
+                        f"for {date}"
+                    )
+                daily_features = _make_daily_features(day, date, selected_households)
+                for household_id, profile in daily_features.groupby(
+                    "household_id",
+                    sort=False,
+                ):
+                    feature_by_profile[(str(household_id), date)] = profile.reset_index(
+                        drop=True
+                    )
+
+            split_output_dir = OUTPUT_DIR / split
+            split_output_dir.mkdir(parents=True, exist_ok=True)
+            ordered_profiles = [
+                feature_by_profile[profile] for profile in selected_profiles
+            ]
+            profile_count = PROFILES_PER_SPLIT[split]
+            for start in range(0, profile_count, PROFILES_PER_CHUNK):
+                _write_chunk(
+                    ordered_profiles[start : start + PROFILES_PER_CHUNK],
+                    start + 1,
+                    split_output_dir,
+                )
+
+            for output_path in split_output_dir.iterdir():
+                if (
+                    output_path.is_file()
+                    and CHUNK_NAME_PATTERN.fullmatch(output_path.name)
+                ):
+                    match = re.fullmatch(
+                        r"ch_load_features_(\d+)-(\d+)\.parquet",
+                        output_path.name,
+                    )
+                    if match and int(match.group(2)) > profile_count:
+                        output_path.unlink()
+
+            print(
+                f"{split}: {len(selected_profiles)} profiles, "
+                f"{len(split_households[split])} households"
+            )
 
 
 if __name__ == "__main__":

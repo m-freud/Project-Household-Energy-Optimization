@@ -11,10 +11,10 @@ ROOT_DIR = Path(__file__).resolve().parents[4]
 OUTPUT_DIR = Path(__file__).resolve().parent
 TRAINING_DATABASE_PATH = ROOT_DIR / "sqlite" / "source_runtime_training.db"
 SOURCE_DATABASE_PATH = ROOT_DIR / "sqlite" / "staging" / "VISTA_ev1_status.db"
+RANDOM_SEED = 42
 PERIODS_PER_DAY = 96
 PROFILES_PER_CHUNK = 100
 MAX_PROFILES = 1_000
-RANDOM_SEED = 42
 TARGET_OFFSETS = tuple(range(1, PERIODS_PER_DAY))
 CHUNK_NAME_PATTERN = re.compile(r"ev1_status_features_\d+-\d+\.parquet")
 
@@ -22,6 +22,10 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from training.features.ev_status_features import (  # noqa: E402
     _add_ev_status_features,
+)
+from training.features.feature_parquets._split_utils import (  # noqa: E402
+    assign_profiles_to_splits,
+    split_household_ids,
 )
 
 
@@ -106,9 +110,10 @@ def _make_profile_features(
 def _write_chunk(
     profiles: list[pd.DataFrame],
     first_profile: int,
+    output_dir: Path,
 ) -> None:
     last_profile = first_profile + len(profiles) - 1
-    output_path = OUTPUT_DIR / f"ev1_status_features_{first_profile}-{last_profile}.parquet"
+    output_path = output_dir / f"ev1_status_features_{first_profile}-{last_profile}.parquet"
     chunk = pd.concat(profiles, ignore_index=True)
     chunk.to_parquet(output_path, index=False)
     print(f"Wrote {output_path.name}: {len(profiles)} profiles, {len(chunk)} rows")
@@ -124,26 +129,48 @@ def create_train_features() -> None:
     household_ids = _get_household_ids(profile_ids)
     profile_count = min(MAX_PROFILES, len(profile_ids))
     selected_profiles = random.Random(RANDOM_SEED).sample(profile_ids, profile_count)
-    profile_features = [
-        _make_profile_features(
-            profiles,
-            profile_id,
-            household_ids[profile_id],
-        )
-        for profile_id in selected_profiles
-    ]
+    split_households = split_household_ids(
+        set(household_ids[profile_id] for profile_id in selected_profiles),
+        random_seed=RANDOM_SEED,
+    )
+    profiles_by_split = assign_profiles_to_splits(
+        selected_profiles,
+        household_ids,
+        split_households,
+    )
 
-    for start in range(0, profile_count, PROFILES_PER_CHUNK):
-        _write_chunk(
-            profile_features[start : start + PROFILES_PER_CHUNK],
-            start + 1,
-        )
+    for split, split_profiles in profiles_by_split.items():
+        household_ids_for_split = split_households[split]
+        profile_features = [
+            _make_profile_features(
+                profiles,
+                profile_id,
+                household_ids[profile_id],
+            )
+            for profile_id in split_profiles
+        ]
+        split_output_dir = OUTPUT_DIR / split
+        split_output_dir.mkdir(parents=True, exist_ok=True)
 
-    for output_path in OUTPUT_DIR.iterdir():
-        if output_path.is_file() and CHUNK_NAME_PATTERN.fullmatch(output_path.name):
-            match = re.fullmatch(r"ev1_status_features_(\d+)-(\d+)\.parquet", output_path.name)
-            if match and int(match.group(2)) > profile_count:
-                output_path.unlink()
+        for start in range(0, len(profile_features), PROFILES_PER_CHUNK):
+            _write_chunk(
+                profile_features[start : start + PROFILES_PER_CHUNK],
+                start + 1,
+                split_output_dir,
+            )
+
+        for output_path in split_output_dir.iterdir():
+            if output_path.is_file() and CHUNK_NAME_PATTERN.fullmatch(output_path.name):
+                match = re.fullmatch(
+                    r"ev1_status_features_(\d+)-(\d+)\.parquet",
+                    output_path.name,
+                )
+                if match and int(match.group(2)) > len(profile_features):
+                    output_path.unlink()
+        print(
+            f"{split}: {len(profile_features)} profiles, "
+            f"{len(household_ids_for_split)} households"
+        )
 
 
 if __name__ == "__main__":
