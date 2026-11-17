@@ -1,0 +1,9 @@
+
+
+load_grid_1 = {
+    "n_estimators": [100, 200, 300],
+    "max_depth": [2, 3, 4, 5],
+    "learning_rate": [0.01, 0.02, 0.03, 0.05, 0.1],
+    },
+
+def hypam_sweep(target:str, grid:dict):
