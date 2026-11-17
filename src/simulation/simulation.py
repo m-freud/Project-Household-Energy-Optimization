@@ -95,6 +95,7 @@ def _run_household_worker(
                 "mpc_multi_step_recursive",
                 "mpc_multi_model",
                 "mpc_multi_model_recursive",
+                "mpc_horizon_grouped_multi_model",
             } and (t == start_time or t % 8 == 0 or t == sim.num_timesteps) and verbose_logging:
                 print(
                     f"{controller.name}: household {household_id}, timestep {t}/{sim.num_timesteps}",

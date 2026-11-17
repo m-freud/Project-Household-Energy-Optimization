@@ -87,6 +87,7 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
         "build_multi_model_predictor",
         "build_multi_step_high_res_predictor",
         "build_multi_model_high_res_predictor",
+        "build_horizon_grouped_multi_model_predictor",
     ):
         monkeypatch.setattr(
             controller_factories,
@@ -102,6 +103,7 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
         "mpc_multi_model_recursive",
         "mpc_multi_step_high_res",
         "mpc_multi_model_high_res",
+        "mpc_horizon_grouped_multi_model",
     ]
 
     factories = controller_factories.build_controller_factories(requested_names)
@@ -122,6 +124,7 @@ def test_high_resolution_controllers_are_opt_in_until_models_are_trained(monkeyp
         "build_multi_model_predictor",
         "build_multi_step_high_res_predictor",
         "build_multi_model_high_res_predictor",
+        "build_horizon_grouped_multi_model_predictor",
     ):
         monkeypatch.setattr(
             controller_factories,
@@ -133,3 +136,4 @@ def test_high_resolution_controllers_are_opt_in_until_models_are_trained(monkeyp
 
     assert "mpc_multi_step_high_res" not in factories
     assert "mpc_multi_model_high_res" not in factories
+    assert "mpc_horizon_grouped_multi_model" not in factories

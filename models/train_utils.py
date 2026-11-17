@@ -5,10 +5,15 @@ from typing import Literal
 import pandas as pd
 from xgboost import XGBClassifier, XGBRegressor
 
+from src.simulation.controllers.mpc.predictors.ml.horizon_groups import (
+    HORIZON_GROUPS,
+)
+
 
 IDENTIFIER_COLUMNS = {
     "profile_id",
     "household_id",
+    "player_id",
     "date",
     "household_id",
     "ev_key",
@@ -135,6 +140,97 @@ def train_dataset_models(
             ),
             params,
             f"{dataset_name} {target_name}",
+            model_type,
+        )
+
+
+def train_horizon_grouped_dataset_models(
+    feature_dir: Path,
+    file_pattern: str,
+    model_dir: Path,
+    target_column: str,
+    learning_rate: float,
+    max_depth: int,
+    n_estimators: int,
+    dataset_name: str,
+    model_type: Literal["regression", "classification"] = "regression",
+) -> None:
+    if model_type not in {"regression", "classification"}:
+        raise ValueError(f"Unsupported model type: {model_type}")
+
+    parquet_paths = sorted(feature_dir.glob(file_pattern))
+    if not parquet_paths:
+        raise FileNotFoundError(f"No feature Parquets found in {feature_dir}")
+
+    training_df = pd.concat(
+        [pd.read_parquet(path) for path in parquet_paths],
+        ignore_index=True,
+    )
+    if target_column not in training_df.columns:
+        raise ValueError(f"Training data is missing target column '{target_column}'")
+
+    target_columns = {
+        column
+        for column in training_df.columns
+        if re.fullmatch(r"y\d+", column)
+    }
+    expected_target_columns = {f"y{offset}" for offset in range(1, 96)}
+    if target_columns != expected_target_columns:
+        missing_targets = sorted(expected_target_columns - target_columns)
+        unexpected_targets = sorted(target_columns - expected_target_columns)
+        raise ValueError(
+            "Horizon-grouped training data must contain exactly y1 through y95; "
+            f"missing={missing_targets}, unexpected={unexpected_targets}"
+        )
+
+    numeric_columns = training_df.select_dtypes(include="number").columns
+    feature_columns = [
+        column
+        for column in numeric_columns
+        if column not in IDENTIFIER_COLUMNS
+        and column != target_column
+        and column not in target_columns
+    ]
+    if not feature_columns:
+        raise ValueError("No numeric model feature columns found in the Parquets")
+    if "prediction_horizon" in feature_columns:
+        raise ValueError(
+            "Training Parquets must not already contain a prediction_horizon column"
+        )
+
+    params = {
+        **MODEL_PARAMS,
+        "learning_rate": learning_rate,
+        "max_depth": max_depth,
+        "n_estimators": n_estimators,
+    }
+    if model_type == "regression":
+        params["objective"] = "reg:squarederror"
+    else:
+        params.update(
+            objective="multi:softprob",
+            num_class=3,
+            eval_metric="mlogloss",
+        )
+
+    for group_name, first_horizon, last_horizon in HORIZON_GROUPS:
+        feature_frames = []
+        target_series = []
+        for offset in range(first_horizon, last_horizon + 1):
+            target_name = f"y{offset}"
+            valid_rows = training_df[target_name].ne(-1)
+            features = training_df.loc[valid_rows, feature_columns].copy()
+            features["prediction_horizon"] = offset
+            feature_frames.append(features)
+            target_series.append(training_df.loc[valid_rows, target_name])
+
+        model_path = model_dir / "horizon_grouped_multi_model" / f"{group_name}.json"
+        _fit_model(
+            pd.concat(feature_frames, ignore_index=True),
+            pd.concat(target_series, ignore_index=True),
+            model_path,
+            params,
+            f"{dataset_name} horizon group {first_horizon}-{last_horizon}",
             model_type,
         )
 

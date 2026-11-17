@@ -11,6 +11,8 @@ from src.simulation.controllers.mpc.predictors.base_predictor import BasePredict
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.ml.composite.composite_ml_predictor import CompositeMLPredictor
 from src.simulation.controllers.mpc.predictors.ml.global_model.global_model_ml_predictor import GlobalModelMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.horizon_grouped.horizon_grouped_multi_model_predictor import HorizonGroupedMultiModelPredictor
+from src.simulation.controllers.mpc.predictors.ml.horizon_groups import HORIZON_GROUPS
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
@@ -155,6 +157,19 @@ def _load_high_res_composite_model_bank(
     return model_bank
 
 
+def _load_horizon_grouped_model_bank(
+    target: str,
+    model_class: type[TXGBModel],
+    model_directories_by_target: dict[str, Path],
+) -> dict[str, TXGBModel]:
+    model_dir = model_directories_by_target[target] / "horizon_grouped_multi_model"
+    model_bank = {
+        group_name: _load_xgb_model(model_dir / f"{group_name}.json", model_class)
+        for group_name, _, _ in HORIZON_GROUPS
+    }
+    return model_bank
+
+
 def build_single_step_predictor(
     model_directories_by_target: dict[str, Path],
 ) -> RecursiveMLPredictor:
@@ -293,6 +308,33 @@ def build_multi_model_high_res_predictor(
     )
 
 
+def build_horizon_grouped_multi_model_predictor(
+    model_directories_by_target: dict[str, Path],
+) -> HorizonGroupedMultiModelPredictor:
+    return HorizonGroupedMultiModelPredictor(
+        base_load_model_bank=_load_horizon_grouped_model_bank(
+            "base_load",
+            XGBRegressor,
+            model_directories_by_target,
+        ),
+        pv_gen_model_bank=_load_horizon_grouped_model_bank(
+            "pv_gen",
+            XGBRegressor,
+            model_directories_by_target,
+        ),
+        ev1_model_bank=_load_horizon_grouped_model_bank(
+            "ev1_status",
+            XGBClassifier,
+            model_directories_by_target,
+        ),
+        ev2_model_bank=_load_horizon_grouped_model_bank(
+            "ev2_status",
+            XGBClassifier,
+            model_directories_by_target,
+        ),
+    )
+
+
 def build_controller_factories(
     requested_names: list[str] | None = None,
 ) -> dict[str, Callable[[Household, Scenario], BaseController]]:
@@ -311,10 +353,15 @@ def build_controller_factories(
         "mpc_multi_model_recursive",
         "mpc_multi_step_high_res",
         "mpc_multi_model_high_res",
+        "mpc_horizon_grouped_multi_model",
     }
     selected_names = (
         available_names
-        - {"mpc_multi_step_high_res", "mpc_multi_model_high_res"}
+        - {
+            "mpc_multi_step_high_res",
+            "mpc_multi_model_high_res",
+            "mpc_horizon_grouped_multi_model",
+        }
         if requested_names is None
         else set(requested_names)
     )
@@ -359,6 +406,7 @@ def build_controller_factories(
             "mpc_multi_model_recursive",
             "mpc_multi_step_high_res",
             "mpc_multi_model_high_res",
+            "mpc_horizon_grouped_multi_model",
         }
     ):
         return factories
@@ -383,6 +431,7 @@ def build_controller_factories(
         ),
         "mpc_multi_step_high_res": build_multi_step_high_res_predictor,
         "mpc_multi_model_high_res": build_multi_model_high_res_predictor,
+        "mpc_horizon_grouped_multi_model": build_horizon_grouped_multi_model_predictor,
     }
     for name, build_predictor in predictor_builders.items():
         if name in selected_names:
