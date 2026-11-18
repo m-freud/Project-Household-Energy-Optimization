@@ -6,6 +6,9 @@ from typing import Any, Literal, cast
 import matplotlib.pyplot as plt
 
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._anchored_recursive import (
+    anchored_recursive_interpolate,
+)
 
 Task = Literal["regression", "classification"]
 FeatureBuilder = Callable[[int, float, list[float]], dict[str, Any]]
@@ -213,10 +216,14 @@ def predict_composite(
         return [current_value] * horizon
     if horizon <= 0:
         return []
-    if interpolation not in {"linear", "recursive"}:
+    if interpolation not in {"linear", "recursive", "anchored_recursive"}:
         raise ValueError(f"Unknown interpolation method: {interpolation}")
     if task == "classification" and interpolation == "linear":
         raise ValueError("Linear interpolation is not supported for classification model banks.")
+    if task == "classification" and interpolation == "anchored_recursive":
+        raise ValueError(
+            "Anchored recursive interpolation is not supported for classification models."
+        )
 
     predictions: dict[int, float] = {0: current_value}
     _predict_initial(
@@ -248,6 +255,44 @@ def predict_composite(
             model_features=model_features,
             feature_builder=feature_builder,
             task=task,
+            bypass=bypass,
+        )
+    elif interpolation == "anchored_recursive":
+        bounded_anchors = sorted(
+            offset for offset in predictions if 0 <= offset < horizon
+        )
+        needs_recursive_step = (
+            any(
+                right - left > 1
+                for left, right in zip(bounded_anchors, bounded_anchors[1:])
+            )
+            or bounded_anchors[-1] < horizon - 1
+        )
+        if needs_recursive_step and 1 not in model_bank:
+            raise ValueError(
+                "Anchored recursive interpolation requires a single-step model "
+                "at horizon 1."
+            )
+
+        def predict_next(
+            timestep: int,
+            value: float,
+            feature_history: list[float],
+        ) -> float:
+            features = feature_builder(timestep, value, feature_history)
+            missing = [name for name in model_features if name not in features]
+            if missing:
+                raise ValueError(f"Missing required features: {missing}")
+            model_input = [features[name] for name in model_features]
+            prediction = model_bank[1].predict([model_input])
+            return float(prediction[0])  # type: ignore[index]
+
+        return anchored_recursive_interpolate(
+            anchors=predictions,
+            horizon=horizon,
+            current_timestep=current_timestep,
+            history=history,
+            step_predictor=predict_next,
             bypass=bypass,
         )
 

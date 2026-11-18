@@ -20,7 +20,15 @@ The planned alternative uses **separate direct models for selected forecast hori
 horizons = [4, 8, 16, 32, 48, 64, 96]
 ```
 
-Each model directly learns `f_h(X_t) -> y_(t+h)`. The anchor predictions are then combined into a complete forecast profile, initially using **linear interpolation**.
+Each model directly learns `f_h(X_t) -> y_(t+h)`. The anchor predictions are combined into a complete forecast profile using
+either **linear interpolation**, **recursive interpolation**, or **anchored
+recursive interpolation**.
+
+Anchored recursive interpolation rolls the single-step model forward between
+direct anchors. It then distributes the difference between the recursive
+endpoint and the next direct anchor linearly across that segment. This keeps
+the recursive curve shape while making every segment land exactly on its
+direct anchor.
 
 Suggested class name:
 
@@ -102,7 +110,9 @@ Implement and evaluate:
 ```text
 RecursiveMLPredictor
 vs.
-CompositeMLPredictor
+CompositeMLPredictor with linear interpolation
+vs.
+CompositeMLPredictor with anchored recursive interpolation
 ```
 
 Keep the shared direct multi-horizon model as an explicitly considered alternative.

@@ -180,7 +180,7 @@ def build_single_step_predictor(
 
 def build_multi_step_predictor(
     model_directories_by_target: dict[str, Path],
-    interpolation: Literal["linear", "recursive"] = "linear",
+    interpolation: Literal["linear", "recursive", "anchored_recursive"] = "linear",
 ) -> GlobalModelMLPredictor:
     return GlobalModelMLPredictor(
         base_load_model=_load_xgb_model(
@@ -238,7 +238,7 @@ def build_multi_step_high_res_predictor(
 
 def build_multi_model_predictor(
     model_directories_by_target: dict[str, Path],
-    interpolation: Literal["linear", "recursive"] = "linear",
+    interpolation: Literal["linear", "recursive", "anchored_recursive"] = "linear",
 ) -> CompositeMLPredictor:
     return CompositeMLPredictor(
         base_load_model_bank=_load_composite_model_bank(
@@ -307,8 +307,10 @@ def build_controller_factories(
         "mpc_single_step",
         "mpc_multi_step",
         "mpc_multi_step_recursive",
+        "mpc_multi_step_anchored_recursive",
         "mpc_multi_model",
         "mpc_multi_model_recursive",
+        "mpc_multi_model_anchored_recursive",
         "mpc_multi_step_high_res",
         "mpc_multi_model_high_res",
     }
@@ -355,8 +357,10 @@ def build_controller_factories(
             "mpc_single_step",
             "mpc_multi_step",
             "mpc_multi_step_recursive",
+            "mpc_multi_step_anchored_recursive",
             "mpc_multi_model",
             "mpc_multi_model_recursive",
+            "mpc_multi_model_anchored_recursive",
             "mpc_multi_step_high_res",
             "mpc_multi_model_high_res",
         }
@@ -376,10 +380,18 @@ def build_controller_factories(
             build_multi_step_predictor,
             interpolation="recursive",
         ),
+        "mpc_multi_step_anchored_recursive": partial(
+            build_multi_step_predictor,
+            interpolation="anchored_recursive",
+        ),
         "mpc_multi_model": build_multi_model_predictor,
         "mpc_multi_model_recursive": partial(
             build_multi_model_predictor,
             interpolation="recursive",
+        ),
+        "mpc_multi_model_anchored_recursive": partial(
+            build_multi_model_predictor,
+            interpolation="anchored_recursive",
         ),
         "mpc_multi_step_high_res": build_multi_step_high_res_predictor,
         "mpc_multi_model_high_res": build_multi_model_high_res_predictor,

@@ -4,6 +4,9 @@ from collections.abc import Callable, Sequence
 from typing import Any, Literal
 
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
+from src.simulation.controllers.mpc.predictors.ml.shared_helpers._anchored_recursive import (
+    anchored_recursive_interpolate,
+)
 
 Task = Literal["regression", "classification"]
 FeatureBuilder = Callable[[int, float, list[float]], dict[str, Any]]
@@ -189,10 +192,14 @@ def predict_global(
     horizons = sorted(set(int(offset) for offset in prediction_horizons if int(offset) > 0))
     if not horizons:
         return [current_value] * horizon
-    if interpolation not in {"linear", "recursive"}:
+    if interpolation not in {"linear", "recursive", "anchored_recursive"}:
         raise ValueError(f"Unknown interpolation method: {interpolation}")
     if task == "classification" and interpolation == "linear":
         raise ValueError("Linear interpolation is not supported for classification model banks.")
+    if task == "classification" and interpolation == "anchored_recursive":
+        raise ValueError(
+            "Anchored recursive interpolation is not supported for classification models."
+        )
 
     predictions: dict[int, float] = {0: current_value}
     for prediction_horizon in horizons:
@@ -229,6 +236,32 @@ def predict_global(
             current_timestep,
             history,
             task,
+        )
+
+    if interpolation == "anchored_recursive":
+        def predict_next(
+            timestep: int,
+            value: float,
+            feature_history: list[float],
+        ) -> float:
+            model_input = _model_input(
+                model_features,
+                feature_builder,
+                timestep,
+                value,
+                feature_history,
+                prediction_horizon=1,
+            )
+            prediction = model.predict([model_input])
+            return float(prediction[0])  # type: ignore[index]
+
+        return anchored_recursive_interpolate(
+            anchors=predictions,
+            horizon=horizon,
+            current_timestep=current_timestep,
+            history=history,
+            step_predictor=predict_next,
+            bypass=bypass,
         )
 
     return _recursive_interpolate(

@@ -84,8 +84,8 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
             status_history=sim_status_history,
             current_status=current_status,
         )
-        sim_status_history.append(current_status)
         if bypass is not None:
+            sim_status_history.append(current_status)
             current_status = bypass
             current_at_home, current_at_station = _status_to_home_station(current_status)
             at_home_pred.append(current_at_home)
@@ -105,6 +105,7 @@ def _predict_single_ev_status(model: TClassifier | None, household: Household, e
 
         # ensure correct order of features for the model
         model_input = [all_features[f] for f in model_features]
+        sim_status_history.append(current_status)
 
         # predict next value, save as split into at_home and at_station
         current_status = int(model.predict([model_input])[0])  # type: ignore
