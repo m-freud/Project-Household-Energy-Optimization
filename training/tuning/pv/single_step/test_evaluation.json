@@ -1,0 +1,30 @@
+{
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 2,
+    "learning_rate": 0.05
+  },
+  "validation_metrics": {
+    "recursive_rmse": 1.057213565676734,
+    "pooled_rmse": 1.0716314757894554,
+    "next_step_rmse": 0.4340698431011315
+  },
+  "test_metrics": {
+    "recursive_rmse": 1.0625247112530516,
+    "pooled_rmse": 1.0846166652594948
+  },
+  "test_next_step_metrics": {
+    "next_step_rmse": 0.5160803181902973
+  },
+  "forecast_start_timesteps": [
+    12,
+    24,
+    36,
+    48,
+    60,
+    72,
+    84
+  ],
+  "train_validation_rows": 43035,
+  "test_rows": 8740
+}

@@ -1,0 +1,36 @@
+{
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 3,
+    "learning_rate": 0.05
+  },
+  "validation_metrics": {
+    "macro_f1": 0.3828284421360837,
+    "accuracy": 0.8114880952380953,
+    "balanced_accuracy": 0.3809620871550094,
+    "next_step_macro_f1": 0.6338125500529593,
+    "next_step_accuracy": 0.9314285714285714,
+    "next_step_balanced_accuracy": 0.6717836257309941
+  },
+  "test_metrics": {
+    "macro_f1": 0.3825196920468657,
+    "accuracy": 0.8211607142857142,
+    "balanced_accuracy": 0.38056063521357325
+  },
+  "test_next_step_metrics": {
+    "next_step_macro_f1": 0.6198575043951566,
+    "next_step_accuracy": 0.9185714285714286,
+    "next_step_balanced_accuracy": 0.6685634889002765
+  },
+  "forecast_start_timesteps": [
+    12,
+    24,
+    36,
+    48,
+    60,
+    72,
+    84
+  ],
+  "train_validation_rows": 85500,
+  "test_rows": 9500
+}
