@@ -40,11 +40,19 @@ def test_multistep_predictor_builders_configure_load_and_pv_interpolation(
 
     linear_predictor = builder(model_directories)
     recursive_predictor = builder(model_directories, interpolation="recursive")
+    anchored_predictor = builder(
+        model_directories,
+        interpolation="anchored_recursive",
+    )
 
     assert linear_predictor.base_load_interpolation == "linear"
     assert linear_predictor.pv_gen_interpolation == "linear"
     assert recursive_predictor.base_load_interpolation == "recursive"
     assert recursive_predictor.pv_gen_interpolation == "recursive"
+    assert anchored_predictor.base_load_interpolation == "anchored_recursive"
+    assert anchored_predictor.pv_gen_interpolation == "anchored_recursive"
+    assert anchored_predictor.ev1_interpolation == "recursive"
+    assert anchored_predictor.ev2_interpolation == "recursive"
     if builder is controller_factories.build_multi_step_predictor:
         assert linear_predictor.prediction_horizons == [1, 2, 4, 8, 16, 32, 64]
         assert recursive_predictor.prediction_horizons == [1, 2, 4, 8, 16, 32, 64]
@@ -98,8 +106,10 @@ def test_controller_factories_expose_renamed_and_recursive_mpc_names(monkeypatch
         "mpc_single_step",
         "mpc_multi_step",
         "mpc_multi_step_recursive",
+        "mpc_multi_step_anchored_recursive",
         "mpc_multi_model",
         "mpc_multi_model_recursive",
+        "mpc_multi_model_anchored_recursive",
         "mpc_multi_step_high_res",
         "mpc_multi_model_high_res",
     ]

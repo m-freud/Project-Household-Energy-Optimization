@@ -6,7 +6,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLi
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import (
     predict_composite,
 )
-from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import (
+from simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import (
     predict_global,
 )
 
@@ -39,7 +39,10 @@ def _build_features(
     return {"value": value}
 
 
-@pytest.mark.parametrize("interpolation", ["linear", "recursive"])
+@pytest.mark.parametrize(
+    "interpolation",
+    ["linear", "recursive", "anchored_recursive"],
+)
 def test_global_model_skips_bypassed_anchor_predictions_and_bypasses_each_step(interpolation):
     model = CountingRegressor(10.0)
 
@@ -60,7 +63,10 @@ def test_global_model_skips_bypassed_anchor_predictions_and_bypasses_each_step(i
     assert model.calls == 1
 
 
-@pytest.mark.parametrize("interpolation", ["linear", "recursive"])
+@pytest.mark.parametrize(
+    "interpolation",
+    ["linear", "recursive", "anchored_recursive"],
+)
 def test_composite_model_skips_bypassed_anchor_predictions_and_bypasses_each_step(interpolation):
     model = CountingRegressor(10.0)
 
@@ -78,3 +84,106 @@ def test_composite_model_skips_bypassed_anchor_predictions_and_bypasses_each_ste
 
     assert prediction == [5.0, 10.0, 0.0, 0.0]
     assert model.calls == 1
+
+
+class StepAndAnchorModel:
+    def __init__(self, value=None):
+        self.value = value
+
+    def predict(self, features):
+        return [
+            row[0] + 1 if self.value is None else self.value
+            for row in features
+        ]
+
+
+def _assert_anchored_recursive_prediction(prediction):
+    assert prediction == [10.0, 11.0, 14.0, 17.0, 20.0, 22.5, 25.0, 27.5, 30.0]
+
+
+def test_composite_anchored_recursive_corrects_recursive_rollouts_to_each_anchor():
+    model_bank = {
+        1: StepAndAnchorModel(),
+        4: StepAndAnchorModel(20.0),
+        8: StepAndAnchorModel(30.0),
+    }
+
+    prediction = predict_composite(
+        model_bank=cast(dict[int, ModelLike], model_bank),
+        current_timestep=10,
+        current_value=10.0,
+        history=[9.0],
+        horizon=9,
+        model_features=["value"],
+        feature_builder=_build_features,
+        interpolation="anchored_recursive",
+    )
+
+    _assert_anchored_recursive_prediction(prediction)
+
+
+def test_global_anchored_recursive_corrects_recursive_rollouts_to_each_anchor():
+    class GlobalStepAndAnchorModel:
+        def predict(self, features):
+            return [
+                row[0] + 1 if row[1] == 1 else {4: 20.0, 8: 30.0}[int(row[1])]
+                for row in features
+            ]
+
+    prediction = predict_global(
+        model=cast(ModelLike, GlobalStepAndAnchorModel()),
+        prediction_horizons=[1, 4, 8],
+        current_timestep=10,
+        current_value=10.0,
+        history=[9.0],
+        horizon=9,
+        model_features=["value", "prediction_horizon"],
+        feature_builder=_build_features,
+        interpolation="anchored_recursive",
+    )
+
+    _assert_anchored_recursive_prediction(prediction)
+
+
+@pytest.mark.parametrize("predictor", ["composite", "global"])
+def test_anchored_recursive_interpolation_rejects_classification(predictor):
+    with pytest.raises(ValueError, match="classification"):
+        if predictor == "composite":
+            predict_composite(
+                model_bank=cast(dict[int, ModelLike], {1: StepAndAnchorModel()}),
+                current_timestep=10,
+                current_value=0,
+                history=[],
+                horizon=2,
+                model_features=["value"],
+                feature_builder=_build_features,
+                interpolation="anchored_recursive",
+                task="classification",
+            )
+        else:
+            predict_global(
+                model=cast(ModelLike, StepAndAnchorModel()),
+                prediction_horizons=[1],
+                current_timestep=10,
+                current_value=0,
+                history=[],
+                horizon=2,
+                model_features=["value", "prediction_horizon"],
+                feature_builder=_build_features,
+                interpolation="anchored_recursive",
+                task="classification",
+            )
+
+
+def test_composite_anchored_recursive_requires_single_step_model():
+    with pytest.raises(ValueError, match="single-step model"):
+        predict_composite(
+            model_bank=cast(dict[int, ModelLike], {4: StepAndAnchorModel(20.0)}),
+            current_timestep=10,
+            current_value=10.0,
+            history=[],
+            horizon=5,
+            model_features=["value"],
+            feature_builder=_build_features,
+            interpolation="anchored_recursive",
+        )

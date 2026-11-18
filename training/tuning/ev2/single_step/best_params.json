@@ -1,0 +1,24 @@
+{
+  "params": {
+    "n_estimators": 300,
+    "max_depth": 3,
+    "learning_rate": 0.05
+  },
+  "validation_metrics": {
+    "macro_f1": 0.3828284421360837,
+    "accuracy": 0.8114880952380953,
+    "balanced_accuracy": 0.3809620871550094,
+    "next_step_macro_f1": 0.6338125500529593,
+    "next_step_accuracy": 0.9314285714285714,
+    "next_step_balanced_accuracy": 0.6717836257309941
+  },
+  "forecast_start_timesteps": [
+    12,
+    24,
+    36,
+    48,
+    60,
+    72,
+    84
+  ]
+}
