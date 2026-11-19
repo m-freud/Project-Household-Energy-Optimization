@@ -116,7 +116,7 @@ def render_debug_table(
 ) -> None:
 	debug_df = build_debug_table(household_id, scenario_name, policy_names, run_id)
 
-	st.subheader("Debug Table")
+	st.subheader("More Info")
 	if debug_df.empty:
 		st.info("No debug timestamps available for selected inputs.")
 	else:

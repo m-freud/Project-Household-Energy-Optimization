@@ -143,7 +143,8 @@ def replace_pv_gen() -> None:
             "SELECT household_id, total_energy FROM pv_gen_metadata ORDER BY household_id"
         ).fetchall()
         pool = de_conn.execute(
-            "SELECT household_id, date, total_energy FROM runtime_pool ORDER BY date"
+            "SELECT household_id, date, total_energy, shift_periods "
+            "FROM runtime_pool ORDER BY date"
         ).fetchall()
         if not targets:
             raise RuntimeError("pv_gen_metadata is empty")
@@ -176,7 +177,7 @@ def replace_pv_gen() -> None:
 
         # cycle through the pool again once all days are used
         for i, (household_id, total_orig) in enumerate(targets):
-            src_id, date, total_new = pool[i % len(pool)]
+            src_id, date, total_new, shift_periods = pool[i % len(pool)]
             if not src_id.replace("_", "").isalnum():
                 raise ValueError(f"Invalid DE player id: {src_id}")
             rows = de_conn.execute(
@@ -187,11 +188,27 @@ def replace_pv_gen() -> None:
                 raise ValueError(f"{src_id} {date}: expected {N_PERIODS} rows, got {len(rows)}")
 
             factor = 0.8
+            shift = int(shift_periods)
+            source_values = [row[0] for row in rows]
             conn.executemany(
                 f'UPDATE "pv_gen" SET "{int(household_id)}" = ? WHERE period = ?',
-                [(r[0] * factor, p) for p, r in enumerate(rows, start=1)],
+                [
+                    (
+                        (
+                            source_values[period - shift - 1]
+                            if 1 <= period - shift <= N_PERIODS
+                            else 0.0
+                        )
+                        * factor,
+                        period,
+                    )
+                    for period in range(1, N_PERIODS + 1)
+                ],
             )
-            print(f"pv player {household_id:3d} <- DE {src_id} {date} (x{factor:.3f})")
+            print(
+                f"pv player {household_id:3d} <- DE {src_id} {date} "
+                f"(shift {shift:+d}, x{factor:.3f})"
+            )
         conn.commit()
     finally:
         conn.close()

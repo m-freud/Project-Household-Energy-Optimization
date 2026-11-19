@@ -94,8 +94,8 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
 
     # pv window for predictions
     PV_GENERATION_WINDOW_OBSERVED = {
-        "earliest_start": 32,
-        "latest_end": 71,
+        "earliest_start": 24,
+        "latest_end": 80,
     }
 
     PV_GENERATION_WINDOW_ALLOWED = PV_GENERATION_WINDOW_OBSERVED

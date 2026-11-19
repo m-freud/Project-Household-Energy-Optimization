@@ -61,7 +61,14 @@ def create_pv_gen_table(conn: sqlite3.Connection) -> None:
                 f'CASE WHEN EXISTS ('
                 f'SELECT 1 FROM de.pv_gen_pool AS pool '
                 f'WHERE pool.household_id = ? AND pool.date = source.profile_date'
-                f') THEN source."{column}" * ? ELSE NULL END AS "{column}"'
+                f') THEN COALESCE(('
+                f'SELECT profile."{column}" '
+                f'FROM de.pv_gen AS profile '
+                f'WHERE substr(profile.timestamp_utc, 1, 10) = source.profile_date '
+                f'AND profile.period = source.period - ('
+                f'SELECT pool.shift_periods FROM de.pv_gen_pool AS pool '
+                f'WHERE pool.household_id = ? AND pool.date = source.profile_date'
+                f')), 0) * ? ELSE NULL END AS "{column}"'
             )
             for column in training
         )
@@ -92,7 +99,7 @@ def create_pv_gen_table(conn: sqlite3.Connection) -> None:
         parameters = [
             value
             for column in training
-            for value in (column, PV_FACTOR)
+            for value in (column, column, PV_FACTOR)
         ]
         parameters.extend([f"{PV_BEFORE_YEAR}-01-01", *training])
 
