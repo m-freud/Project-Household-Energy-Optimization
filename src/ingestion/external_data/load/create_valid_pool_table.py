@@ -14,7 +14,10 @@ import sqlite3
 from pathlib import Path
 
 
-sqlite_dir = Path(__file__).parents[2] / "sqlite"
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+
+
+sqlite_dir = ROOT_DIR / "sqlite"
 
 load_db_path = sqlite_dir / "staging" / "CH_loads.db"
 energy_db_path = sqlite_dir / "source_original.db"

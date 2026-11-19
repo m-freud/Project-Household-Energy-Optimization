@@ -4,10 +4,11 @@ import pandas as pd
 
 
 # Paths
-vista_dir = Path(__file__).parent
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+vista_dir = ROOT_DIR / "data" / "dataset_VISTA_EV"
 work_commute_csv = vista_dir / "work_commute_pairs.csv"
 
-staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
+staging_dir = ROOT_DIR / "sqlite" / "staging"
 staging_dir.mkdir(parents=True, exist_ok=True)
 
 sqlite_path = staging_dir / "VISTA_ev1_status.db"

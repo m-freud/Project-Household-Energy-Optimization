@@ -1,7 +1,9 @@
 import sqlite3
 from pathlib import Path
 
-DE_PV_DB = Path(__file__).resolve().parents[2] / "sqlite" / "staging" / "DE_pv_gen.db"
+
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+DE_PV_DB = ROOT_DIR / "sqlite" / "staging" / "DE_pv_gen.db"
 SOURCE_PLAYER = "residential3"
 SOURCE_YEAR = 2018
 

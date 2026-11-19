@@ -19,8 +19,9 @@ from pathlib import Path
 
 import pandas as pd
 
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
 
-pv_db_path = Path(__file__).parents[2] / "sqlite" / "staging" / "DE_pv_gen.db"
+pv_db_path = ROOT_DIR / "sqlite" / "staging" / "DE_pv_gen.db"
 
 SOURCE_TABLE = "pv_gen_metadata"
 POOL_TABLE = "pv_gen_pool"

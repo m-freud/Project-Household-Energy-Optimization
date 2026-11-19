@@ -31,7 +31,9 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 
-ch_db_path = Path(__file__).parents[2] / "sqlite" / "staging" / "CH_loads.db"
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+
+ch_db_path = ROOT_DIR / "sqlite" / "staging" / "CH_loads.db"
 
 # step 1: candidates per initial cp as (household_id, date)
 candidates = {}

@@ -29,63 +29,70 @@ PV_COLUMNS = (
 
 STEPS: tuple[tuple[str, Path | None], ...] = (
     (
-        "Filter Swiss household measurements",
-        Path("data/dataset_CH_load/filter_single_family_houses.py"),
+        "Load original Excel workbook",
+        Path("src/ingestion/table_loading_original.py")),
+    (
+        "Calculate original profile metadata",
+        Path("src/ingestion/create_original_metadata.py")),
+    # (
+    #     "Filter Swiss household measurements",
+    #     Path("data/dataset_CH_load/filter_single_family_houses.py"),
+    # ),
+    (
+        "Build Swiss load staging database",
+        Path("src/ingestion/external_data/load/create_ch_database.py"),
+    ),
+    (
+        "Calculate Swiss load metadata",
+        Path("src/ingestion/external_data/load/create_metadata_table.py"),
+    ),
+    (
+        "Build Swiss load candidate pool",
+        Path("src/ingestion/external_data/load/create_valid_pool_table.py"),
+    ),
+    (
+        "Select Swiss runtime load profiles",
+        Path("src/ingestion/external_data/load/select_ext_runtime_profiles.py"),
+    ),
+    (
+        "Prepare PV input from raw CSV",
+        None
+    ),
+    (
+        "Build German PV staging database",
+        Path("src/ingestion/external_data/pv/create_pv_database.py"),
+    ),
+    (
+        "Calculate German PV metadata",
+        Path("src/ingestion/external_data/pv/create_metadata_table.py"),
+    ),
+    (
+        "Build German PV candidate pool",
+        Path("src/ingestion/external_data/pv/create_valid_pool_table.py"),
+    ),
+    (
+        "Select German PV runtime pool",
+        Path("src/ingestion/external_data/pv/select_ext_runtime_profiles.py"),
     ),
     (
         "Filter VISTA EV1 commute pairs",
         Path("data/dataset_VISTA_EV/create_work_commute_pairs_table.py"),
     ),
     (
-        "Filter VISTA EV2 casual commute chains",
-        Path("data/dataset_VISTA_EV/create_casual_commutes_table.py"),
-    ),
-    ("Prepare PV input from raw CSV", None),
-    ("Load original Excel workbook", Path("src/ingestion/table_loading_original.py")),
-    ("Calculate original profile metadata", Path("src/ingestion/create_original_metadata.py")),
-    (
-        "Build Swiss load staging database",
-        Path("data/dataset_CH_load/create_ch_database.py"),
-    ),
-    (
-        "Calculate Swiss load metadata",
-        Path("data/dataset_CH_load/create_metadata_table.py"),
-    ),
-    (
-        "Build Swiss load candidate pool",
-        Path("data/dataset_CH_load/create_valid_pool_table.py"),
-    ),
-    (
-        "Select Swiss runtime load profiles",
-        Path("data/dataset_CH_load/select_ext_runtime_profiles.py"),
-    ),
-    (
-        "Build German PV staging database",
-        Path("data/dataset_DE_PV/create_pv_database.py"),
-    ),
-    (
-        "Calculate German PV metadata",
-        Path("data/dataset_DE_PV/create_metadata_table.py"),
-    ),
-    (
-        "Build German PV candidate pool",
-        Path("data/dataset_DE_PV/create_valid_pool_table.py"),
-    ),
-    (
-        "Select German PV runtime pool",
-        Path("data/dataset_DE_PV/select_ext_runtime_profiles.py"),
-    ),
-    (
         "Build VISTA EV1 staging database",
-        Path("data/dataset_VISTA_EV/create_ev1_database.py"),
+        Path("src/ingestion/external_data/ev1/create_ev1_database.py"),
     ),
     (
         "Calculate VISTA EV1 metadata",
-        Path("data/dataset_VISTA_EV/create_ev1_metadata_table.py"),
+        Path("src/ingestion/external_data/ev1/create_ev1_metadata_table.py"),
+    ),
+    (
+        "Filter VISTA EV2 casual commute chains",
+        Path("data/dataset_VISTA_EV/create_casual_commutes_table.py"),
     ),
     (
         "Build VISTA EV2 staging database",
-        Path("data/dataset_VISTA_EV/create_ev2_database.py"),
+        Path("src/ingestion/external_data/ev2/create_ev2_database.py"),
     ),
     # (
     #     "Calculate VISTA EV2 metadata",

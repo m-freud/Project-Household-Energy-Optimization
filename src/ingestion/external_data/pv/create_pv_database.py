@@ -2,8 +2,10 @@ import sqlite3
 from pathlib import Path
 import pandas as pd
 
-pv_csv_path = Path(__file__).parent / "pv_data_non_empty.csv"
-staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+
+pv_csv_path = ROOT_DIR / "data" / "dataset_DE_PV" / "pv_data_non_empty.csv"
+staging_dir = ROOT_DIR / "sqlite" / "staging"
 staging_dir.mkdir(parents=True, exist_ok=True)
 sqlite_path = staging_dir / "DE_pv_gen.db"
 

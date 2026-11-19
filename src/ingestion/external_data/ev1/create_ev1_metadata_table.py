@@ -53,7 +53,9 @@ import pandas as pd
 # Paths
 # ---------------------------------------------------------------------------
 
-staging_dir = Path(__file__).parents[2] / "sqlite" / "staging"
+ROOT_DIR = Path(__file__).parent.parent.parent.parent.parent
+
+staging_dir = ROOT_DIR / "sqlite" / "staging"
 
 ev1_db_path = staging_dir / "VISTA_ev1_status.db"
 
