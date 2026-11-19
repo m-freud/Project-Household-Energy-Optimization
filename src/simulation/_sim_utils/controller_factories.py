@@ -9,7 +9,7 @@ from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBuf
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.ml.composite.composite_ml_predictor import CompositeMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.composite.anchored_ml_predictor import AnchoredMLPredictor
 from src.simulation.controllers.mpc.predictors.ml.global_model.global_model_ml_predictor import GlobalModelMLPredictor
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
@@ -119,15 +119,26 @@ def _load_composite_model_bank(
     model_directories_by_target: dict[str, Path],
 ) -> dict[int, TXGBModel]:
     model_dir = model_directories_by_target[target] / "per_horizon_single_step"
-    model_paths = sorted(model_dir.glob("single_y*.json"))
+    anchor_horizons = {
+        "base_load": (1, 8, 16, 32, 64),
+        "pv_gen": (1, 8, 16, 32, 64),
+        "ev1_status": (1,),
+        "ev2_status": (1,),
+    }
+    if target not in anchor_horizons:
+        raise ValueError(f"No anchor horizons configured for target '{target}'")
     model_bank: dict[int, TXGBModel] = {}
-    for model_path in model_paths:
-        match = re.fullmatch(r"single_y(\d+)\.json", model_path.name)
-        if match is not None:
-            model_bank[int(match.group(1))] = _load_xgb_model(model_path, model_class)
-    if not model_bank:
+    missing_horizons = []
+    for horizon in anchor_horizons[target]:
+        model_path = model_dir / f"single_y{horizon}.json"
+        if not model_path.is_file():
+            missing_horizons.append(horizon)
+            continue
+        model_bank[horizon] = _load_xgb_model(model_path, model_class)
+    if missing_horizons:
         raise FileNotFoundError(
-            f"No per-horizon models found for '{target}' in '{model_dir}'."
+            f"Missing required anchor models for '{target}' in '{model_dir}': "
+            f"{missing_horizons}"
         )
     return model_bank
 
@@ -239,8 +250,8 @@ def build_multi_step_high_res_predictor(
 def build_multi_model_predictor(
     model_directories_by_target: dict[str, Path],
     interpolation: Literal["linear", "recursive", "anchored_recursive"] = "linear",
-) -> CompositeMLPredictor:
-    return CompositeMLPredictor(
+) -> AnchoredMLPredictor:
+    return AnchoredMLPredictor(
         base_load_model_bank=_load_composite_model_bank(
             "base_load",
             XGBRegressor,
@@ -268,8 +279,8 @@ def build_multi_model_predictor(
 
 def build_multi_model_high_res_predictor(
     model_directories_by_target: dict[str, Path],
-) -> CompositeMLPredictor:
-    return CompositeMLPredictor(
+) -> AnchoredMLPredictor:
+    return AnchoredMLPredictor(
         base_load_model_bank=_load_high_res_composite_model_bank(
             "base_load",
             XGBRegressor,

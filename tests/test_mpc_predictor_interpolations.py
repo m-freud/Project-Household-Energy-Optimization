@@ -33,7 +33,7 @@ def test_multistep_predictor_builders_configure_load_and_pv_interpolation(
 
     def load_model_bank(_target, _model_class, _directories):
         _ = (_target, _model_class, _directories)
-        return {1: stub_model}
+        return {horizon: stub_model for horizon in (1, 8, 16, 32, 64)}
 
     monkeypatch.setattr(controller_factories, "_load_xgb_model", load_model)
     monkeypatch.setattr(controller_factories, "_load_composite_model_bank", load_model_bank)

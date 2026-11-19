@@ -12,7 +12,7 @@ RecursiveMLPredictor
 
 The relevant weakness is that recursive forecasting can propagate errors through the trajectory and create horizon-dependent accuracy trade-offs.
 
-## New approach: CompositeMLPredictor
+## New approach: AnchoredMLPredictor
 
 The planned alternative uses **separate direct models for selected forecast horizons**, for example:
 
@@ -33,7 +33,7 @@ direct anchor.
 Suggested class name:
 
 ```python
-CompositeMLPredictor
+AnchoredMLPredictor
 ```
 
 This gives a clean architectural comparison:
@@ -41,7 +41,7 @@ This gives a clean architectural comparison:
 ```text
 RecursiveMLPredictor
         vs.
-CompositeMLPredictor
+AnchoredMLPredictor with recursive interpolation
 ```
 
 In the README, the second method can be described more formally as **direct multi-horizon forecasting using separate anchor-horizon models and interpolation**.
@@ -110,9 +110,9 @@ Implement and evaluate:
 ```text
 RecursiveMLPredictor
 vs.
-CompositeMLPredictor with linear interpolation
+AnchoredMLPredictor with linear interpolation
 vs.
-CompositeMLPredictor with anchored recursive interpolation
+AnchoredMLPredictor with anchored recursive interpolation
 ```
 
 Keep the shared direct multi-horizon model as an explicitly considered alternative.

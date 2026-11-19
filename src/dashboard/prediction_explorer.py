@@ -52,6 +52,7 @@ PREDICTOR_OPTIONS = {
     "multi_step_recursive": "multi_step (recursive interpolation)",
     "multi_model": "multi_model (linear interpolation)",
     "multi_model_recursive": "multi_model (recursive interpolation)",
+    "multi_model_anchored_recursive": "multi_model (anchored recursive interpolation)",
     "multi_step_high_res": "multi_step_high_res (1-95 horizons)",
     "multi_model_high_res": "multi_model_high_res (1-95 horizons)",
 }
@@ -151,6 +152,10 @@ def _load_trained_mpc_predictor(predictor_name: str) -> BasePredictor:
             build_multi_model_predictor,
             interpolation="recursive",
         ),
+        "multi_model_anchored_recursive": partial(
+            build_multi_model_predictor,
+            interpolation="anchored_recursive",
+        ),
         "multi_step_high_res": build_multi_step_high_res_predictor,
         "multi_model_high_res": build_multi_model_high_res_predictor,
     }
@@ -177,6 +182,7 @@ def _build_predictor(
         "multi_step_recursive",
         "multi_model",
         "multi_model_recursive",
+        "multi_model_anchored_recursive",
         "multi_step_high_res",
         "multi_model_high_res",
     }:
@@ -273,6 +279,7 @@ def _build_default_policy_name(
         "multi_step_recursive",
         "multi_model",
         "multi_model_recursive",
+        "multi_model_anchored_recursive",
         "multi_step_high_res",
         "multi_model_high_res",
     }:

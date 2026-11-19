@@ -24,7 +24,7 @@ from src.simulation.controllers.mpc.predictors.ml.composite.helpers.base_load im
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers.pv_gen import predict_pv_gen
 
 
-class CompositeMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
+class AnchoredMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     def __init__(
             self,
             base_load_model_bank: dict[int, TRegressor],
