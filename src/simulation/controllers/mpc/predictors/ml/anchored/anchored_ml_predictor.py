@@ -19,9 +19,9 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
     TClassifier,
 )
 
-from src.simulation.controllers.mpc.predictors.ml.composite.helpers.ev_status import predict_ev_status
-from src.simulation.controllers.mpc.predictors.ml.composite.helpers.base_load import predict_base_load
-from src.simulation.controllers.mpc.predictors.ml.composite.helpers.pv_gen import predict_pv_gen
+from src.simulation.controllers.mpc.predictors.ml.anchored.helpers.ev_status import predict_ev_status
+from src.simulation.controllers.mpc.predictors.ml.anchored.helpers.base_load import predict_base_load
+from src.simulation.controllers.mpc.predictors.ml.anchored.helpers.pv_gen import predict_pv_gen
 
 
 class AnchoredMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
