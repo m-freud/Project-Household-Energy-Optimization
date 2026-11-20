@@ -468,11 +468,10 @@ class Simulation:
         return household
 
 
-    def run_all_households(
+    def run_households_with_context(
         self,
         run_context: RunContext,
         household_ids: list[int] | None = None,
-        max_households: int | None = None,
         parallel_households: bool = True,
         parallel_workers: int | None = 6, # optimal number depends on CPUs of your machine
         write_results_to_sqlite: bool = True,
@@ -486,9 +485,6 @@ class Simulation:
                 for household_id in household_ids
                 if 1 <= household_id <= self.num_households
             ]
-
-        if max_households is not None and max_households >= 0:
-            selected_households = selected_households[:max_households]
 
         if parallel_households and len(selected_households) > 1:
             return self.run_all_households_parallel(
@@ -570,7 +566,6 @@ class Simulation:
         self,
         run_contexts: list[RunContext],
         household_ids: list[int] | None = None,
-        max_households: int | None = None,
         parallel_households: bool = True,
         parallel_workers: int | None = 6,
         write_results_to_sqlite: bool = True,
@@ -590,10 +585,9 @@ class Simulation:
                 for household_id in household_ids
                 if 1 <= household_id <= self.num_households
             ]
-        if max_households is not None and max_households >= 0:
-            selected_households = selected_households[:max_households]
 
-        total_households = len(run_contexts) * len(selected_households)
+        total_household_runs = len(run_contexts) * len(selected_households)
+
         completed_households = 0
         started_at = time.monotonic()
 
@@ -601,11 +595,11 @@ class Simulation:
             nonlocal completed_households
             completed_households += 1
             elapsed = time.monotonic() - started_at
-            estimated_total = elapsed * total_households / completed_households
+            estimated_total = elapsed * total_household_runs / completed_households
             remaining = estimated_total - elapsed
-            percentage = completed_households / total_households * 100
+            percentage = completed_households / total_household_runs * 100
             print(
-                f"Progress: {completed_households}/{total_households} "
+                f"Progress: {completed_households}/{total_household_runs} "
                 f"({percentage:.1f}%) | {run_context.controller_name} / "
                 f"{run_context.scenario.name} | elapsed "
                 f"{_format_duration(elapsed)} | ETA {_format_duration(remaining)}",
@@ -613,10 +607,9 @@ class Simulation:
             )
 
         for run_context in run_contexts:
-            batch_results = self.run_all_households(
+            batch_results = self.run_households_with_context(
                 run_context,
                 household_ids=household_ids,
-                max_households=max_households,
                 parallel_households=parallel_households,
                 parallel_workers=parallel_workers,
                 write_results_to_sqlite=write_results_to_sqlite,
@@ -629,12 +622,7 @@ class Simulation:
                 results["total_consumptions"].extend(batch_results["total_consumptions"])
 
         return results
-
-
-    def make_mpc_controller(self, name: str, horizon: int, predictor: BasePredictor, duration_hours: float = 0.25, buffer_config: DeviceBufferConfig | None = None) -> Callable[[Household, Scenario], MPCController]:
-        # convenience / backwards compatibility
-        return make_mpc_controller(name=name, horizon=horizon, predictor=predictor, duration_hours=duration_hours, buffer_config=buffer_config)
-
+    
 
 def parse_scenarios(scenarios_arg: str) -> list[Scenario]:
     if scenarios_arg == "all":
@@ -683,18 +671,23 @@ def main():
     # Create a simulation instance
     sim = Simulation(source_sqlite_conn, results_conn=create_results_connection())
 
-    # translate args into simulation parameters
+    # prepare controllers
     requested_controller_names = parse_controllers(args.controllers)
     controller_factories_by_name = build_controller_factories(requested_controller_names)
-    selected_controller_names = (
-        list(controller_factories_by_name)
-        if requested_controller_names is None
-        else requested_controller_names
-    )   
 
+    if requested_controller_names is None:
+        selected_controller_names = list(controller_factories_by_name)
+    else:
+        selected_controller_names = [
+            controller_name
+            for controller_name in requested_controller_names
+            if controller_name in controller_factories_by_name
+        ]
+
+    # prepare scenarios
     selected_scenarios = parse_scenarios(args.scenarios)
 
-    # collect households
+    # prepare household ids
     selected_household_ids = parse_household_ids(args.households)
 
     # create run contexts for each combination of controller and scenario
@@ -714,7 +707,6 @@ def main():
     sim.run_batch(
         run_contexts,
         household_ids=selected_household_ids,
-        max_households=args.max_households,
         parallel_households=args.parallel_households,
         parallel_workers=args.parallel_workers,
     )

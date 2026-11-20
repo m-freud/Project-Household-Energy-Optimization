@@ -5,6 +5,8 @@ import json
 import sys
 import time
 
+from simulation._sim_utils.controller_factories import make_mpc_controller
+
 # Find the repository root that contains 'src'.
 repo_root = next((path for path in Path.cwd().resolve().parents if (path / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
@@ -53,7 +55,7 @@ def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 	)
 	simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
 	run_context = RunContext(
-		controller_factory=simulation.make_mpc_controller(
+		controller_factory=make_mpc_controller(
 			"mpc_iso_benchmark", 96, predictor=predictor
 		),
 		controller_name="mpc_iso_benchmark",

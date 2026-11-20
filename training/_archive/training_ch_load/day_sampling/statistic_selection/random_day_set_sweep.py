@@ -207,7 +207,7 @@ def _score_candidate(
     )
     simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
-        controller_factory=simulation.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
+        controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",
         scenario=scenario_catalog[scenario_name],
         start_time=1,

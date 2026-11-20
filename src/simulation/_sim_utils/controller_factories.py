@@ -40,7 +40,7 @@ def build_function_controller(
     return StepwiseController(name=name, step_function=step_function)
 
 
-def make_function_controller( # for parallel runs
+def make_function_controller( # factory for parallel runs
     name: str,
     step_function: Callable[..., dict],
 ) -> Callable[[Household, Scenario], StepwiseController]:
@@ -327,7 +327,7 @@ def build_controller_factories(
     }
     selected_names = (
         available_names
-        - {"mpc_multi_step_high_res", "mpc_multi_model_high_res"}
+        # - {"mpc_multi_step_high_res", "mpc_multi_model_high_res"}
         if requested_names is None
         else set(requested_names)
     )

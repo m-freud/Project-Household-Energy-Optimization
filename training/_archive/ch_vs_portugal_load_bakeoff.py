@@ -15,6 +15,7 @@ import pandas as pd
 repo_root = next((path for path in Path.cwd().resolve().parents if (path / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
 
+from simulation._sim_utils.controller_factories import make_mpc_controller
 from src.simulation.controllers.mpc.predictors.ml.model_config import MODEL_FEATURES_BY_FAMILY  # noqa: E402
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor  # noqa: E402
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor  # noqa: E402
@@ -86,7 +87,7 @@ def _score_default_scenario(model: object, test_ids: list[int]) -> float:
     )
     simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
-        controller_factory=simulation.make_mpc_controller(
+        controller_factory=make_mpc_controller(
             "mpc_iso_benchmark", 96, predictor=predictor
         ),
         controller_name="mpc_iso_benchmark",

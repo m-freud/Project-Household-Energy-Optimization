@@ -52,7 +52,7 @@ from src.simulation.controllers.mpc.predictors.modular_predictor import ModularP
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor  # noqa: E402
 from src.simulation.run_context import RunContext  # noqa: E402
 from src.simulation.scenarios.scenario import scenarios as scenario_catalog  # noqa: E402
-from src.simulation.simulation import Simulation  # noqa: E402
+from src.simulation.simulation import Simulation, make_mpc_controller # noqa: E402
 from src.runtime_config import RuntimeConfig  # noqa: E402
 from src.sqlite_connection import source_sqlite_conn  # noqa: E402
 from training._archive.split.clean_split import PARTITIONS  # noqa: E402
@@ -211,7 +211,7 @@ def _score_day_set(
     )
     simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
     run_context = RunContext(
-        controller_factory=simulation.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
+        controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",
         scenario=scenario_catalog[scenario_name],
         start_time=1,

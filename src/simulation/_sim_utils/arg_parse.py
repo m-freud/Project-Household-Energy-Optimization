@@ -54,12 +54,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Household IDs/ranges (e.g. 5-25 or 1,3,5-8), 'all', or 'test_set' (default: 1)",
     )
     parser.add_argument(
-        "--max-households",
-        type=int,
-        default=None,
-        help="Limit number of households after filtering",
-    )
-    parser.add_argument(
         "--start-time",
         type=int,
         default=1,

@@ -180,7 +180,6 @@ def _score_sim_total_cost_for_target(
         results = sim.run_batch(
             run_contexts,
             household_ids=test_households,
-            max_households=len(test_households),
             parallel_households=True,
             parallel_workers=6,
             write_results_to_sqlite=False,

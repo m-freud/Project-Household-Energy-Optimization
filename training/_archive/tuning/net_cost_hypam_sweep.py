@@ -9,6 +9,8 @@ predictor varies -> isolates the effect of that predictor on net cost.
 from pathlib import Path
 import sys
 
+from simulation._sim_utils.controller_factories import make_mpc_controller
+
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")
 sys.path.insert(0, str(repo_root))
@@ -73,7 +75,7 @@ def score_model(model, target: str, scenario_name: str, test_set: str, n_test_id
     sim = Simulation(source_sqlite_conn, ensure_results_table=False)
 
     run_context = RunContext(
-        controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
+        controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
         controller_name="mpc_iso_benchmark",
         scenario=scenario,
         start_time=1,
@@ -104,7 +106,7 @@ def run_full_oracle(scenarios: list[str], test_set: str, n_test_ids: int | None)
         sim = Simulation(source_sqlite_conn, ensure_results_table=False)
         predictor = ModularPredictor(default_predictor=OraclePredictor(), target_predictors={})
         run_context = RunContext(
-            controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
+            controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
             controller_name="mpc_iso_benchmark",
             scenario=scenario_catalog[scenario_name],
             start_time=1,

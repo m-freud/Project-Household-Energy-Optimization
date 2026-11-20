@@ -31,7 +31,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, RidgeClassifier
 from sklearn.metrics import root_mean_squared_error
 from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
-from src.simulation.simulation import Simulation
+from src.simulation.simulation import Simulation, make_mpc_controller
 from src.simulation.controllers.mpc.predictors.modular_predictor import ModularPredictor
 import json
 import pandas as pd
@@ -174,7 +174,7 @@ class HypamBenchmark: #TODO round floats in csv
         sim = Simulation(source_sqlite_conn, ensure_results_table=False)
 
         run_context = RunContext(
-            controller_factory=sim.make_mpc_controller("mpc_iso_benchmark", 96, predictor=benchmark_predictor),
+            controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=benchmark_predictor),
             controller_name="mpc_iso_benchmark",
             scenario=scenario,
             start_time=1,
