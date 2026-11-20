@@ -1,42 +1,6 @@
-# Final HEMS Benchmark
-
-* [ ] CH Load in HEMS-Dataset integrieren
-* [ ] Neuen Train/Test-Split erstellen
-
-  * Leakage nur noch für PV beachten
-  * Global Test Set einfrieren
-* [ ] Train → Train/Validation splitten
-
-## Model Optimization
-
-* [ ] Kleine Hyperparameter-Sweeps via RMSE
-* [ ] Gute Kandidaten via Net Cost vergleichen
-* [ ] Features ggf. kurz prüfen/prunen
-* [ ] Gute Hyperparameter festlegen
-
-## Training Data
-
-* [ ] Gute CH Player-Days auswählen
-* [ ] Genetic Algorithm **nur innerhalb Global Train**
-* [ ] Finales Trainingsset festlegen
-
-## Predictors
-
-* [ ] Recursive Predictor trainieren
-* [ ] Composite Predictor trainieren
-* [ ] Global Predictor trainieren
-
-## Final Benchmark
-
-* [ ] Horizon-RMSE vergleichen
-* [ ] Net Cost vergleichen
-* [ ] Oracle MPC als Referenz
-* [ ] Global Test Set **einmalig** auswerten
-* [ ] Ergebnisse + Interpretation dokumentieren
-
-## Ship
-
-* [ ] Plots/Tables
-* [ ] README finalisieren
-* [ ] Repo aufräumen
-* [ ] **FERTIG. KEINE NEUEN PREDICTORS.**
+verify that smooth recursive interpolation (formerly anchored recursive interpolation) works as intended - bei der gelegenheit halt auch einfach den code aufräumen
+add some sort of prediction accuracy metric to the runs
+wenn wir das haben: verify that anchored is slightly more accurate than single step
+on that basis: confirm that the net cost is basically the same anyway (bisheriges ergebnis)
+clean up predictor files (de-spaghettify / de-slop), esp. anchored pred.
+readme

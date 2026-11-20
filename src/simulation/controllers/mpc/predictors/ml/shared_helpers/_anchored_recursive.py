@@ -26,7 +26,7 @@ def _apply_bypasses(
     return result
 
 
-def anchored_recursive_interpolate(
+def smooth_recursive_interpolate(
     anchors: Mapping[int, float],
     horizon: int,
     current_timestep: int,

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
 from src.simulation.controllers.mpc.predictors.ml.shared_helpers._anchored_recursive import (
-    anchored_recursive_interpolate,
+    smooth_recursive_interpolate,
 )
 
 Task = Literal["regression", "classification"]
@@ -200,7 +200,7 @@ def _recursive_interpolate(
     )
 
 
-def predict_composite(
+def predict_anchored(
     model_bank: Mapping[int, ModelLike],
     current_timestep: int,
     current_value: float,
@@ -287,7 +287,7 @@ def predict_composite(
             prediction = model_bank[1].predict([model_input])
             return float(prediction[0])  # type: ignore[index]
 
-        return anchored_recursive_interpolate(
+        return smooth_recursive_interpolate(
             anchors=predictions,
             horizon=horizon,
             current_timestep=current_timestep,
@@ -322,7 +322,7 @@ def _debug_run_composite_interpolation() -> None:
         return {"debug_value": value}
 
     for interpolation in ("linear", "recursive"):
-        prediction = predict_composite(
+        prediction = predict_anchored(
             model_bank=debug_model_bank,
             current_timestep=20,
             current_value=10.0,

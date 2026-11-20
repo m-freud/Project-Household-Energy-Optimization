@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLike
 from src.simulation.controllers.mpc.predictors.ml.shared_helpers._anchored_recursive import (
-    anchored_recursive_interpolate,
+    smooth_recursive_interpolate,
 )
 
 Task = Literal["regression", "classification"]
@@ -255,7 +255,7 @@ def predict_global(
             prediction = model.predict([model_input])
             return float(prediction[0])  # type: ignore[index]
 
-        return anchored_recursive_interpolate(
+        return smooth_recursive_interpolate(
             anchors=predictions,
             horizon=horizon,
             current_timestep=current_timestep,
