@@ -24,10 +24,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import (
 )
 
 
-class RecursiveMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
-    """Base class for ML predictors (XGB, RF, Ridge, or more).
-    Accepts one model per target.
-    """
+class SingleStepMLPredictor(BasePredictor, Generic[TRegressor, TClassifier]):
     #TODO conf intervals if needed
     def __init__(
         self,
