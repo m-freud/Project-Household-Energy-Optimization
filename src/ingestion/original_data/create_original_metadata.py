@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pandas as pd
 
-repo_root = Path(__file__).resolve().parents[2]
+repo_root = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(repo_root))
 from src.runtime_config import RuntimeConfig
 

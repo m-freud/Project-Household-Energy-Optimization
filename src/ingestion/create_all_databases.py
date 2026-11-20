@@ -30,10 +30,10 @@ PV_COLUMNS = (
 STEPS: tuple[tuple[str, Path | None], ...] = (
     (
         "Load original Excel workbook",
-        Path("src/ingestion/table_loading_original.py")),
+        Path("src/ingestion/original_data/table_loading_original.py")),
     (
         "Calculate original profile metadata",
-        Path("src/ingestion/create_original_metadata.py")),
+        Path("src/ingestion/original_data/create_original_metadata.py")),
     # (
     #     "Filter Swiss household measurements",
     #     Path("data/dataset_CH_load/filter_single_family_houses.py"),
@@ -98,8 +98,8 @@ STEPS: tuple[tuple[str, Path | None], ...] = (
     #     "Calculate VISTA EV2 metadata",
     #     Path("data/dataset_VISTA_EV/create_ev2_metadata_table.py"),
     # ),
-    ("Build runtime database", Path("src/ingestion/create_replacement_db.py")),
-    ("Build training database", Path("src/ingestion/create_training_tables.py")),
+    ("Build runtime database", Path("src/ingestion/external_data/create_replacement_db.py")),
+    ("Build training database", Path("src/ingestion/external_data/create_training_tables.py")),
 )
 
 

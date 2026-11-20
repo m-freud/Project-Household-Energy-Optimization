@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 import random
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = Path(__file__).resolve().parents[3]
 SQLITE_DIR = ROOT_DIR / "sqlite"
 SOURCE_ORIGINAL_DB = SQLITE_DIR / "source_original.db"
 SOURCE_RUNTIME_DB = SQLITE_DIR / "source_runtime.db"

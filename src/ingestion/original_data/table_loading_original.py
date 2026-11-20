@@ -9,7 +9,7 @@ repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists(
 sys.path.insert(0, str(repo_root))
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
-from src.ingestion.table_config import table_config
+from src.ingestion.original_data.table_config import table_config
 from src.sqlite_connection import create_init_source_connection, init_source_conn
 from src.runtime_config import RuntimeConfig
 
