@@ -5,7 +5,7 @@ import json
 import sys
 import time
 
-from simulation._sim_utils.controller_factories import make_mpc_controller
+from src.simulation._sim_utils.controller_factories import make_mpc_controller
 
 # Find the repository root that contains 'src'.
 repo_root = next((path for path in Path.cwd().resolve().parents if (path / "src").exists()), "")

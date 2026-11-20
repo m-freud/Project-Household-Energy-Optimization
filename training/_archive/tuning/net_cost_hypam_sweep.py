@@ -9,7 +9,7 @@ predictor varies -> isolates the effect of that predictor on net cost.
 from pathlib import Path
 import sys
 
-from simulation._sim_utils.controller_factories import make_mpc_controller
+from src.simulation._sim_utils.controller_factories import make_mpc_controller
 
 # find the repository root that contains 'src'
 repo_root = next((p for p in Path.cwd().resolve().parents if (p / "src").exists()), "")

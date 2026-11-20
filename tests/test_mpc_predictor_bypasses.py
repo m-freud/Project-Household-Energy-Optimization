@@ -6,7 +6,7 @@ from src.simulation.controllers.mpc.predictors.ml.model_interface import ModelLi
 from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import (
     predict_composite,
 )
-from simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import (
+from src.simulation.controllers.mpc.predictors.ml._archive.global_model.helpers._global_model_prediction import (
     predict_global,
 )
 
