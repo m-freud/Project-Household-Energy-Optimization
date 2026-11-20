@@ -8,7 +8,7 @@ from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status impo
     _build_ev_status_features,
     _try_bypass,
 )
-from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import predict_global
+from simulation.controllers.mpc.predictors.ml._archive.global_model.helpers._global_model_prediction import predict_global
 from src.simulation.household import Household
 
 

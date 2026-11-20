@@ -8,7 +8,7 @@ from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import 
     _build_pv_gen_features,
     _try_bypass,
 )
-from src.simulation.controllers.mpc.predictors.ml.global_model.helpers._global_model_prediction import predict_global
+from simulation.controllers.mpc.predictors.ml._archive.global_model.helpers._global_model_prediction import predict_global
 
 
 def predict_pv_gen(
