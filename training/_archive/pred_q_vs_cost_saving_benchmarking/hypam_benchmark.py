@@ -171,7 +171,7 @@ class HypamBenchmark: #TODO round floats in csv
             },
         )
 
-        sim = Simulation(source_sqlite_conn, ensure_results_table=False)
+        sim = Simulation(source_sqlite_conn, ensure_log_tables=False)
 
         run_context = RunContext(
             controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=benchmark_predictor),

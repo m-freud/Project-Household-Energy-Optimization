@@ -72,7 +72,7 @@ def score_model(model, target: str, scenario_name: str, test_set: str, n_test_id
         target_predictors={target: target_predictor},
     )
 
-    sim = Simulation(source_sqlite_conn, ensure_results_table=False)
+    sim = Simulation(source_sqlite_conn, ensure_log_tables=False)
 
     run_context = RunContext(
         controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),
@@ -103,7 +103,7 @@ def run_full_oracle(scenarios: list[str], test_set: str, n_test_ids: int | None)
     print(f"Running full-oracle sweep, scenarios: {scenarios}")
     started_at = time.perf_counter()
     for i, scenario_name in enumerate(scenarios, 1):
-        sim = Simulation(source_sqlite_conn, ensure_results_table=False)
+        sim = Simulation(source_sqlite_conn, ensure_log_tables=False)
         predictor = ModularPredictor(default_predictor=OraclePredictor(), target_predictors={})
         run_context = RunContext(
             controller_factory=make_mpc_controller("mpc_iso_benchmark", 96, predictor=predictor),

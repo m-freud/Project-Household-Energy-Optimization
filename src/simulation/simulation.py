@@ -13,11 +13,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context
 from pathlib import Path
 import time
-from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.base_controller import BaseController
-from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBufferConfig
-from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.devices.bess import BESS
 from src.simulation.devices.ev import EV
 from src.simulation.devices.pv import PV
@@ -68,6 +65,7 @@ def _run_household_worker(
         raise RuntimeError("Household worker has no run context.")
 
     worker_conn = create_source_connection()
+
     try:
         sim = Simulation(
             worker_conn,
@@ -137,7 +135,7 @@ class Simulation:
     def __init__(
             self,
             sqlite_conn,
-            ensure_results_table: bool = True,
+            ensure_log_tables: bool = True,
             results_conn=None
             ):
         self.sqlite_conn = sqlite_conn
@@ -170,7 +168,7 @@ class Simulation:
 
         self.household_profiles = {}
 
-        if ensure_results_table:
+        if ensure_log_tables:
             self._ensure_results_table()
 
 
@@ -376,6 +374,7 @@ class Simulation:
         controller = run_context.controller_factory(household, run_context.scenario)
         if not isinstance(controller, BaseController):
             raise TypeError("Controller factory must return a BaseController instance")
+
         return controller
 
 

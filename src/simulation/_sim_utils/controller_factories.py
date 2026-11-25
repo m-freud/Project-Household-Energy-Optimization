@@ -9,9 +9,8 @@ from src.simulation.controllers.mpc.config.device_buffer_config import DeviceBuf
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
-from src.simulation.controllers.mpc.predictors.ml.composite.anchored_ml_predictor import AnchoredMLPredictor
-from src.simulation.controllers.mpc.predictors.ml.global_model.global_model_ml_predictor import GlobalModelMLPredictor
-from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.anchored.anchored_ml_predictor import AnchoredMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.single_step.single_step_ml_predictor import SingleStepMLPredictor as RecursiveMLPredictor
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation.controllers.stepwise.step_functions.basic_examples import no_control
 from src.simulation.controllers.stepwise.step_functions.linear.linear import even_linear_policy, fast_charge_policy
@@ -71,7 +70,7 @@ def build_mpc_controller(
 def make_mpc_controller(
     name: str,
     horizon: int=96,
-    predictor: BasePredictor=None,
+    predictor: BasePredictor | None = None,
     duration_hours: float = 0.25,
     buffer_config: DeviceBufferConfig | None = None,
 ) -> Callable[[Household, Scenario], MPCController]:

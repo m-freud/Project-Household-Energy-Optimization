@@ -317,7 +317,7 @@ def run_profile(
     results_conn = sqlite3.connect(":memory:")
     simulation = Simulation(
         source_conn,
-        ensure_results_table=False,
+        ensure_log_tables=False,
         results_conn=results_conn,
     )
     try:

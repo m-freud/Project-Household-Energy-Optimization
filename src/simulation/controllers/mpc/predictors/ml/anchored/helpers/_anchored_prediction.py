@@ -258,7 +258,7 @@ def predict_anchored(
             bypass=bypass,
         )
     elif interpolation == "anchored_recursive":
-        bounded_anchors = sorted(
+        bounded_anchors: list[int] = sorted(
             offset for offset in predictions if 0 <= offset < horizon
         )
         needs_recursive_step = (

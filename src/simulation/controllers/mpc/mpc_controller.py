@@ -34,9 +34,9 @@ class MPCController(BaseController):
         self.ev1_control_bounds = [0, self.household.ev1.max_charge] if self.household.ev1 else [0,0] # no discharge
         self.ev2_control_bounds = [0, self.household.ev2.max_charge] if self.household.ev2 else [0,0] # no discharge
 
-        self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess else {}
-        self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 else {}
-        self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 else {}
+        self.bess_soc_targets = self.scenario.bess.soc_targets if self.household.bess is not None else {} # type: ignore
+        self.ev1_soc_targets = self.scenario.ev1.soc_targets if self.household.ev1 is not None else {} # type: ignore
+        self.ev2_soc_targets = self.scenario.ev2.soc_targets if self.household.ev2 is not None else {} # type: ignore
 
         # Built once and reused every timestep via Parameters (DPP) to avoid
         # repeated compilation overhead.
@@ -48,11 +48,15 @@ class MPCController(BaseController):
 
     def _prediction_series(self, predictions: dict, key: str, horizon: int, default: float = 0.0) -> list[float]:
         values = predictions.get(key, [])
+
+        # ensure list type
         if not isinstance(values, list):
             values = [values]
 
+        # convert to float and truncate to horizon
         series = [float(value) for value in values[:horizon]]
 
+        # pad with last value or default if series is shorter than horizon
         if len(series) < horizon:
             fill_value = series[-1] if series else default
             series.extend([float(fill_value)] * (horizon - len(series)))

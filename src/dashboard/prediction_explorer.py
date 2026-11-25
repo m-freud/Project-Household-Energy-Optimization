@@ -16,7 +16,7 @@ from xgboost import XGBClassifier, XGBRegressor
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.history_avg.history_avg_predictor import HistoryAveragePredictor
 from src.simulation.controllers.mpc.predictors.base_predictor import BasePredictor
-from src.simulation.controllers.mpc.predictors.ml.recursive.recursive_ml_predictor import RecursiveMLPredictor
+from src.simulation.controllers.mpc.predictors.ml.single_step.single_step_ml_predictor import SingleStepMLPredictor
 from src.simulation.controllers.mpc.mpc_controller import MPCController
 from src.simulation.controllers.mpc.predictors.oracle.oracle_predictor import OraclePredictor
 from src.simulation._sim_utils.controller_factories import (
@@ -31,7 +31,6 @@ from src.simulation.scenarios.scenario import scenarios as scenario_catalog
 from src.simulation.scenarios.scenario import default_scenario
 from src.simulation.simulation import Simulation
 from src.sqlite_connection import (
-    create_results_connection,
     create_source_connection,
     load_source_avg_profile,
 )
@@ -108,7 +107,7 @@ def _load_pickle_model(model_path: Path):
 
 
 @st.cache_resource(show_spinner=False)
-def _load_predictor(family: str) -> RecursiveMLPredictor[Any, Any]:
+def _load_predictor(family: str) -> SingleStepMLPredictor:
     family_key = str(family).lower()
     if family_key == "xgb":
         base_load_model = _load_xgb_model(_single_model_path("xgb", "base_load"), XGBRegressor)
@@ -124,7 +123,7 @@ def _load_predictor(family: str) -> RecursiveMLPredictor[Any, Any]:
         valid = ", ".join(sorted(RuntimeConfig.MODEL_FAMILY_CONFIGS.keys()))
         raise ValueError(f"Unknown model family '{family_key}'. Expected one of: {valid}")
 
-    return RecursiveMLPredictor(
+    return SingleStepMLPredictor(
         base_load_model=base_load_model,
         pv_gen_model=pv_gen_model,
         ev1_status_model=ev1_status_model,
@@ -209,7 +208,7 @@ def _compute_snapshot(
 
     connection = create_source_connection()
     try:
-        sim = Simulation(connection, ensure_results_table=False)
+        sim = Simulation(connection, ensure_log_tables=False)
         run_context = RunContext(scenario=scenario, start_time=1)
         household = sim.create_household(household_id, run_context)
 

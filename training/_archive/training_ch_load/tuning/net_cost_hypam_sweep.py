@@ -53,7 +53,7 @@ def score_model(model, scenario_name: str, n_test_ids: int | None) -> float:
 			)
 		},
 	)
-	simulation = Simulation(source_sqlite_conn, ensure_results_table=False)
+	simulation = Simulation(source_sqlite_conn, ensure_log_tables=False)
 	run_context = RunContext(
 		controller_factory=make_mpc_controller(
 			"mpc_iso_benchmark", 96, predictor=predictor
