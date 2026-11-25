@@ -74,6 +74,25 @@ class Household:
             "total_cost": {}
         }
 
+        self.forecast_log = {
+            "base_load": {},
+            "pv_gen": {},
+            "ev1_status": {},
+            "ev2_status": {},
+            "ev1_at_home": {},
+            "ev2_at_home": {},
+            "ev1_at_charging_station": {},
+            "ev2_at_charging_station": {},
+            "ev1_load": {},
+            "ev2_load": {},
+            "ev1_buy_price": {},
+            "ev2_buy_price": {},
+            "ev1_max_charge": {},
+            "ev2_max_charge": {},
+            "buy_price": {},
+            "sell_price": {},
+        }
+
         self.controls = {
             "bess_power": 0.0,
             "ev1_power": 0.0,

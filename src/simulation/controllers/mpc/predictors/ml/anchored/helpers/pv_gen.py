@@ -10,7 +10,7 @@ from src.simulation.controllers.mpc.predictors.ml.shared_helpers._pv_gen import 
     _build_pv_gen_features,
     _try_bypass,
 )
-from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import predict_composite
+from src.simulation.controllers.mpc.predictors.ml.anchored.helpers._anchored_prediction import predict_anchored
 
 
 def predict_pv_gen(
@@ -47,7 +47,7 @@ def predict_pv_gen(
             _ = status_history, current_value
             return _try_bypass(timestep)
 
-        pv_gen = predict_composite(
+        pv_gen = predict_anchored(
             model_bank=model_bank,
             current_timestep=household.current_timestep,
             current_value=household.pv_gen,

@@ -85,7 +85,7 @@ def load_results_payload_to_sqlite(
             """
             CREATE TABLE IF NOT EXISTS results (
                 run_id TEXT,
-            policy TEXT,
+                policy TEXT,
                 scenario TEXT,
                 household_id INTEGER,
                 has_pv BOOLEAN,
@@ -106,7 +106,6 @@ def load_results_payload_to_sqlite(
         )
         """
     )
-    _ensure_household_id_column(results_conn, "results")
     cursor = results_conn.cursor()
     cursor.execute(
         """
@@ -166,7 +165,6 @@ def load_history_payload_to_sqlite(
             )
             """
         )
-        _ensure_household_id_column(results_conn, measurement)
         table_columns = _table_columns(results_conn, measurement)
         if "run_id" not in table_columns:
             cursor.execute(
@@ -199,7 +197,100 @@ def load_history_payload_to_sqlite(
     results_conn.commit()
 
 
-def _table_columns(results_conn: sqlite3.Connection, table_name: str) -> set[str]:
+def load_forecasts_payload_to_sqlite(
+    forecasts_conn: sqlite3.Connection,
+    payload: dict[str, Any],
+) -> None:
+    forecasts = payload.get("forecast_log", {})
+    histories = payload.get("history", {})
+
+    rows = []
+
+    for target, target_forecasts in forecasts.items():
+        if isinstance(target_forecasts, dict):
+            forecast_items = target_forecasts.items()
+        else:
+            forecast_items = target_forecasts
+
+        if isinstance(histories, dict):
+            history_values = histories.get(target)
+        else:
+            history_values = None
+
+        if history_values is None:
+            if target == "ev1_status":
+                history_values = _ev_status_history(histories, "ev1")
+            elif target == "ev2_status":
+                history_values = _ev_status_history(histories, "ev2")
+            elif target == "ev1_at_home":
+                history_values = histories.get("ev1_at_home") if isinstance(histories, dict) else None
+            elif target == "ev2_at_home":
+                history_values = histories.get("ev2_at_home") if isinstance(histories, dict) else None
+            elif target == "ev1_at_charging_station":
+                history_values = histories.get("ev1_at_charging_station") if isinstance(histories, dict) else None
+            elif target == "ev2_at_charging_station":
+                history_values = histories.get("ev2_at_charging_station") if isinstance(histories, dict) else None
+
+        actuals = _history_as_dict(history_values)
+
+        for key, prediction in forecast_items:
+            timestep, horizon = key
+            actual_timestep = int(timestep) + int(horizon) - 1
+            rows.append((
+                payload["run_id"],
+                payload["household_id"],
+                target,
+                payload.get("predictor"),
+                int(timestep),
+                int(horizon),
+                float(prediction),
+                actuals.get(actual_timestep),
+            ))
+
+    if rows:
+        forecasts_conn.executemany(
+            """
+            INSERT INTO forecasts (
+                run_id, household_id, target, predictor,
+                timestep, horizon, prediction, actual
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        forecasts_conn.commit()
+
+
+def _history_as_dict(history: Any) -> dict[int, Any]:
+    if isinstance(history, dict):
+        return {int(period): value for period, value in history.items()}
+    if isinstance(history, (list, tuple)):
+        return {int(period): value for period, value in history}
+    return {}
+
+
+def _ev_status_history(histories: Any, ev_key: str) -> dict[int, int] | None:
+    if not isinstance(histories, dict):
+        return None
+
+    at_home = _history_as_dict(histories.get(f"{ev_key}_at_home"))
+    at_station = _history_as_dict(histories.get(f"{ev_key}_at_charging_station"))
+    periods = set(at_home) | set(at_station)
+
+    if not periods:
+        return None
+
+    return {
+        period: (
+            0 if at_home.get(period) == 1
+            else 2 if at_station.get(period) == 1
+            else 1
+        )
+        for period in periods
+    }
+
+
+
+def _table_columns(results_conn: sqlite3.Connection, table_name: str) -> set[str]: #TODO remove
     return {
         row[1]
         for row in results_conn.execute(

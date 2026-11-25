@@ -1,3 +1,4 @@
+from src.simulation.controllers.mpc.predictors.ml.anchored.helpers._anchored_prediction import predict_anchored
 from src.runtime_config import RuntimeConfig
 from src.simulation.controllers.mpc.predictors.ml.model_config import ModelConfig
 from src.simulation.controllers.mpc.predictors.ml.model_interface import (
@@ -8,7 +9,6 @@ from src.simulation.controllers.mpc.predictors.ml.shared_helpers._ev_status impo
     _build_ev_status_features,
     _try_bypass,
 )
-from src.simulation.controllers.mpc.predictors.ml.composite.helpers._composite_prediction import predict_composite
 from src.simulation.household import Household
 
 
@@ -80,7 +80,7 @@ def _predict_single_ev_status(
             current_status=int(round(current_status)),
         )
 
-    statuses = predict_composite(
+    statuses = predict_anchored(
         model_bank=model_bank,
         current_timestep=household.current_timestep,
         current_value=current_status,

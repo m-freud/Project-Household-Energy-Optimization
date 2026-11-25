@@ -22,6 +22,7 @@ from src.simulation.household import Household
 from src.simulation.run_context import RunContext
 from src.simulation.scenarios.scenario import Scenario, scenarios as scenario_catalog
 from src.sqlite_connection import (
+    create_forecasts_connection,
     create_results_connection,
     fetch_multiple_timeseries,
     source_sqlite_conn,
@@ -33,6 +34,7 @@ from src.simulation._sim_utils.save_results import (
     load_household_history_to_sqlite,
     load_household_results_to_sqlite,
     load_results_payload_to_sqlite,
+    load_forecasts_payload_to_sqlite,
 )
 from typing import Callable
 
@@ -69,7 +71,7 @@ def _run_household_worker(
     try:
         sim = Simulation(
             worker_conn,
-            ensure_results_table=False,
+            ensure_log_tables=False,
             results_conn=worker_conn,
         )
         scenario = run_context.scenario
@@ -104,6 +106,8 @@ def _run_household_worker(
         return {
             "run_id": run_context.run_id,
             "policy": controller.name,
+            "controller": controller.name,
+            "predictor": getattr(controller, "predictor", None).__class__.__name__ if hasattr(controller, "predictor") else None,
             "scenario": scenario.name,
             "household_id": household.household_id,
             "has_pv": household.has_pv,
@@ -123,8 +127,12 @@ def _run_household_worker(
             "soc_at_deadline_ev2": household.soc_at_deadline("ev2"),
             "history": {
                 measurement: list(household.history[measurement].items())
-                for measurement in DEFAULT_HISTORY_MEASUREMENTS
+                for measurement in household.history
             },
+            "forecast_log": {
+                measurement: list(household.forecast_log[measurement].items())
+                for measurement in household.forecast_log.keys()
+            }
         }
     finally:
         worker_conn.close()
@@ -140,9 +148,11 @@ class Simulation:
             ):
         self.sqlite_conn = sqlite_conn
         self.results_conn = results_conn or create_results_connection()
-        
+        self.forecasts_conn = create_forecasts_connection()
+
         self.sqlite_cursor = self.sqlite_conn.cursor()
         self.results_cursor = self.results_conn.cursor()
+        self.forecasts_cursor = self.forecasts_conn.cursor()
 
         self.num_households = 250
         self.num_timesteps = 96
@@ -170,6 +180,7 @@ class Simulation:
 
         if ensure_log_tables:
             self._ensure_results_table()
+            self._ensure_forecasts_table()
 
 
     def _ensure_results_table(self):
@@ -197,6 +208,26 @@ class Simulation:
             )''')
         
         self.results_conn.commit()
+
+    def _ensure_forecasts_table(self):
+        self.forecasts_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS forecasts (
+                run_id TEXT,
+                household_id INTEGER,
+                target TEXT,
+                predictor TEXT,
+                timestep INTEGER,
+                horizon INTEGER,
+                prediction REAL,
+                actual REAL
+            )''')
+        
+        self.forecasts_cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_forecasts
+            ON forecasts(run_id, target, timestep, horizon)
+        ''')
+        
+        self.forecasts_conn.commit()
 
 
     def create_household(self, household_id:int, run_context: RunContext, bess_for_all: bool=False):
@@ -545,6 +576,7 @@ class Simulation:
                 if write_results_to_sqlite:
                     load_history_payload_to_sqlite(self.results_conn, payload)
                     load_results_payload_to_sqlite(self.results_conn, payload)
+                    load_forecasts_payload_to_sqlite(self.forecasts_conn, payload)
                 results["net_costs"].append(payload["net_cost"])
                 results["net_loads"].append(payload["net_load"])
                 results["total_costs"].append(payload["total_cost"])

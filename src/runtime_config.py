@@ -39,6 +39,9 @@ class RuntimeConfig: # TODO remove ABCDE fold logic
     RESULTS_SQLITE_PATH = Path(
         os.getenv("RESULTS_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "results.db"))
     )
+    FORECASTS_SQLITE_PATH = Path(
+        os.getenv("FORECASTS_SQLITE_PATH", str(ROOT_DIR / "sqlite" / "forecasts.db"))
+    )
 
     DURATION_TIMESTEP = 0.25 # 4 per hour
     TOTAL_TIMESTEPS_DAY = int(24 / DURATION_TIMESTEP)

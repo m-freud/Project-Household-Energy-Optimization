@@ -188,62 +188,62 @@ def build_single_step_predictor(
     )
 
 
-def build_multi_step_predictor(
-    model_directories_by_target: dict[str, Path],
-    interpolation: Literal["linear", "recursive", "anchored_recursive"] = "linear",
-) -> GlobalModelMLPredictor:
-    return GlobalModelMLPredictor(
-        base_load_model=_load_xgb_model(
-            model_directories_by_target["base_load"] / "multi_step" / "multi_step.json",
-            XGBRegressor,
-        ),
-        pv_gen_model=_load_xgb_model(
-            model_directories_by_target["pv_gen"] / "multi_step" / "multi_step.json",
-            XGBRegressor,
-        ),
-        ev1_model=_load_xgb_model(
-            model_directories_by_target["ev1_status"] / "multi_step" / "multi_step.json",
-            XGBClassifier,
-        ),
-        ev2_model=_load_xgb_model(
-            model_directories_by_target["ev2_status"] / "multi_step" / "multi_step.json",
-            XGBClassifier,
-        ),
-        base_load_interpolation=interpolation,
-        pv_gen_interpolation=interpolation,
-    )
+# def build_multi_step_predictor(
+#     model_directories_by_target: dict[str, Path],
+#     interpolation: Literal["linear", "recursive", "anchored_recursive"] = "linear",
+# ) -> GlobalModelMLPredictor:
+#     return GlobalModelMLPredictor(
+#         base_load_model=_load_xgb_model(
+#             model_directories_by_target["base_load"] / "multi_step" / "multi_step.json",
+#             XGBRegressor,
+#         ),
+#         pv_gen_model=_load_xgb_model(
+#             model_directories_by_target["pv_gen"] / "multi_step" / "multi_step.json",
+#             XGBRegressor,
+#         ),
+#         ev1_model=_load_xgb_model(
+#             model_directories_by_target["ev1_status"] / "multi_step" / "multi_step.json",
+#             XGBClassifier,
+#         ),
+#         ev2_model=_load_xgb_model(
+#             model_directories_by_target["ev2_status"] / "multi_step" / "multi_step.json",
+#             XGBClassifier,
+#         ),
+#         base_load_interpolation=interpolation,
+#         pv_gen_interpolation=interpolation,
+#     )
 
 
-def build_multi_step_high_res_predictor(
-    model_directories_by_target: dict[str, Path],
-) -> GlobalModelMLPredictor:
-    return GlobalModelMLPredictor(
-        base_load_model=_load_xgb_model(
-            model_directories_by_target["base_load"]
-            / "multi_step"
-            / "multi_step_(1-95).json",
-            XGBRegressor,
-        ),
-        pv_gen_model=_load_xgb_model(
-            model_directories_by_target["pv_gen"]
-            / "multi_step"
-            / "multi_step_(1-95).json",
-            XGBRegressor,
-        ),
-        ev1_model=_load_xgb_model(
-            model_directories_by_target["ev1_status"]
-            / "multi_step"
-            / "multi_step_(1-95).json",
-            XGBClassifier,
-        ),
-        ev2_model=_load_xgb_model(
-            model_directories_by_target["ev2_status"]
-            / "multi_step"
-            / "multi_step_(1-95).json",
-            XGBClassifier,
-        ),
-        prediction_horizons=tuple(range(1, 96)),
-    )
+# def build_multi_step_high_res_predictor(
+#     model_directories_by_target: dict[str, Path],
+# ) -> GlobalModelMLPredictor:
+#     return GlobalModelMLPredictor(
+#         base_load_model=_load_xgb_model(
+#             model_directories_by_target["base_load"]
+#             / "multi_step"
+#             / "multi_step_(1-95).json",
+#             XGBRegressor,
+#         ),
+#         pv_gen_model=_load_xgb_model(
+#             model_directories_by_target["pv_gen"]
+#             / "multi_step"
+#             / "multi_step_(1-95).json",
+#             XGBRegressor,
+#         ),
+#         ev1_model=_load_xgb_model(
+#             model_directories_by_target["ev1_status"]
+#             / "multi_step"
+#             / "multi_step_(1-95).json",
+#             XGBClassifier,
+#         ),
+#         ev2_model=_load_xgb_model(
+#             model_directories_by_target["ev2_status"]
+#             / "multi_step"
+#             / "multi_step_(1-95).json",
+#             XGBClassifier,
+#         ),
+#         prediction_horizons=tuple(range(1, 96)),
+#     )
 
 
 def build_multi_model_predictor(
@@ -385,15 +385,6 @@ def build_controller_factories(
     }
     predictor_builders = {
         "mpc_single_step": build_single_step_predictor,
-        "mpc_multi_step": build_multi_step_predictor,
-        "mpc_multi_step_recursive": partial(
-            build_multi_step_predictor,
-            interpolation="recursive",
-        ),
-        "mpc_multi_step_anchored_recursive": partial(
-            build_multi_step_predictor,
-            interpolation="anchored_recursive",
-        ),
         "mpc_multi_model": build_multi_model_predictor,
         "mpc_multi_model_recursive": partial(
             build_multi_model_predictor,
@@ -403,7 +394,6 @@ def build_controller_factories(
             build_multi_model_predictor,
             interpolation="anchored_recursive",
         ),
-        "mpc_multi_step_high_res": build_multi_step_high_res_predictor,
         "mpc_multi_model_high_res": build_multi_model_high_res_predictor,
     }
     for name, build_predictor in predictor_builders.items():

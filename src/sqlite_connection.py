@@ -17,6 +17,10 @@ def create_results_connection():
     return sqlite3.connect(RuntimeConfig.RESULTS_SQLITE_PATH)
 
 
+def create_forecasts_connection():
+    return sqlite3.connect(RuntimeConfig.FORECASTS_SQLITE_PATH)
+
+
 def get_sqlite_cursor():
     return create_source_connection().cursor()
 

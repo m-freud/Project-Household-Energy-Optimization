@@ -2,6 +2,7 @@ import sqlite3
 
 from src.simulation._sim_utils.save_results import (
     DEFAULT_HISTORY_MEASUREMENTS,
+    load_forecasts_payload_to_sqlite,
     load_history_payload_to_sqlite,
     load_results_payload_to_sqlite,
 )
@@ -123,3 +124,53 @@ def test_results_writer_migrates_existing_player_id_table():
         "SELECT household_id, policy FROM results ORDER BY household_id"
     ).fetchall()
     assert rows == [(7, "old_policy"), (8, "new_policy")]
+
+
+def test_forecasts_writer_supports_serialized_payload_and_horizon_actuals():
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        """
+        CREATE TABLE forecasts (
+            run_id TEXT,
+            household_id INTEGER,
+            target TEXT,
+            predictor TEXT,
+            timestep INTEGER,
+            horizon INTEGER,
+            prediction REAL,
+            actual REAL
+        )
+        """
+    )
+
+    load_forecasts_payload_to_sqlite(
+        connection,
+        {
+            "run_id": "forecast_run",
+            "household_id": 12,
+            "predictor": "TestPredictor",
+            "forecast_log": {
+                "base_load": [((10, 1), 1.25), ((10, 2), 1.50)],
+                "ev1_status": [((10, 1), 0), ((10, 2), 1)],
+            },
+            "history": {
+                "base_load": [(10, 2.0), (11, 3.0)],
+                "ev1_at_home": [(10, 1), (11, 0)],
+                "ev1_at_charging_station": [(10, 0), (11, 0)],
+            },
+        },
+    )
+
+    rows = connection.execute(
+        """
+        SELECT target, timestep, horizon, prediction, actual
+        FROM forecasts
+        ORDER BY target, horizon
+        """
+    ).fetchall()
+    assert rows == [
+        ("base_load", 10, 1, 1.25, 2.0),
+        ("base_load", 10, 2, 1.5, 3.0),
+        ("ev1_status", 10, 1, 0.0, 0),
+        ("ev1_status", 10, 2, 1.0, 1),
+    ]

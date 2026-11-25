@@ -19,13 +19,13 @@ def _lookup_slice(household: Household, key: str, horizon: int) -> list[float]:
 
 
 def predict_buy_price_home(household: Household, horizon: int) -> dict[str, list[float]]:
-    return {
+    return { # TODO why?
         "buy_price": _lookup_slice(household, "buy_price", horizon),
     }
 
 
 def predict_sell_price_home(household: Household, horizon: int) -> dict[str, list[float]]:
-    return {
+    return { # TODO why?
         "sell_price": _lookup_slice(household, "sell_price", horizon),
     }
 

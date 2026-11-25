@@ -313,7 +313,17 @@ class MPCController(BaseController):
         self._ensure_compiled_problem(planning_horizon)
 
         # make predictions
-        predictions = self.predictor.predict(household, planning_horizon)
+        predictions: dict[str, list] = self.predictor.predict(household, planning_horizon)
+
+        # log predictions for later analysis
+        for target, values in predictions.items():
+            if target not in household.forecast_log:
+                household.forecast_log[target] = {}
+            for h, value in enumerate(values, start=1):
+                try:
+                    household.forecast_log[target][(current_timestep, h)] = float(value)
+                except (ValueError, TypeError, KeyError):
+                    print(f"invalid target: {target} or value: {value} for household: {household.household_id}")
 
         # compute tail mask to block controls after day 1
         tail_mask = self._tail_mask(current_timestep, planning_horizon)
