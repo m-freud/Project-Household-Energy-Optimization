@@ -315,18 +315,22 @@ class MPCController(BaseController):
         # make predictions
         predictions: dict[str, list] = self.predictor.predict(household, planning_horizon)
 
+        # compute tail mask to block controls after day 1
+        tail_mask = self._tail_mask(current_timestep, planning_horizon)
+        # Prediction index 0 is the current observation needed by MPC. Forecast
+        # logging starts at index 1, where horizon 1 means current_timestep + 1.
+        # Exclude the synthetic tail beyond the final actual timestep.
+        forecast_horizon = max(0, int(np.count_nonzero(tail_mask)) - 1)
+
         # log predictions for later analysis
         for target, values in predictions.items():
             if target not in household.forecast_log:
                 household.forecast_log[target] = {}
-            for h, value in enumerate(values, start=1):
+            for h, value in enumerate(values[1:forecast_horizon + 1], start=1):
                 try:
                     household.forecast_log[target][(current_timestep, h)] = float(value)
                 except (ValueError, TypeError, KeyError):
                     print(f"invalid target: {target} or value: {value} for household: {household.household_id}")
-
-        # compute tail mask to block controls after day 1
-        tail_mask = self._tail_mask(current_timestep, planning_horizon)
 
         # fetch predictions (lists starting at 0 = current timestep) and fill with defaults if missing
         # default padding is only necessary if planning_horizon < horizon, so mostly not used, but we keep it for safety/testing. exception: oracle predictor returns only until t=96

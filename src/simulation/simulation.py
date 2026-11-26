@@ -494,6 +494,23 @@ class Simulation:
                 scenario_name=scenario.name,
                 run_id=current_run_id,
             )
+            predictor = getattr(controller, "predictor", None)
+            load_forecasts_payload_to_sqlite(
+                self.forecasts_conn,
+                {
+                    "run_id": current_run_id,
+                    "household_id": household.household_id,
+                    "predictor": predictor.__class__.__name__ if predictor is not None else None,
+                    "forecast_log": {
+                        target: list(values.items())
+                        for target, values in household.forecast_log.items()
+                    },
+                    "history": {
+                        measurement: list(values.items())
+                        for measurement, values in household.history.items()
+                    },
+                },
+            )
 
         return household
 
@@ -746,4 +763,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+

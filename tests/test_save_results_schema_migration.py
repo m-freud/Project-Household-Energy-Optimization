@@ -154,7 +154,7 @@ def test_forecasts_writer_supports_serialized_payload_and_horizon_actuals():
                 "ev1_status": [((10, 1), 0), ((10, 2), 1)],
             },
             "history": {
-                "base_load": [(10, 2.0), (11, 3.0)],
+                "base_load": [(10, 2.0), (11, 3.0), (12, 4.0)],
                 "ev1_at_home": [(10, 1), (11, 0)],
                 "ev1_at_charging_station": [(10, 0), (11, 0)],
             },
@@ -169,8 +169,8 @@ def test_forecasts_writer_supports_serialized_payload_and_horizon_actuals():
         """
     ).fetchall()
     assert rows == [
-        ("base_load", 10, 1, 1.25, 2.0),
-        ("base_load", 10, 2, 1.5, 3.0),
-        ("ev1_status", 10, 1, 0.0, 0),
-        ("ev1_status", 10, 2, 1.0, 1),
+        ("base_load", 10, 1, 1.25, 3.0),
+        ("base_load", 10, 2, 1.5, 4.0),
+        ("ev1_status", 10, 1, 0.0, 1),
+        ("ev1_status", 10, 2, 1.0, None),
     ]

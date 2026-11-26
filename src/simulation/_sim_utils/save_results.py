@@ -235,7 +235,7 @@ def load_forecasts_payload_to_sqlite(
 
         for key, prediction in forecast_items:
             timestep, horizon = key
-            actual_timestep = int(timestep) + int(horizon) - 1
+            actual_timestep = int(timestep) + int(horizon)
             rows.append((
                 payload["run_id"],
                 payload["household_id"],
